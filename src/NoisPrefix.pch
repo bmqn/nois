@@ -1,0 +1,28 @@
+#pragma once
+
+#include <cmath>
+#include <ctime>
+#include <cstdint>
+#include <cstring>
+
+#include <string>
+#include <vector>
+#include <array>
+
+#include <ostream>
+#include <sstream>
+#include <fstream>
+#include <iostream>
+
+#include <memory>
+#include <functional>
+#include <algorithm>
+#include <iomanip>
+#include <random>
+#include <limits>
+
+#define NOIS_ENABLE_BREAKS 1
+#define NOIS_ENABLE_LOGGING 1
+#define NOIS_ENABLE_ASSERSIONS 1
+
+#include "NoisLog.h"

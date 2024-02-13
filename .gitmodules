@@ -1,0 +1,3 @@
+[submodule "libs/debugbreak"]
+	path = libs/debugbreak
+	url = git@github.com:scottt/debugbreak.git
