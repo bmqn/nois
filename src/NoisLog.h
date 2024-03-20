@@ -10,6 +10,7 @@
 #define STRINGIFY(x) _STRINGIFY(x)
 
 #define _EXPAND(x) x
+
 #define _VARGS(_9, _8, _7, _6, _5, _4, _3, _2, _1, N, ...) N
 
 #if defined(__cplusplus)
@@ -84,45 +85,9 @@ _LOG2, _LOG2, _LOG1)                                                            
 
 #define LOG(...) _EXPAND(_LOG_CHOOSER(__VA_ARGS__)(__VA_ARGS__))
 
-#define _LOG_UNIMPLEMENTED1()                                                                     \
-do                                                                                                \
-{                                                                                                 \
-	fprintf(stdout, "[Unimplemented]");                                                           \
-	fprintf(stdout, "[%s:%d][%s] ", __FILENAME__, __LINE__, __FUNCTION_NAME__);                   \
-	fprintf(stdout, "\n");                                                                        \
-} while(0)
-
-#define _LOG_UNIMPLEMENTED2(format)                                                               \
-do                                                                                                \
-{                                                                                                 \
-	fprintf(stdout, "[Unimplemented]");                                                           \
-	fprintf(stdout, "[%s:%d][%s] ", __FILENAME__, __LINE__, __FUNCTION_NAME__);                   \
-	fprintf(stdout, format);                                                                      \
-	fprintf(stdout, "\n");                                                                        \
-} while(0)
-
-#define _LOG_UNIMPLEMENTED3(format, ...)                                                          \
-do                                                                                                \
-{                                                                                                 \
-	fprintf(stdout, "[Unimplemented]");                                                           \
-	fprintf(stdout, "[%s:%d][%s] ", __FILENAME__, __LINE__, __FUNCTION_NAME__);                   \
-	fprintf(stdout, format, __VA_ARGS__);                                                         \
-	fprintf(stdout, "\n");                                                                        \
-} while(0)
-
-#define _LOG_UNIMPLEMENTED_CHOOSER(...) _EXPAND(                                                  \
-_VARGS(__VA_ARGS__,                                                                               \
-_LOG_UNIMPLEMENTED3, _LOG_UNIMPLEMENTED3, _LOG_UNIMPLEMENTED3,                                    \
-_LOG_UNIMPLEMENTED3, _LOG_UNIMPLEMENTED3, _LOG_UNIMPLEMENTED3,                                    \
-_LOG_UNIMPLEMENTED3, _LOG_UNIMPLEMENTED2, _LOG_UNIMPLEMENTED1)                                    \
-)
-
-#define LOG_UNIMPLEMENTED(...) _EXPAND(_LOG_UNIMPLEMENTED_CHOOSER(__VA_ARGS__)(__VA_ARGS__))
-
 #else
 
 #define LOG(...)
-#define LOG_UNIMPLEMENTED(...)
 
 #endif // NOIS_ENABLE_LOGGING
 
