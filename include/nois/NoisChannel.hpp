@@ -11,11 +11,16 @@ class Channel
 public:
 	std::shared_ptr<Stream> GetStream()
 	{
-		return mStream;
+		return m_Stream;
+	}
+
+	void SetStream(std::shared_ptr<Stream> stream)
+	{
+		m_Stream = stream;
 	}
 
 private:
-	std::shared_ptr<Stream> mStream;
+	std::shared_ptr<Stream> m_Stream;
 };
 
 };

@@ -43,6 +43,8 @@ set(NOIS_HSP
 set(NOIS_HSPSRC
 	"${NOIS_HSP}/nois/Nois.hpp"
 	"${NOIS_HSP}/nois/NoisChannel.hpp"
+	"${NOIS_HSP}/nois/NoisConfig.hpp"
+	"${NOIS_HSP}/nois/NoisGainer.hpp"
 	"${NOIS_HSP}/nois/NoisMixer.hpp"
 	"${NOIS_HSP}/nois/NoisStream.hpp"
 	"${NOIS_HSP}/nois/NoisTypes.hpp"
@@ -52,6 +54,7 @@ set(NOIS_HSPSRC
 set(NOIS_SRC
 	"${NOIS_SRC_DIR}/NoisPrefix.pch"
 
+	"${NOIS_SRC_DIR}/NoisGainer.cpp"
 	"${NOIS_SRC_DIR}/NoisLog.h"
 	"${NOIS_SRC_DIR}/NoisMixer.cpp"
 )
