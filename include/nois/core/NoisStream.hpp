@@ -1,6 +1,6 @@
 #pragma once
 
-#include "NoisTypes.hpp"
+#include "../NoisTypes.hpp"
 
 namespace nois {
 

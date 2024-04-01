@@ -42,21 +42,34 @@ set(NOIS_HSP
 
 set(NOIS_HSPSRC
 	"${NOIS_HSP}/nois/Nois.hpp"
-	"${NOIS_HSP}/nois/NoisChannel.hpp"
 	"${NOIS_HSP}/nois/NoisConfig.hpp"
-	"${NOIS_HSP}/nois/NoisGainer.hpp"
-	"${NOIS_HSP}/nois/NoisMixer.hpp"
-	"${NOIS_HSP}/nois/NoisStream.hpp"
 	"${NOIS_HSP}/nois/NoisTypes.hpp"
+	"${NOIS_HSP}/nois/NoisUtil.hpp"
+
+	"${NOIS_HSP}/nois/core/NoisChannel.hpp"
+	"${NOIS_HSP}/nois/core/NoisDestination.hpp"
+	"${NOIS_HSP}/nois/core/NoisSource.hpp"
+	"${NOIS_HSP}/nois/core/NoisStream.hpp"
+
+	"${NOIS_HSP}/nois/effect/NoisGainer.hpp"
+
 	"${NOIS_HSP}/nois/osc/NoisOsc.hpp"
+	
+	"${NOIS_HSP}/nois/route/NoisCombiner.hpp"
+	"${NOIS_HSP}/nois/route/NoisMixer.hpp"
+	"${NOIS_HSP}/nois/route/NoisSplitter.hpp"
 )
 
 set(NOIS_SRC
 	"${NOIS_SRC_DIR}/NoisPrefix.pch"
-
-	"${NOIS_SRC_DIR}/NoisGainer.cpp"
 	"${NOIS_SRC_DIR}/NoisLog.h"
-	"${NOIS_SRC_DIR}/NoisMixer.cpp"
+
+	"${NOIS_SRC_DIR}/core/NoisChannel.cpp"
+
+	"${NOIS_SRC_DIR}/effect/NoisGainer.cpp"
+
+	"${NOIS_SRC_DIR}/route/NoisCombiner.cpp"
+	"${NOIS_SRC_DIR}/route/NoisMixer.cpp"
 )
 
 source_group("Include Files" FILES ${NOIS_HSPSRC})
@@ -74,7 +87,7 @@ add_library(
 target_include_directories(
 	nois
 	PUBLIC ${NOIS_INC_DIR}
-	PRIVATE ${NOIS_SRC_DIR} "${NOIS_LIBS_DIR}/debugbreak"
+	PRIVATE ${NOIS_INC_DIR} ${NOIS_SRC_DIR} "${NOIS_LIBS_DIR}/debugbreak"
 )
 
 target_precompile_headers(
