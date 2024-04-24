@@ -17,9 +17,9 @@ public:
 	{
 		if (m_Stream)
 		{
-			auto count = m_Stream->Consume(data, len);
+			count_t count = m_Stream->Consume(data, len);
 
-			for (count_t i = 0; i < len; ++i)
+			for (count_t i = 0; i < count; ++i)
 			{
 				data[i] *= m_Gain;
 			}
@@ -35,7 +35,7 @@ public:
 
 private:
 	std::shared_ptr<Stream> m_Stream;
-	float m_Gain = 1.0f;
+	data_t m_Gain = data_t{ 1.0f };
 
 };
 
