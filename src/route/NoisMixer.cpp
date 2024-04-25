@@ -2,6 +2,8 @@
 
 #include "nois/NoisUtil.hpp"
 
+#include <unordered_map>
+
 namespace nois {
 
 class MixerImpl : public Mixer
