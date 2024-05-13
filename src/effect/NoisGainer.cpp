@@ -30,8 +30,8 @@ public:
 		return 0;
 	}
 
-	virtual void SetGain(float gain) override { m_Gain = gain; };
-	virtual void SetGainDb(float gainDb) override { m_Gain = FromDb(gainDb); };
+	virtual void SetGain(data_t gain) override { m_Gain = gain; };
+	virtual void SetGainDb(data_t gainDb) override { m_Gain = FromDb(gainDb); };
 
 private:
 	std::shared_ptr<Stream> m_Stream;

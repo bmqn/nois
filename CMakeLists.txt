@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.25.0)
 set(NOIS_ROOT_DIR	${CMAKE_CURRENT_SOURCE_DIR})
 set(NOIS_INC_DIR	"${NOIS_ROOT_DIR}/include")
 set(NOIS_SRC_DIR	"${NOIS_ROOT_DIR}/src")
-set(NOIS_LIBS_DIR	"${NOIS_ROOT_DIR}/libs")
+set(NOIS_LIB_DIR	"${NOIS_ROOT_DIR}/libs")
 
 project(nois)
 
@@ -51,6 +51,7 @@ set(NOIS_HSPSRC
 	"${NOIS_HSP}/nois/core/NoisSource.hpp"
 	"${NOIS_HSP}/nois/core/NoisStream.hpp"
 
+	"${NOIS_HSP}/nois/effect/NoisFilter.hpp"
 	"${NOIS_HSP}/nois/effect/NoisGainer.hpp"
 
 	"${NOIS_HSP}/nois/osc/NoisOsc.hpp"
@@ -66,6 +67,7 @@ set(NOIS_SRC
 
 	"${NOIS_SRC_DIR}/core/NoisChannel.cpp"
 
+	"${NOIS_SRC_DIR}/effect/NoisFilter.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisGainer.cpp"
 
 	"${NOIS_SRC_DIR}/route/NoisCombiner.cpp"
@@ -86,8 +88,8 @@ add_library(
 
 target_include_directories(
 	nois
-	PUBLIC ${NOIS_INC_DIR}
-	PRIVATE ${NOIS_INC_DIR} ${NOIS_SRC_DIR} "${NOIS_LIBS_DIR}/debugbreak"
+	PUBLIC ${NOIS_INC_DIR} "${NOIS_LIB_DIR}/debugbreak"
+	PRIVATE ${NOIS_INC_DIR} ${NOIS_SRC_DIR}
 )
 
 target_precompile_headers(

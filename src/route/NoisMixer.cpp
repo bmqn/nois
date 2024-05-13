@@ -47,7 +47,7 @@ public:
 		return count;
 	}
 
-	void AddChannel(std::shared_ptr<Channel> channel)
+	virtual void AddChannel(std::shared_ptr<Channel> channel) override
 	{
 		auto it = m_Channels.find(channel);
 		if (it == m_Channels.end())
@@ -56,7 +56,7 @@ public:
 		}
 	}
 
-	void RemoveChannel(std::shared_ptr<Channel> channel)
+	virtual void RemoveChannel(std::shared_ptr<Channel> channel) override
 	{
 		auto it = m_Channels.find(channel);
 		if (it != m_Channels.end())
@@ -65,7 +65,7 @@ public:
 		}
 	}
 
-	void SetGain(std::shared_ptr<Channel> channel, data_t gain)
+	virtual void SetGain(std::shared_ptr<Channel> channel, data_t gain) override
 	{
 		auto it = m_Channels.find(channel);
 		if (it != m_Channels.end())
@@ -74,7 +74,7 @@ public:
 		}
 	}
 
-	void SetGainDb(std::shared_ptr<Channel> channel, data_t gainDb)
+	virtual void SetGainDb(std::shared_ptr<Channel> channel, data_t gainDb) override
 	{
 		auto it = m_Channels.find(channel);
 		if (it != m_Channels.end())

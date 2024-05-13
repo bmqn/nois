@@ -21,7 +21,7 @@
 #include <random>
 #include <limits>
 
-#define NOIS_ENABLE_BREAKS 1
+#define NOIS_ENABLE_BREAKS 0
 #define NOIS_ENABLE_LOGGING 1
 #define NOIS_ENABLE_ASSERSIONS 1
 

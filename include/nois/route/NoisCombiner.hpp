@@ -1,4 +1,8 @@
+#pragma once
+
+#include "nois/NoisTypes.hpp"
 #include "nois/core/NoisChannel.hpp"
+#include "nois/core/NoisStream.hpp"
 
 #include <memory>
 #include <vector>

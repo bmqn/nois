@@ -1,8 +1,8 @@
 #pragma once
 
-#include "NoisChannel.hpp"
+#include "nois/NoisTypes.hpp"
+#include "nois/core/NoisChannel.hpp"
 
-#include <cinttypes>
 #include <memory>
 
 namespace nois {
