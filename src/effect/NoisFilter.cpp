@@ -83,7 +83,7 @@ private:
 		data_t wc = std::tan(pi * (m_Cutoff / m_SampleRate));
 		data_t invwc = 1.0f / wc;
 
-		m_B0 = 1.0f / (1.0f + pi * invwc + invwc * invwc);
+		m_B0 = 1.0f / (1.0f + sqrt2 * invwc + invwc * invwc);
 		m_B1 = 2.0f * m_B0;
 		m_B2 = m_B0;
 		m_A1 = -2.0f * (invwc * invwc - 1.0f) * m_B0;
