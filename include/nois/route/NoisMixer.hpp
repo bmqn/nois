@@ -20,4 +20,4 @@ public:
 
 std::shared_ptr<Mixer> CreateMixer(std::initializer_list<std::shared_ptr<Channel>> channels = {});
 
-};
+}

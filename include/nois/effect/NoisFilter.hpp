@@ -42,4 +42,4 @@ public:
 
 std::shared_ptr<Filter> CreateFilter(std::shared_ptr<Stream> stream, Filter::Kind kind = Filter::k_N2ButterWorth);
 
-};
+}

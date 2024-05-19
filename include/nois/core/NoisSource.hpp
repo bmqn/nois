@@ -11,6 +11,7 @@ class Source
 {
 public:
 	virtual int32_t GetSampleRate() = 0;
+	virtual int32_t GetNumChannels() = 0;
 
 	virtual std::shared_ptr<Channel> GetChannel() = 0;
 };
@@ -26,4 +27,4 @@ public:
 std::shared_ptr<Source> CreateSource();
 std::shared_ptr<Source> CreateSidechainSource();
 
-};
+}

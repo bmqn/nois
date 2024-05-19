@@ -12,4 +12,4 @@ public:
 	virtual count_t Consume(data_t *data, count_t len) = 0;
 };
 
-};
+}

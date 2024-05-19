@@ -3,6 +3,7 @@
 #include "nois/NoisUtil.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <complex>
 #include <mutex>
@@ -78,8 +79,8 @@ private:
 	{
 		m_ParamLocker.store(true, std::memory_order_release);
 
-		constexpr data_t pi = std::numbers::pi_v<data_t>;
-		constexpr data_t sqrt2 = std::numbers::sqrt2_v<data_t>;
+		constexpr data_t pi = std::numbers::pi;
+		constexpr data_t sqrt2 = std::numbers::sqrt2;
 		data_t wc = std::tan(pi * (m_Cutoff / m_SampleRate));
 		data_t invwc = 1.0f / wc;
 

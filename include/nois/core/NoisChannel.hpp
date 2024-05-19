@@ -35,4 +35,4 @@ private:
 
 std::shared_ptr<Channel> CreateChannel();
 
-};
+}

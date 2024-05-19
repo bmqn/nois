@@ -18,4 +18,4 @@ public:
 
 std::shared_ptr<Gainer> CreateGainer(std::shared_ptr<Stream> stream);
 
-};
+}
