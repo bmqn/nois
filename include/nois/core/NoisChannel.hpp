@@ -30,7 +30,7 @@ protected:
 	virtual void OnSetStream(std::shared_ptr<nois::Stream> stream) {}
 
 private:
-	std::shared_ptr<Stream> m_Stream;
+	std::shared_ptr<Stream> m_Stream = nullptr;
 };
 
 std::shared_ptr<Channel> CreateChannel();
