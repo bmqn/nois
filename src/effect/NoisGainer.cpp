@@ -30,6 +30,9 @@ public:
 		return 0;
 	}
 
+	virtual data_t GetGain() const override { return m_Gain; }
+	virtual data_t GetGainDb() const override { return ToDb(m_Gain); }
+
 	virtual void SetGain(data_t gain) override { m_Gain = gain; };
 	virtual void SetGainDb(data_t gainDb) override { m_Gain = FromDb(gainDb); };
 

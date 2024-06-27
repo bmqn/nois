@@ -18,6 +18,8 @@ public:
 public:
 	virtual ~Filter() {}
 
+	virtual data_t GetCutoff() = 0;
+
 	virtual void SetNumChannels(int32_t numChannels) = 0;
 	virtual void SetSampleRate(int32_t sampleRate) = 0;
 	virtual void SetCutoff(data_t cutoff) = 0;

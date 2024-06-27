@@ -45,6 +45,11 @@ public:
 		return 0;
 	}
 
+	virtual data_t GetCutoff() override
+	{
+		return m_Cutoff;
+	}
+
 	virtual void SetNumChannels(int32_t numChannels) override
 	{
 		int32_t oldNumChannels = m_NumChannels;
