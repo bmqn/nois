@@ -19,10 +19,13 @@ public:
 		}
 	}
 
-	virtual count_t Consume(data_t *data, count_t len) override
+	virtual count_t Consume(data_t *data,
+							count_t numSamples,
+							int32_t sampleRate,
+							int32_t numChannels) override
 	{
-		count_t count = len;
-		std::vector<data_t> buffer(len);
+		std::vector<data_t> buffer(numSamples);
+		count_t count = numSamples;
 
 		for (count_t i = 0; i < count; ++i)
 		{
@@ -35,7 +38,7 @@ public:
 
 			if (stream)
 			{
-				count_t thisCount = stream->Consume(buffer.data(), count);
+				count_t thisCount = stream->Consume(buffer.data(), count, sampleRate, numChannels);
 
 				for (count_t i = 0; i < thisCount; ++i)
 				{
