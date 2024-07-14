@@ -18,11 +18,8 @@ public:
 public:
 	virtual ~Filter() {}
 
-	virtual data_t GetCutoff() = 0;
-
-	virtual void SetNumChannels(int32_t numChannels) = 0;
-	virtual void SetSampleRate(int32_t sampleRate) = 0;
-	virtual void SetCutoff(data_t cutoff) = 0;
+	virtual data_t GetCutoffRatio() = 0;
+	virtual void SetCutoffRatio(data_t cutoffRatio) = 0;
 };
 
 class BandpassFilter : public Stream
@@ -36,9 +33,7 @@ public:
 public:
 	virtual ~BandpassFilter() {}
 
-	virtual void SetNumChannels(int32_t numChannels) = 0;
-	virtual void SetSampleRate(int32_t sampleRate) = 0;
-	virtual void SetCutoff(data_t cutoff) = 0;
+	virtual void SetCutoffRatio(data_t cutoffRatio) = 0;
 	virtual void SetQ(data_t q) = 0;
 };
 

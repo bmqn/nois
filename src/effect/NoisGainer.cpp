@@ -13,11 +13,15 @@ public:
 	{
 	}
 
-	virtual count_t Consume(data_t *data, count_t len) override
+	virtual count_t Consume(data_t *data,
+							count_t numSamples,
+							int32_t sampleRate,
+							int32_t numChannels) override
 	{
 		if (m_Stream)
 		{
-			count_t count = m_Stream->Consume(data, len);
+			count_t count = m_Stream->Consume(data, numSamples,
+				sampleRate, numChannels);
 
 			for (count_t i = 0; i < count; ++i)
 			{

@@ -22,20 +22,33 @@ public:
 		CalculateCoefficients();
 	}
 
-	virtual count_t Consume(data_t *data, count_t len) override
+	virtual count_t Consume(data_t *data,
+							count_t numSamples,
+							int32_t sampleRate,
+							int32_t numChannels) override
 	{
 		if (m_Stream)
 		{
-			count_t count = m_Stream->Consume(data, len);
+			count_t count = m_Stream->Consume(data, numSamples,
+				sampleRate, numChannels);
 
-			if (!m_ParamLocker.load(std::memory_order_acquire))
+			if (m_SampleRate != sampleRate ||
+				m_NumChannels != numChannels)
 			{
-				for (int32_t i = 0; i < count; i += m_NumChannels)
+				m_Inps.resize(numChannels, WindowStream<data_t>(2));
+				m_Outs.resize(numChannels, WindowStream<data_t>(2));
+			
+				CalculateCoefficients();
+			
+				m_SampleRate = sampleRate;
+				m_NumChannels = numChannels;
+			}
+			
+			for (int32_t i = 0; i < count; i += numChannels)
+			{
+				for (int32_t j = 0; j < numChannels; ++j)
 				{
-					for (int32_t j = 0; j < m_NumChannels; ++j)
-					{
-						data[i + j] = ConsumeChannel(j, data[i + j]);
-					}
+					data[i + j] = ConsumeChannel(j, data[i + j]);
 				}
 			}
 
@@ -45,48 +58,24 @@ public:
 		return 0;
 	}
 
-	virtual data_t GetCutoff() override
+	virtual data_t GetCutoffRatio() override
 	{
-		return m_Cutoff;
+		return m_CutoffRatio;
 	}
 
-	virtual void SetNumChannels(int32_t numChannels) override
+	virtual void SetCutoffRatio(data_t cutoffRatio) override
 	{
-		int32_t oldNumChannels = m_NumChannels;
-		m_NumChannels = numChannels;
-		if (m_NumChannels != numChannels)
-		{
-			CalculateCoefficients();
-		}
-	}
+		m_CutoffRatio = std::clamp(cutoffRatio, 0.0f, 1.0f);
 
-	virtual void SetSampleRate(int32_t sampleRate) override
-	{
-		data_t oldSampleRate = m_SampleRate;
-		m_SampleRate = static_cast<data_t>(sampleRate);
-		if (oldSampleRate != sampleRate)
-		{
-			CalculateCoefficients();
-		}
-	}
-	virtual void SetCutoff(data_t cutoff) override
-	{
-		data_t oldCutoff = m_Cutoff;
-		m_Cutoff = std::clamp(cutoff, 20.0f, m_SampleRate / 2 - 20.0f);
-		if (oldCutoff != cutoff)
-		{
-			CalculateCoefficients();
-		}
+		CalculateCoefficients();
 	}
 
 private:
 	void CalculateCoefficients()
 	{
-		m_ParamLocker.store(true, std::memory_order_release);
-
-		constexpr data_t pi = std::numbers::pi;
-		constexpr data_t sqrt2 = std::numbers::sqrt2;
-		data_t wc = std::tan(pi * (m_Cutoff / m_SampleRate));
+		constexpr data_t pi = static_cast<data_t>(std::numbers::pi);
+		constexpr data_t sqrt2 = static_cast<data_t>(std::numbers::sqrt2);
+		data_t wc = std::tan(pi * std::clamp(m_CutoffRatio, 0.001f, 0.999f) * 0.5f);
 		data_t invwc = 1.0f / wc;
 
 		m_B0 = 1.0f / (1.0f + sqrt2 * invwc + invwc * invwc);
@@ -94,18 +83,6 @@ private:
 		m_B2 = m_B0;
 		m_A1 = -2.0f * (invwc * invwc - 1.0f) * m_B0;
 		m_A2 = (1.0f - sqrt2 * invwc + invwc * invwc) * m_B0;
-
-		if (m_Inps.size() != m_NumChannels)
-		{
-			m_Inps.resize(m_NumChannels, WindowStream<data_t>(2));
-		}
-
-		if (m_Outs.size() != m_NumChannels)
-		{
-			m_Outs.resize(m_NumChannels, WindowStream<data_t>(2));
-		}
-
-		m_ParamLocker.store(false, std::memory_order_release);
 	}
 
 	data_t ConsumeChannel(size_t index, data_t input)
@@ -127,28 +104,26 @@ private:
 private:
 	std::shared_ptr<Stream> m_Stream;
 
-	int32_t m_NumChannels = 2;
+	data_t m_CutoffRatio = 1.0f;
 
-	data_t m_Cutoff = 11025.0f;
-	data_t m_SampleRate = 44100.0f;
-
-	data_t m_A0, m_A1 = 0.0f, m_A2 = 0.0f;
+	data_t m_A1 = 0.0f, m_A2 = 0.0f;
 	data_t m_B0 = 0.0f, m_B1 = 0.0f, m_B2 = 0.0f;
+
+	int32_t m_SampleRate = 0;
+	int32_t m_NumChannels = 0;
 
 	std::vector<WindowStream<data_t>> m_Inps;
 	std::vector<WindowStream<data_t>> m_Outs;
-
-	std::atomic_bool m_ParamLocker;
 };
 
 std::shared_ptr<Filter> CreateFilter(std::shared_ptr<Stream> stream, Filter::Kind kind)
 {
 	switch (kind)
 	{
-	case nois::Filter::k_N2ButterWorth:
-		return std::make_shared<N2ButterworthFilterImpl>(stream);
-	default:
-		break;
+		case nois::Filter::k_N2ButterWorth:
+			return std::make_shared<N2ButterworthFilterImpl>(stream);
+		default:
+			break;
 	}
 
 	return nullptr;
