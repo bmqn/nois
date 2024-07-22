@@ -8,8 +8,10 @@
 #include "core/NoisSource.hpp"
 #include "core/NoisDestination.hpp"
 
+#include "effect/NoisDistorter.hpp"
 #include "effect/NoisFilter.hpp"
 #include "effect/NoisGainer.hpp"
+#include "effect/NoisSignalDelayer.hpp"
 
 #include "route/NoisSplitter.hpp"
 #include "route/NoisCombiner.hpp"

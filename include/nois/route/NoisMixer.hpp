@@ -14,7 +14,10 @@ public:
 	virtual void AddChannel(std::shared_ptr<Channel> channel) = 0;
 	virtual void RemoveChannel(std::shared_ptr<Channel> channel) = 0;
 
+	virtual data_t GetGain(std::shared_ptr<Channel> channel) = 0;
 	virtual void SetGain(std::shared_ptr<Channel> channel, data_t gain) = 0;
+
+	virtual data_t GetGainDb(std::shared_ptr<Channel> channel) = 0;
 	virtual void SetGainDb(std::shared_ptr<Channel> channel, data_t gainDb) = 0;
 };
 

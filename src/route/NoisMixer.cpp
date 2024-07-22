@@ -68,6 +68,17 @@ public:
 		}
 	}
 
+	virtual data_t GetGain(std::shared_ptr<Channel> channel) override
+	{
+		auto it = m_Channels.find(channel);
+		if (it != m_Channels.end())
+		{
+			return m_Channels[channel];
+		}
+
+		return 1.0f;
+	}
+
 	virtual void SetGain(std::shared_ptr<Channel> channel, data_t gain) override
 	{
 		auto it = m_Channels.find(channel);
@@ -75,6 +86,17 @@ public:
 		{
 			m_Channels[channel] = gain;
 		}
+	}
+
+	virtual data_t GetGainDb(std::shared_ptr<Channel> channel) override
+	{
+		auto it = m_Channels.find(channel);
+		if (it != m_Channels.end())
+		{
+			return ToDb(m_Channels[channel]);
+		}
+
+		return 0.0f;
 	}
 
 	virtual void SetGainDb(std::shared_ptr<Channel> channel, data_t gainDb) override
