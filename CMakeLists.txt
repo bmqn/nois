@@ -51,8 +51,10 @@ set(NOIS_HSPSRC
 	"${NOIS_HSP}/nois/core/NoisSource.hpp"
 	"${NOIS_HSP}/nois/core/NoisStream.hpp"
 
+	"${NOIS_HSP}/nois/effect/NoisDistorter.hpp"
 	"${NOIS_HSP}/nois/effect/NoisFilter.hpp"
 	"${NOIS_HSP}/nois/effect/NoisGainer.hpp"
+	"${NOIS_HSP}/nois/effect/NoisSignalDelayer.hpp"
 
 	"${NOIS_HSP}/nois/osc/NoisOsc.hpp"
 	
@@ -67,11 +69,14 @@ set(NOIS_SRC
 
 	"${NOIS_SRC_DIR}/core/NoisChannel.cpp"
 
+	"${NOIS_SRC_DIR}/effect/NoisDistorter.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisFilter.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisGainer.cpp"
+	"${NOIS_SRC_DIR}/effect/NoisSignalDelayer.cpp"
 
 	"${NOIS_SRC_DIR}/route/NoisCombiner.cpp"
 	"${NOIS_SRC_DIR}/route/NoisMixer.cpp"
+	"${NOIS_SRC_DIR}/route/NoisSplitter.cpp"
 )
 
 source_group("Include Files" FILES ${NOIS_HSPSRC})
