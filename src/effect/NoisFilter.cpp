@@ -16,33 +16,21 @@ class N2ButterworthFilterImpl : public Filter
 {
 public:
 	
-	N2ButterworthFilterImpl(std::shared_ptr<Stream> stream)
+	N2ButterworthFilterImpl(Stream *stream)
 		: m_Stream(stream)
 	{
 		CalculateCoefficients();
 	}
 
 	virtual count_t Consume(data_t *data,
-							count_t numSamples,
-							int32_t sampleRate,
-							int32_t numChannels) override
+	                        count_t numSamples,
+	                        int32_t sampleRate,
+	                        int32_t numChannels) override
 	{
 		if (m_Stream)
 		{
 			count_t count = m_Stream->Consume(data, numSamples,
 				sampleRate, numChannels);
-
-			if (m_SampleRate != sampleRate ||
-				m_NumChannels != numChannels)
-			{
-				m_Inps.resize(numChannels, WindowStream<data_t>(2));
-				m_Outs.resize(numChannels, WindowStream<data_t>(2));
-			
-				CalculateCoefficients();
-			
-				m_SampleRate = sampleRate;
-				m_NumChannels = numChannels;
-			}
 			
 			for (int32_t i = 0; i < count; i += numChannels)
 			{
@@ -56,6 +44,27 @@ public:
 		}
 
 		return 0;
+	}
+
+	virtual void PrepareToConsume(count_t numSamples,
+	                              int32_t sampleRate,
+	                              int32_t numChannels) override
+	{
+		if (m_SampleRate != sampleRate || m_NumChannels != numChannels)
+		{
+			m_Inps.resize(numChannels, WindowStream<data_t>(2));
+			m_Outs.resize(numChannels, WindowStream<data_t>(2));
+		
+			CalculateCoefficients();
+		
+			m_SampleRate = sampleRate;
+			m_NumChannels = numChannels;
+		}
+
+		if (m_Stream)
+		{
+			m_Stream->PrepareToConsume(numSamples, sampleRate, numChannels);
+		}
 	}
 
 	virtual data_t GetCutoffRatio() override
@@ -102,7 +111,7 @@ private:
 	}
 
 private:
-	std::shared_ptr<Stream> m_Stream;
+	Stream *m_Stream;
 
 	data_t m_CutoffRatio = 1.0f;
 
@@ -116,7 +125,7 @@ private:
 	std::vector<WindowStream<data_t>> m_Outs;
 };
 
-std::shared_ptr<Filter> CreateFilter(std::shared_ptr<Stream> stream, Filter::Kind kind)
+std::shared_ptr<Filter> CreateFilter(Stream *stream, Filter::Kind kind)
 {
 	switch (kind)
 	{

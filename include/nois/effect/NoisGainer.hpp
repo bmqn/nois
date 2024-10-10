@@ -19,6 +19,6 @@ public:
 	virtual void SetGainDb(data_t gainDb) = 0;
 };
 
-std::shared_ptr<Gainer> CreateGainer(std::shared_ptr<Stream> stream);
+std::shared_ptr<Gainer> CreateGainer(Stream *stream);
 
 }

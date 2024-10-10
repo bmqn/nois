@@ -41,7 +41,7 @@ public:
 	virtual void SetFolderFunc(FolderFunc folderFunc) = 0;
 };
 
-std::shared_ptr<Distorter<FolderDistorter>> CreateFolderDistorter(std::shared_ptr<Stream> stream,
+std::shared_ptr<Distorter<FolderDistorter>> CreateFolderDistorter(Stream *stream,
 	FolderDistorter::FolderFunc folderFunc = FolderDistorter::FolderFunc::k_FolderFuncBasic);
 
 }

@@ -24,6 +24,7 @@ struct WindowStream
 	WindowStream(count_t length)
 		: m_Data(length, T{ 0 })
 		, m_Offset(0)
+		, m_Count(0)
 	{
 	}
 
@@ -31,6 +32,7 @@ struct WindowStream
 	{
 		m_Data[m_Offset] = data;
 		m_Offset = (m_Offset + 1) % m_Data.size();
+		m_Count = m_Count < m_Data.size() ? m_Count + 1 : m_Count;
 	}
 
 	inline T Get(count_t n) const
@@ -43,15 +45,25 @@ struct WindowStream
 	{
 		std::fill(m_Data.begin(), m_Data.end(), T{ 0 });
 		m_Offset = 0;
+		m_Count = 0;
+	}
+
+	inline void Resize(count_t length)
+	{
+		m_Data.resize(length, T{ 0 });
+		m_Offset = m_Offset % length;
+		m_Count = std::min(m_Count, length);
 	}
 
 	inline const T *GetData() const { return m_Data.data(); }
 	inline count_t GetSize() const { return m_Data.size(); }
+	inline count_t GetCount() const { return m_Count; }
 	inline count_t GetOffset() const { return m_Offset; }
 
 private:
 	std::vector<T> m_Data;
 	count_t m_Offset;
+	count_t m_Count;
 };
 
 

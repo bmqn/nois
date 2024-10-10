@@ -16,6 +16,6 @@ public:
 	virtual void SetDelayMs(data_t delayMs) = 0;
 };
 
-std::shared_ptr<SignalDelayer> CreateSignalDelayer(std::shared_ptr<Stream> stream);
+std::shared_ptr<SignalDelayer> CreateSignalDelayer(Stream *stream);
 
 }

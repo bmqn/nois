@@ -37,6 +37,6 @@ public:
 	virtual void SetQ(data_t q) = 0;
 };
 
-std::shared_ptr<Filter> CreateFilter(std::shared_ptr<Stream> stream, Filter::Kind kind = Filter::k_N2ButterWorth);
+std::shared_ptr<Filter> CreateFilter(Stream *stream, Filter::Kind kind = Filter::k_N2ButterWorth);
 
 }

@@ -5,17 +5,18 @@
 #include "nois/core/NoisStream.hpp"
 
 #include <memory>
-#include <vector>
 
 namespace nois {
 
 class Combiner
 {
 public:
-	virtual std::shared_ptr<Channel> GetChannel() = 0;
-
+	virtual void AddStream(Stream *stream) = 0;
+	virtual void RemoveStream(Stream *stream) = 0;
+	virtual Stream *GetStream() = 0;
 };
 
-std::shared_ptr<Combiner> CreateCombiner(std::vector<std::shared_ptr<Stream>> streams);
+std::shared_ptr<Combiner> CreateCombiner();
+std::shared_ptr<Combiner> CreateCombiner(std::initializer_list<Stream*> streams);
 
 }

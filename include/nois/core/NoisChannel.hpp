@@ -3,7 +3,6 @@
 #include "nois/NoisTypes.hpp"
 #include "nois/core/NoisStream.hpp"
 
-#include <atomic>
 #include <memory>
 
 namespace nois {
@@ -11,22 +10,32 @@ namespace nois {
 class Channel
 {
 public:
+	virtual ~Channel()
+	{
+		if (m_Stream)
+		{
+			OnUnsetStream(m_Stream);
+		}
+	}
+
 	void SetStream(std::shared_ptr<Stream> stream)
 	{
 		if (m_Stream != stream)
 		{
+			OnUnsetStream(m_Stream);
 			OnSetStream(stream);
-		}
 
-		std::atomic_exchange(&m_Stream, std::move(stream));
+			m_Stream = stream;
+		}
 	}
 
 	std::shared_ptr<Stream> GetStream()
 	{
-		return std::atomic_load(&m_Stream);
+		return m_Stream;
 	}
 
 protected:
+	virtual void OnUnsetStream(std::shared_ptr<nois::Stream> stream) {}
 	virtual void OnSetStream(std::shared_ptr<nois::Stream> stream) {}
 
 private:

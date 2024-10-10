@@ -12,6 +12,7 @@
 #include "effect/NoisFilter.hpp"
 #include "effect/NoisGainer.hpp"
 #include "effect/NoisSignalDelayer.hpp"
+#include "effect/NoisTimeStretcher.hpp"
 
 #include "route/NoisSplitter.hpp"
 #include "route/NoisCombiner.hpp"
