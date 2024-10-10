@@ -16,45 +16,24 @@ class SignalDelayerImpl : public SignalDelayer
 {
 public:
 	
-	SignalDelayerImpl(std::shared_ptr<Stream> stream)
+	SignalDelayerImpl(Stream *stream)
 		: m_Stream(stream)
 	{
 	}
 
 	virtual count_t Consume(data_t *data,
-							count_t numSamples,
-							int32_t sampleRate,
-							int32_t numChannels) override
+	                        count_t numSamples,
+	                        int32_t sampleRate,
+	                        int32_t numChannels) override
 	{
 		if (m_Stream)
 		{
 			count_t count = m_Stream->Consume(data, numSamples,
 				sampleRate, numChannels);
-
-			bool delayChanged = m_DelayChanged.load(std::memory_order_acquire);
-
-			if (m_SampleRate != sampleRate ||
-				m_NumChannels != numChannels ||
-				delayChanged)
-			{
-				data_t delayMs = m_DelayMs.load(std::memory_order_acquire);
-				size_t delaySamples = (delayMs / 1000.0f) * sampleRate;
-				
-				m_Inps.clear();
-				m_Inps.resize(numChannels, WindowStream<data_t>(delaySamples));
 			
-				m_SampleRate = sampleRate;
-				m_NumChannels = numChannels;
-
-				if (delayChanged)
-				{
-					m_DelayChanged.store(false, std::memory_order_release);
-				}
-			}
-			
-			for (int32_t i = 0; i < count; i += numChannels)
+			for (size_t i = 0; i < static_cast<size_t>(count); i += numChannels)
 			{
-				for (int32_t j = 0; j < numChannels; ++j)
+				for (size_t j = 0; j < static_cast<size_t>(numChannels); ++j)
 				{
 					data[i + j] = ConsumeChannel(j, data[i + j]);
 				}
@@ -64,6 +43,34 @@ public:
 		}
 
 		return 0;
+	}
+
+	virtual void PrepareToConsume(count_t numSamples,
+	                              int32_t sampleRate,
+	                              int32_t numChannels) override
+	{
+		bool delayChanged = m_DelayChanged.load(std::memory_order_acquire);
+
+		if (m_SampleRate != sampleRate ||
+			m_NumChannels != numChannels ||
+			delayChanged)
+		{
+			data_t delayMs = m_DelayMs.load(std::memory_order_acquire);
+			size_t delaySamples = static_cast<data_t>(delayMs / 1000.0f) * sampleRate;
+			
+			m_Inps.clear();
+			m_Inps.resize(numChannels, WindowStream<data_t>(delaySamples));
+		
+			m_SampleRate = sampleRate;
+			m_NumChannels = numChannels;
+
+			if (delayChanged)
+			{
+				m_DelayChanged.store(false, std::memory_order_release);
+			}
+		}
+
+		m_Stream->PrepareToConsume(numSamples, sampleRate, numChannels);
 	}
 
 	virtual data_t GetDelayMs() override
@@ -95,18 +102,18 @@ private:
 	}
 
 private:
-	std::shared_ptr<Stream> m_Stream;
+	Stream *m_Stream;
 
-	std::atomic<data_t> m_DelayMs = 100.0f;
+	std::atomic<data_t> m_DelayMs = 2000.0f;
+	std::atomic_bool m_DelayChanged = false;
 
 	int32_t m_SampleRate = 0;
 	int32_t m_NumChannels = 0;
-	std::atomic_bool m_DelayChanged = false;
 
 	std::vector<WindowStream<data_t>> m_Inps;
 };
 
-std::shared_ptr<SignalDelayer> CreateSignalDelayer(std::shared_ptr<Stream> stream)
+std::shared_ptr<SignalDelayer> CreateSignalDelayer(Stream *stream)
 {
 	return std::make_shared<SignalDelayerImpl>(stream);
 }

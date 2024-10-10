@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25.0)
 
-set(NOIS_ROOT_DIR	${CMAKE_CURRENT_SOURCE_DIR})
+set(NOIS_ROOT_DIR	"${CMAKE_CURRENT_SOURCE_DIR}")
 set(NOIS_INC_DIR	"${NOIS_ROOT_DIR}/include")
 set(NOIS_SRC_DIR	"${NOIS_ROOT_DIR}/src")
 set(NOIS_LIB_DIR	"${NOIS_ROOT_DIR}/libs")
@@ -55,8 +55,7 @@ set(NOIS_HSPSRC
 	"${NOIS_HSP}/nois/effect/NoisFilter.hpp"
 	"${NOIS_HSP}/nois/effect/NoisGainer.hpp"
 	"${NOIS_HSP}/nois/effect/NoisSignalDelayer.hpp"
-
-	"${NOIS_HSP}/nois/osc/NoisOsc.hpp"
+	"${NOIS_HSP}/nois/effect/NoisTimeStretcher.hpp"
 	
 	"${NOIS_HSP}/nois/route/NoisCombiner.hpp"
 	"${NOIS_HSP}/nois/route/NoisMixer.hpp"
@@ -73,14 +72,15 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/effect/NoisFilter.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisGainer.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisSignalDelayer.cpp"
+	"${NOIS_SRC_DIR}/effect/NoisTimeStretcher.cpp"
 
 	"${NOIS_SRC_DIR}/route/NoisCombiner.cpp"
 	"${NOIS_SRC_DIR}/route/NoisMixer.cpp"
 	"${NOIS_SRC_DIR}/route/NoisSplitter.cpp"
 )
 
-source_group("Include Files" FILES ${NOIS_HSPSRC})
-source_group("Source Files" FILES ${NOIS_SRC})
+source_group("Include Files" FILES "${NOIS_HSPSRC}")
+source_group("Source Files" FILES "${NOIS_SRC}")
 
 
 #--------------------------------------------------------------------------------------------------
@@ -88,22 +88,16 @@ source_group("Source Files" FILES ${NOIS_SRC})
 #--------------------------------------------------------------------------------------------------
 add_library(
 	nois STATIC
-	${NOIS_SRC} ${NOIS_HSPSRC}
+	"${NOIS_SRC}" "${NOIS_HSPSRC}"
 )
 
 target_include_directories(
 	nois
-	PUBLIC ${NOIS_INC_DIR} "${NOIS_LIB_DIR}/debugbreak"
-	PRIVATE ${NOIS_INC_DIR} ${NOIS_SRC_DIR}
+	PUBLIC "${NOIS_INC_DIR}" "${NOIS_LIB_DIR}/debugbreak"
+	PRIVATE "${NOIS_INC_DIR}" "${NOIS_SRC_DIR}"
 )
 
 target_precompile_headers(
 	nois
 	PRIVATE "${NOIS_SRC_DIR}/NoisPrefix.pch"
 )
-
-
-#--------------------------------------------------------------------------------------------------
-#	Sources
-#--------------------------------------------------------------------------------------------------
-# add_subdirectory(examples)

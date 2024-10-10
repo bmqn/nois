@@ -16,16 +16,16 @@ class FolderDistorterImpl : public FolderDistorter
 {
 public:
 	
-	FolderDistorterImpl(std::shared_ptr<Stream> stream, FolderFunc folderFunc)
+	FolderDistorterImpl(Stream *stream, FolderFunc folderFunc)
 		: m_Stream(stream)
 		, m_FolderFunc(folderFunc)
 	{
 	}
 
 	virtual count_t Consume(data_t *data,
-							count_t numSamples,
-							int32_t sampleRate,
-							int32_t numChannels) override
+	                        count_t numSamples,
+	                        int32_t sampleRate,
+	                        int32_t numChannels) override
 	{
 		if (m_Stream)
 		{
@@ -44,6 +44,16 @@ public:
 		}
 
 		return 0;
+	}
+
+	virtual void PrepareToConsume(count_t numSamples,
+	                              int32_t sampleRate,
+	                              int32_t numChannels) override
+	{
+		if (m_Stream)
+		{
+			m_Stream->PrepareToConsume(numSamples, sampleRate, numChannels);
+		}
 	}
 
 	virtual data_t GetPreGainDb() override
@@ -114,7 +124,7 @@ private:
 	}
 
 private:
-	std::shared_ptr<Stream> m_Stream;
+	Stream *m_Stream;
 
 	data_t m_PreGain = 1.0f;
 	data_t m_ThresholdGain = 1.0f;
@@ -128,7 +138,7 @@ FolderDistorter &Distorter<FolderDistorter>::GetDistorter()
 	return *reinterpret_cast<FolderDistorter*>(this);
 }
 
-std::shared_ptr<Distorter<FolderDistorter>> CreateFolderDistorter(std::shared_ptr<Stream> stream,
+std::shared_ptr<Distorter<FolderDistorter>> CreateFolderDistorter(Stream *stream,
 	FolderDistorter::FolderFunc folderFunc)
 {
 	return std::make_shared<FolderDistorterImpl>(stream, folderFunc);

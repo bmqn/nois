@@ -20,9 +20,9 @@ public:
 	}
 
 	virtual count_t Consume(data_t *data,
-							count_t numSamples,
-							int32_t sampleRate,
-							int32_t numChannels) override
+	                        count_t numSamples,
+	                        int32_t sampleRate,
+	                        int32_t numChannels) override
 	{
 		std::vector<data_t> buffer(numSamples);
 		count_t count = numSamples;

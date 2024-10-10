@@ -11,9 +11,13 @@ namespace nois {
 class Splitter
 {
 public:
-	virtual std::shared_ptr<Channel> GetChannel() = 0;
+	virtual void SetStream(Stream *stream) = 0;
+	virtual Stream *GetStream() = 0;
+
+	virtual void Refresh() = 0;
 };
 
-std::shared_ptr<Splitter> CreateSplitter(std::shared_ptr<Channel> channel, size_t numChannels);
+std::shared_ptr<Splitter> CreateSplitter();
+std::shared_ptr<Splitter> CreateSplitter(Stream *stream);
 
 }
