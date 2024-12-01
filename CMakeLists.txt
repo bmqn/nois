@@ -47,8 +47,6 @@ set(NOIS_HSPSRC
 	"${NOIS_HSP}/nois/NoisUtil.hpp"
 
 	"${NOIS_HSP}/nois/core/NoisChannel.hpp"
-	"${NOIS_HSP}/nois/core/NoisDestination.hpp"
-	"${NOIS_HSP}/nois/core/NoisSource.hpp"
 	"${NOIS_HSP}/nois/core/NoisStream.hpp"
 
 	"${NOIS_HSP}/nois/effect/NoisDistorter.hpp"

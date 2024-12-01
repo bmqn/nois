@@ -2,8 +2,6 @@
 
 #include "nois/NoisUtil.hpp"
 
-#include <unordered_map>
-
 namespace nois {
 
 class MixerImpl : public Mixer
@@ -52,8 +50,8 @@ public:
 
 	virtual void AddChannel(std::shared_ptr<Channel> channel) override
 	{
-		auto it = m_Channels.find(channel);
-		if (it == m_Channels.end())
+		if (auto it = m_Channels.find(channel);
+			it == m_Channels.end())
 		{
 			m_Channels[channel] = data_t{ 1.0f };
 		}
@@ -61,8 +59,8 @@ public:
 
 	virtual void RemoveChannel(std::shared_ptr<Channel> channel) override
 	{
-		auto it = m_Channels.find(channel);
-		if (it != m_Channels.end())
+		if (auto it = m_Channels.find(channel);
+			it != m_Channels.end())
 		{
 			m_Channels.erase(it);
 		}
@@ -70,8 +68,8 @@ public:
 
 	virtual data_t GetGain(std::shared_ptr<Channel> channel) override
 	{
-		auto it = m_Channels.find(channel);
-		if (it != m_Channels.end())
+		if (auto it = m_Channels.find(channel);
+			it != m_Channels.end())
 		{
 			return m_Channels[channel];
 		}
@@ -81,8 +79,8 @@ public:
 
 	virtual void SetGain(std::shared_ptr<Channel> channel, data_t gain) override
 	{
-		auto it = m_Channels.find(channel);
-		if (it != m_Channels.end())
+		if (auto it = m_Channels.find(channel);
+			it != m_Channels.end())
 		{
 			m_Channels[channel] = gain;
 		}
@@ -90,8 +88,8 @@ public:
 
 	virtual data_t GetGainDb(std::shared_ptr<Channel> channel) override
 	{
-		auto it = m_Channels.find(channel);
-		if (it != m_Channels.end())
+		if (auto it = m_Channels.find(channel);
+			it != m_Channels.end())
 		{
 			return ToDb(m_Channels[channel]);
 		}
@@ -101,8 +99,8 @@ public:
 
 	virtual void SetGainDb(std::shared_ptr<Channel> channel, data_t gainDb) override
 	{
-		auto it = m_Channels.find(channel);
-		if (it != m_Channels.end())
+		if (auto it = m_Channels.find(channel);
+			it != m_Channels.end())
 		{
 			m_Channels[channel] = FromDb(gainDb);
 		}
@@ -110,7 +108,6 @@ public:
 
 private:
 	std::unordered_map<std::shared_ptr<Channel>, data_t> m_Channels;
-
 };
 
 std::shared_ptr<Mixer> CreateMixer(std::initializer_list<std::shared_ptr<Channel>> channels)

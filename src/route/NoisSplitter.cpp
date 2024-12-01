@@ -2,8 +2,6 @@
 
 #include "nois/NoisUtil.hpp"
 
-#include <vector>
-
 namespace nois {
 
 class SplitterImpl : public Splitter
@@ -24,10 +22,11 @@ public:
 		{
 			m_Samples.resize(numSamples);
 
-			m_NumSamples = sampleRate;
+			m_NumSamples = numSamples;
 		}
 
-		m_NumSamplesConsumed += numSamples; // Very important ! This prevents infinite recursion
+		// Very important ! This prevents infinite recursion
+		m_NumSamplesConsumed += numSamples;
 
 		if (m_Stream)
 		{

@@ -2,14 +2,6 @@
 
 #include "nois/NoisUtil.hpp"
 
-#include <algorithm>
-#include <atomic>
-#include <cmath>
-#include <complex>
-#include <mutex>
-#include <numbers>
-#include <vector>
-
 namespace nois {
 
 class FolderDistorterImpl : public FolderDistorter
@@ -29,8 +21,11 @@ public:
 	{
 		if (m_Stream)
 		{
-			count_t count = m_Stream->Consume(data, numSamples,
-				sampleRate, numChannels);
+			count_t count = m_Stream->Consume(
+				data,
+				numSamples,
+				sampleRate,
+				numChannels);
 			
 			for (int32_t i = 0; i < count; i += numChannels)
 			{
@@ -52,7 +47,10 @@ public:
 	{
 		if (m_Stream)
 		{
-			m_Stream->PrepareToConsume(numSamples, sampleRate, numChannels);
+			m_Stream->PrepareToConsume(
+				numSamples,
+				sampleRate,
+				numChannels);
 		}
 	}
 
@@ -76,12 +74,12 @@ public:
 		m_ThresholdGain = FromDb(thresholdGainDb);
 	}
 
-	virtual size_t GetNumFolds() override
+	virtual count_t GetNumFolds() override
 	{
 		return m_NumFolds;
 	}
 
-	virtual void SetNumFolds(size_t numFolds) override
+	virtual void SetNumFolds(count_t numFolds) override
 	{
 		m_NumFolds = numFolds;
 	}
@@ -97,7 +95,7 @@ public:
 	}
 
 private:
-	data_t ConsumeChannel(size_t index, data_t input)
+	data_t ConsumeChannel(count_t index, data_t input)
 	{
 		data_t output = input;
 
@@ -112,7 +110,7 @@ private:
 		{
 			output *= m_PreGain;
 
-			size_t i = 0;
+			count_t i = 0;
 			while (i < m_NumFolds && std::abs(output) > m_ThresholdGain)
 			{
 				output += 2.0f * ((output >= 0.0f ? m_ThresholdGain : -m_ThresholdGain) - output);
@@ -128,7 +126,7 @@ private:
 
 	data_t m_PreGain = 1.0f;
 	data_t m_ThresholdGain = 1.0f;
-	size_t m_NumFolds = 1;
+	count_t m_NumFolds = 1;
 	FolderFunc m_FolderFunc = k_FolderFuncBasic;
 };
 

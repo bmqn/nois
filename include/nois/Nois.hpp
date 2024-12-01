@@ -5,8 +5,6 @@
 
 #include "core/NoisStream.hpp"
 #include "core/NoisChannel.hpp"
-#include "core/NoisSource.hpp"
-#include "core/NoisDestination.hpp"
 
 #include "effect/NoisDistorter.hpp"
 #include "effect/NoisFilter.hpp"

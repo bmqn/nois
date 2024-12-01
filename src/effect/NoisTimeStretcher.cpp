@@ -2,14 +2,6 @@
 
 #include "nois/NoisUtil.hpp"
 
-#include <algorithm>
-#include <atomic>
-#include <cmath>
-#include <complex>
-#include <mutex>
-#include <numbers>
-#include <vector>
-
 namespace nois {
 
 class TimeStretcherImpl : public TimeStretcher
@@ -28,9 +20,13 @@ public:
 	{
 		if (m_Stream)
 		{
-			count_t count = m_Stream->Consume(data, numSamples, sampleRate, numChannels);
+			count_t count = m_Stream->Consume(
+				data,
+				numSamples,
+				sampleRate,
+				numChannels);
 			
-			for (size_t i = 0; i < static_cast<size_t>(count); i += numChannels)
+			for (count_t i = 0; i < count; i += numChannels)
 			{
 				bool stretchActiveChanged = m_StretchActiveChanged.load(std::memory_order_acquire);
 				if (!stretchActiveChanged && m_StretchActiveFunc)
@@ -87,7 +83,7 @@ public:
 					m_StretchActiveChanged.store(false, std::memory_order_release);
 				}
 
-				for (size_t j = 0; j < static_cast<size_t>(numChannels); ++j)
+				for (count_t j = 0; j < static_cast<count_t>(numChannels); ++j)
 				{
 					data[i + j] = ConsumeChannel(j, data[i + j], 1.0f);
 				}
@@ -216,7 +212,10 @@ public:
 			}
 		}
 
-		m_Stream->PrepareToConsume(numSamples, sampleRate, numChannels);
+		m_Stream->PrepareToConsume(
+			numSamples,
+			sampleRate,
+			numChannels);
 	}
 
 	virtual bool GetStretchActive() override
@@ -308,7 +307,7 @@ public:
 	}
 
 private:
-	data_t ConsumeChannel(size_t index, data_t input, data_t pitchRatio)
+	data_t ConsumeChannel(count_t index, data_t input, data_t pitchRatio)
 	{
 		const bool stretchActive = m_StretchActive.load(std::memory_order_acquire);
 		const data_t stretchFactor = m_StretchFactor.load(std::memory_order_acquire);
@@ -392,7 +391,7 @@ private:
 
 	std::vector<std::array<data_t, 2>> m_Phases;
 	std::vector<std::array<data_t, 2>> m_Grains;
-	std::vector<size_t> m_GrainPlayings;
+	std::vector<count_t> m_GrainPlayings;
 	data_t m_GrainOffset = 0.0f;
 
 	std::vector<WindowStream<data_t>> m_Samples;

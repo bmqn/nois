@@ -34,8 +34,8 @@ public:
 	virtual data_t GetThresholdGainDb() = 0;
 	virtual void SetThresholdGainDb(data_t thresholdGainDb) = 0;
 
-	virtual size_t GetNumFolds() = 0;
-	virtual void SetNumFolds(size_t numFolds) = 0;
+	virtual count_t GetNumFolds() = 0;
+	virtual void SetNumFolds(count_t numFolds) = 0;
 
 	virtual FolderFunc GetFolderFunc() = 0;
 	virtual void SetFolderFunc(FolderFunc folderFunc) = 0;
