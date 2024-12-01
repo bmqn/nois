@@ -20,8 +20,11 @@ public:
 	{
 		if (m_Stream)
 		{
-			count_t count = m_Stream->Consume(data, numSamples,
-				sampleRate, numChannels);
+			count_t count = m_Stream->Consume(
+				data,
+				numSamples,
+				sampleRate,
+				numChannels);
 
 			for (count_t i = 0; i < count; ++i)
 			{
@@ -40,7 +43,10 @@ public:
 	{
 		if (m_Stream)
 		{
-			m_Stream->PrepareToConsume(numSamples, sampleRate, numChannels);
+			m_Stream->PrepareToConsume(
+				numSamples,
+				sampleRate,
+				numChannels);
 		}
 	}
 

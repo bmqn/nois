@@ -1,8 +1,5 @@
 #include "nois/route/NoisCombiner.hpp"
 
-#include <algorithm>
-#include <vector>
-
 namespace nois {
 
 class CombinerStreamImpl;
@@ -17,8 +14,8 @@ public:
 
 	virtual void AddStream(Stream *stream) override
 	{
-		auto it = std::find(m_Streams.begin(), m_Streams.end(), stream);
-		if (it == m_Streams.end())
+		if (auto it = std::find(m_Streams.begin(), m_Streams.end(), stream);
+			it == m_Streams.end())
 		{
 			m_Streams.push_back(stream);
 		}
@@ -27,8 +24,8 @@ public:
 	virtual void RemoveStream(Stream *stream) override
 	{
 		std::erase_if(m_Streams, [stream](const auto &candidate) {
-			return candidate == stream;
-		});
+				return candidate == stream;
+			});
 	}
 
 	virtual Stream *GetStream() override;

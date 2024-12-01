@@ -2,14 +2,6 @@
 
 #include "nois/NoisUtil.hpp"
 
-#include <algorithm>
-#include <atomic>
-#include <cmath>
-#include <complex>
-#include <mutex>
-#include <numbers>
-#include <vector>
-
 namespace nois {
 
 class SignalDelayerImpl : public SignalDelayer
@@ -28,12 +20,15 @@ public:
 	{
 		if (m_Stream)
 		{
-			count_t count = m_Stream->Consume(data, numSamples,
-				sampleRate, numChannels);
+			count_t count = m_Stream->Consume(
+				data,
+				numSamples,
+				sampleRate,
+				numChannels);
 			
-			for (size_t i = 0; i < static_cast<size_t>(count); i += numChannels)
+			for (count_t i = 0; i < count; i += numChannels)
 			{
-				for (size_t j = 0; j < static_cast<size_t>(numChannels); ++j)
+				for (count_t j = 0; j < static_cast<count_t>(numChannels); ++j)
 				{
 					data[i + j] = ConsumeChannel(j, data[i + j]);
 				}
@@ -56,7 +51,7 @@ public:
 			delayChanged)
 		{
 			data_t delayMs = m_DelayMs.load(std::memory_order_acquire);
-			size_t delaySamples = static_cast<data_t>(delayMs / 1000.0f) * sampleRate;
+			count_t delaySamples = static_cast<count_t>(delayMs / 1000.0f) * sampleRate;
 			
 			m_Inps.clear();
 			m_Inps.resize(numChannels, WindowStream<data_t>(delaySamples));
@@ -70,7 +65,10 @@ public:
 			}
 		}
 
-		m_Stream->PrepareToConsume(numSamples, sampleRate, numChannels);
+		m_Stream->PrepareToConsume(
+			numSamples,
+			sampleRate,
+			numChannels);
 	}
 
 	virtual data_t GetDelayMs() override
@@ -88,7 +86,7 @@ public:
 	}
 
 private:
-	data_t ConsumeChannel(size_t index, data_t input)
+	data_t ConsumeChannel(count_t index, data_t input)
 	{
 		data_t output = input;
 

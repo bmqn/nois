@@ -2,14 +2,6 @@
 
 #include "nois/NoisUtil.hpp"
 
-#include <algorithm>
-#include <atomic>
-#include <cmath>
-#include <complex>
-#include <mutex>
-#include <numbers>
-#include <vector>
-
 namespace nois {
 
 class N2ButterworthFilterImpl : public Filter
@@ -29,12 +21,15 @@ public:
 	{
 		if (m_Stream)
 		{
-			count_t count = m_Stream->Consume(data, numSamples,
-				sampleRate, numChannels);
+			count_t count = m_Stream->Consume(
+				data,
+				numSamples,
+				sampleRate,
+				numChannels);
 			
-			for (int32_t i = 0; i < count; i += numChannels)
+			for (count_t i = 0; i < count; i += numChannels)
 			{
-				for (int32_t j = 0; j < numChannels; ++j)
+				for (count_t j = 0; j < numChannels; ++j)
 				{
 					data[i + j] = ConsumeChannel(j, data[i + j]);
 				}
@@ -63,7 +58,10 @@ public:
 
 		if (m_Stream)
 		{
-			m_Stream->PrepareToConsume(numSamples, sampleRate, numChannels);
+			m_Stream->PrepareToConsume(
+				numSamples,
+				sampleRate,
+				numChannels);
 		}
 	}
 
@@ -94,7 +92,7 @@ private:
 		m_A2 = (1.0f - sqrt2 * invwc + invwc * invwc) * m_B0;
 	}
 
-	data_t ConsumeChannel(size_t index, data_t input)
+	data_t ConsumeChannel(count_t index, data_t input)
 	{
 		data_t output = input;
 		WindowStream<data_t> &inpWindow = m_Inps[index];
