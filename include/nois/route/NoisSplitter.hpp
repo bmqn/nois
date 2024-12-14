@@ -17,7 +17,7 @@ public:
 	virtual void Refresh() = 0;
 };
 
-std::shared_ptr<Splitter> CreateSplitter();
-std::shared_ptr<Splitter> CreateSplitter(Stream *stream);
+Ref_t<Splitter> CreateSplitter();
+Ref_t<Splitter> CreateSplitter(Stream *stream);
 
 }

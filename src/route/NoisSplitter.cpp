@@ -68,7 +68,7 @@ private:
 
 private:
 	Stream *m_Stream;
-	std::vector<std::unique_ptr<Stream>> m_SplitterStreams;
+	std::vector<Own_t<Stream>> m_SplitterStreams;
 
 	count_t m_NumSamples = 0;
 
@@ -112,19 +112,19 @@ private:
 
 Stream *SplitterImpl::GetStream()
 {
-	auto splitterStream = std::make_unique<SplitterStreamImpl>(this);
+	auto splitterStream = MakeOwn<SplitterStreamImpl>(this);
 	m_SplitterStreams.push_back(std::move(splitterStream));
 	return m_SplitterStreams.back().get();
 }
 
-std::shared_ptr<Splitter> CreateSplitter()
+Ref_t<Splitter> CreateSplitter()
 {
-	return std::make_shared<SplitterImpl>();
+	return MakeRef<SplitterImpl>();
 }
 
-std::shared_ptr<Splitter> CreateSplitter(Stream *stream)
+Ref_t<Splitter> CreateSplitter(Stream *stream)
 {
-	return std::make_shared<SplitterImpl>(stream);
+	return MakeRef<SplitterImpl>(stream);
 }
 
 };

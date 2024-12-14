@@ -11,16 +11,16 @@ namespace nois {
 class Mixer : public Stream
 {
 public:
-	virtual void AddChannel(std::shared_ptr<Channel> channel) = 0;
-	virtual void RemoveChannel(std::shared_ptr<Channel> channel) = 0;
+	virtual void AddChannel(Ref_t<Channel> channel) = 0;
+	virtual void RemoveChannel(Ref_t<Channel> channel) = 0;
 
-	virtual data_t GetGain(std::shared_ptr<Channel> channel) = 0;
-	virtual void SetGain(std::shared_ptr<Channel> channel, data_t gain) = 0;
+	virtual data_t GetGain(Ref_t<Channel> channel) = 0;
+	virtual void SetGain(Ref_t<Channel> channel, data_t gain) = 0;
 
-	virtual data_t GetGainDb(std::shared_ptr<Channel> channel) = 0;
-	virtual void SetGainDb(std::shared_ptr<Channel> channel, data_t gainDb) = 0;
+	virtual data_t GetGainDb(Ref_t<Channel> channel) = 0;
+	virtual void SetGainDb(Ref_t<Channel> channel, data_t gainDb) = 0;
 };
 
-std::shared_ptr<Mixer> CreateMixer(std::initializer_list<std::shared_ptr<Channel>> channels = {});
+Ref_t<Mixer> CreateMixer(std::initializer_list<Ref_t<Channel>> channels = {});
 
 }

@@ -3,8 +3,6 @@
 #include "nois/NoisTypes.hpp"
 #include "nois/core/NoisStream.hpp"
 
-#include <memory>
-
 namespace nois {
 
 template<typename T>
@@ -41,7 +39,7 @@ public:
 	virtual void SetFolderFunc(FolderFunc folderFunc) = 0;
 };
 
-std::shared_ptr<Distorter<FolderDistorter>> CreateFolderDistorter(Stream *stream,
+Ref_t<Distorter<FolderDistorter>> CreateFolderDistorter(Stream *stream,
 	FolderDistorter::FolderFunc folderFunc = FolderDistorter::FolderFunc::k_FolderFuncBasic);
 
 }

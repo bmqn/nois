@@ -7,6 +7,7 @@
 
 #include <array>
 #include <atomic>
+#include <map>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -25,6 +26,8 @@
 #include <memory>
 #include <numbers>
 #include <random>
+#include <type_traits>
+#include <utility>
 
 #define NOIS_ENABLE_BREAKS             0
 #define NOIS_ENABLE_LOGGING            1

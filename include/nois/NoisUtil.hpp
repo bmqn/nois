@@ -8,9 +8,9 @@
 
 namespace nois {
 
-inline data_t ToDb(data_t amp)
+inline data_t ToDb(data_t x)
 {
-	return 10.0f * std::log10(amp - k_DcOffset);
+	return 10.0f * std::log10(x - k_DcOffset);
 }
 
 inline data_t FromDb(data_t db)

@@ -136,10 +136,10 @@ FolderDistorter &Distorter<FolderDistorter>::GetDistorter()
 	return *reinterpret_cast<FolderDistorter*>(this);
 }
 
-std::shared_ptr<Distorter<FolderDistorter>> CreateFolderDistorter(Stream *stream,
+Ref_t<Distorter<FolderDistorter>> CreateFolderDistorter(Stream *stream,
 	FolderDistorter::FolderFunc folderFunc)
 {
-	return std::make_shared<FolderDistorterImpl>(stream, folderFunc);
+	return MakeRef<FolderDistorterImpl>(stream, folderFunc);
 }
 
 };

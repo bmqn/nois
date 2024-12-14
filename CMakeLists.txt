@@ -48,6 +48,7 @@ set(NOIS_HSPSRC
 
 	"${NOIS_HSP}/nois/core/NoisChannel.hpp"
 	"${NOIS_HSP}/nois/core/NoisStream.hpp"
+	"${NOIS_HSP}/nois/core/NoisParameter.hpp"
 
 	"${NOIS_HSP}/nois/effect/NoisDistorter.hpp"
 	"${NOIS_HSP}/nois/effect/NoisFilter.hpp"
@@ -65,6 +66,7 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/NoisLog.h"
 
 	"${NOIS_SRC_DIR}/core/NoisChannel.cpp"
+	"${NOIS_SRC_DIR}/core/NoisParameter.cpp"
 
 	"${NOIS_SRC_DIR}/effect/NoisDistorter.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisFilter.cpp"

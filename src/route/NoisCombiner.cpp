@@ -32,7 +32,7 @@ public:
 
 private:
 	std::vector<Stream*> m_Streams;
-	std::unique_ptr<CombinerStreamImpl> m_CombinerStream;
+	Own_t<CombinerStreamImpl> m_CombinerStream;
 };
 
 class CombinerStreamImpl : public Stream
@@ -104,12 +104,12 @@ private:
 
 CombinerImpl::CombinerImpl()
 {
-	m_CombinerStream = std::make_unique<CombinerStreamImpl>(this);
+	m_CombinerStream = MakeOwn<CombinerStreamImpl>(this);
 }
 
 CombinerImpl::CombinerImpl(std::initializer_list<Stream*> streams)
 {
-	m_CombinerStream = std::make_unique<CombinerStreamImpl>(this);
+	m_CombinerStream = MakeOwn<CombinerStreamImpl>(this);
 
 	for (const auto &stream : streams)
 	{
@@ -122,14 +122,14 @@ Stream *CombinerImpl::GetStream()
 	return m_CombinerStream.get();
 }
 
-std::shared_ptr<Combiner> CreateCombiner()
+Ref_t<Combiner> CreateCombiner()
 {
-	return std::make_shared<CombinerImpl>();
+	return MakeRef<CombinerImpl>();
 }
 
-std::shared_ptr<Combiner> CreateCombiner(std::initializer_list<Stream*> streams)
+Ref_t<Combiner> CreateCombiner(std::initializer_list<Stream*> streams)
 {
-	return std::make_shared<CombinerImpl>(streams);
+	return MakeRef<CombinerImpl>(streams);
 }
 
 }

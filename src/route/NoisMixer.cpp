@@ -8,10 +8,10 @@ class MixerImpl : public Mixer
 {
 public:
 	
-	MixerImpl(std::initializer_list<std::shared_ptr<Channel>> channels)
+	MixerImpl(std::initializer_list<Ref_t<Channel>> channels)
 		: m_Channels(channels.size())
 	{
-		for (std::shared_ptr<Channel> channel : channels)
+		for (Ref_t<Channel> channel : channels)
 		{
 			m_Channels[channel] = data_t{ 1.0f };
 		}
@@ -32,7 +32,7 @@ public:
 
 		for (auto &[channel, gain] : m_Channels)
 		{
-			std::shared_ptr<Stream> stream = channel->GetStream();
+			Ref_t<Stream> stream = channel->GetStream();
 
 			if (stream)
 			{
@@ -48,7 +48,7 @@ public:
 		return count;
 	}
 
-	virtual void AddChannel(std::shared_ptr<Channel> channel) override
+	virtual void AddChannel(Ref_t<Channel> channel) override
 	{
 		if (auto it = m_Channels.find(channel);
 			it == m_Channels.end())
@@ -57,7 +57,7 @@ public:
 		}
 	}
 
-	virtual void RemoveChannel(std::shared_ptr<Channel> channel) override
+	virtual void RemoveChannel(Ref_t<Channel> channel) override
 	{
 		if (auto it = m_Channels.find(channel);
 			it != m_Channels.end())
@@ -66,7 +66,7 @@ public:
 		}
 	}
 
-	virtual data_t GetGain(std::shared_ptr<Channel> channel) override
+	virtual data_t GetGain(Ref_t<Channel> channel) override
 	{
 		if (auto it = m_Channels.find(channel);
 			it != m_Channels.end())
@@ -77,7 +77,7 @@ public:
 		return 1.0f;
 	}
 
-	virtual void SetGain(std::shared_ptr<Channel> channel, data_t gain) override
+	virtual void SetGain(Ref_t<Channel> channel, data_t gain) override
 	{
 		if (auto it = m_Channels.find(channel);
 			it != m_Channels.end())
@@ -86,7 +86,7 @@ public:
 		}
 	}
 
-	virtual data_t GetGainDb(std::shared_ptr<Channel> channel) override
+	virtual data_t GetGainDb(Ref_t<Channel> channel) override
 	{
 		if (auto it = m_Channels.find(channel);
 			it != m_Channels.end())
@@ -97,7 +97,7 @@ public:
 		return 0.0f;
 	}
 
-	virtual void SetGainDb(std::shared_ptr<Channel> channel, data_t gainDb) override
+	virtual void SetGainDb(Ref_t<Channel> channel, data_t gainDb) override
 	{
 		if (auto it = m_Channels.find(channel);
 			it != m_Channels.end())
@@ -107,12 +107,12 @@ public:
 	}
 
 private:
-	std::unordered_map<std::shared_ptr<Channel>, data_t> m_Channels;
+	std::unordered_map<Ref_t<Channel>, data_t> m_Channels;
 };
 
-std::shared_ptr<Mixer> CreateMixer(std::initializer_list<std::shared_ptr<Channel>> channels)
+Ref_t<Mixer> CreateMixer(std::initializer_list<Ref_t<Channel>> channels)
 {
-	return std::make_shared<MixerImpl>(channels);
+	return MakeRef<MixerImpl>(channels);
 }
 
 };

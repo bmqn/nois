@@ -2,9 +2,9 @@
 
 namespace nois {
 
-std::shared_ptr<Channel> CreateChannel()
+Ref_t<Channel> CreateChannel()
 {
-	return std::make_shared<Channel>();
+	return MakeRef<Channel>();
 }
 
 };

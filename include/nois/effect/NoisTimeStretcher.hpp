@@ -1,10 +1,8 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
+#include "nois/core/NoisParameter.hpp"
 #include "nois/core/NoisStream.hpp"
-
-#include <functional>
-#include <memory>
 
 namespace nois {
 
@@ -20,17 +18,34 @@ public:
 	virtual data_t GetStretchTimeMs() = 0;
 	virtual void SetStretchTimeMs(data_t stretchTimeMs) = 0;
 
-	virtual data_t GetStretchFactor() = 0;
-	virtual void SetStretchFactor(data_t stretchFactor) = 0;
-	virtual void BindStretchFactor(std::function<data_t()> stretchFactorFunc) = 0;
+	virtual const FloatParameter &GetStretchFactor() const = 0;
+	template<typename T, typename... Args>
+	void SetStretchFactor(Args &&...args);
 
-	virtual data_t GetGrainSize() = 0;
-	virtual void SetGrainSize(data_t grainSize) = 0;
+	virtual const FloatParameter &GetGrainSize() const = 0;
+	template<typename T, typename... Args>
+	void SetGrainSize(Args &&...args);
 
 	virtual data_t GetGrainBlend() = 0;
 	virtual void SetGrainBlend(data_t grainBlend) = 0;
+
+private:
+	virtual void SetStretchFactorImpl(Own_t<FloatParameter> &&stretchFactor) = 0;
+	virtual void SetGrainSizeImpl(Own_t<FloatParameter> &&grainSize) = 0;
 };
 
-std::shared_ptr<TimeStretcher> CreateTimeStretcher(Stream *stream);
+Ref_t<TimeStretcher> CreateTimeStretcher(Stream *stream);
+
+template<typename T, typename... Args>
+void TimeStretcher::SetStretchFactor(Args &&...args)
+{
+	SetStretchFactorImpl(MakeOwn<T>(std::forward<Args>(args)...));
+}
+
+template<typename T, typename... Args>
+void TimeStretcher::SetGrainSize(Args &&...args)
+{
+	SetGrainSizeImpl(MakeOwn<T>(std::forward<Args>(args)...));
+}
 
 }
