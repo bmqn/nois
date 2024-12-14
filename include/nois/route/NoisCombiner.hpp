@@ -16,7 +16,7 @@ public:
 	virtual Stream *GetStream() = 0;
 };
 
-std::shared_ptr<Combiner> CreateCombiner();
-std::shared_ptr<Combiner> CreateCombiner(std::initializer_list<Stream*> streams);
+Ref_t<Combiner> CreateCombiner();
+Ref_t<Combiner> CreateCombiner(std::initializer_list<Stream*> streams);
 
 }

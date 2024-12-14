@@ -3,8 +3,6 @@
 #include "nois/NoisTypes.hpp"
 #include "nois/core/NoisStream.hpp"
 
-#include <memory>
-
 namespace nois {
 
 class Channel
@@ -18,7 +16,7 @@ public:
 		}
 	}
 
-	void SetStream(std::shared_ptr<Stream> stream)
+	void SetStream(Ref_t<Stream> stream)
 	{
 		if (m_Stream != stream)
 		{
@@ -29,19 +27,19 @@ public:
 		}
 	}
 
-	std::shared_ptr<Stream> GetStream()
+	Ref_t<Stream> GetStream()
 	{
 		return m_Stream;
 	}
 
 protected:
-	virtual void OnUnsetStream(std::shared_ptr<nois::Stream> stream) {}
-	virtual void OnSetStream(std::shared_ptr<nois::Stream> stream) {}
+	virtual void OnUnsetStream(Ref_t<nois::Stream> stream) {}
+	virtual void OnSetStream(Ref_t<nois::Stream> stream) {}
 
 private:
-	std::shared_ptr<Stream> m_Stream = nullptr;
+	Ref_t<Stream> m_Stream = nullptr;
 };
 
-std::shared_ptr<Channel> CreateChannel();
+Ref_t<Channel> CreateChannel();
 
 }

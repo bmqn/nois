@@ -7,7 +7,6 @@ namespace nois {
 class TimeStretcherImpl : public TimeStretcher
 {
 public:
-	
 	TimeStretcherImpl(Stream *stream)
 		: m_Stream(stream)
 	{
@@ -39,19 +38,8 @@ public:
 					}
 				}
 
-				bool stretchFactorChanged = m_StretchFactorChanged.load(std::memory_order_acquire);
-				if (!stretchFactorChanged && m_StretchFactorFunc)
-				{
-					const data_t stretchFactor = m_StretchFactorFunc();
-					if (m_StretchFactor.load(std::memory_order_acquire) != stretchFactor)
-					{
-						m_StretchFactor.store(stretchFactor, std::memory_order_release);
-						stretchFactorChanged = true;
-					}
-				}
-
-				const data_t stretchFactor = m_StretchFactor.load(std::memory_order_acquire);
-				const data_t grainSize = m_GrainSize.load(std::memory_order_acquire);
+				const float stretchFactor = m_StretchFactor->Get();
+				const float grainSize = m_GrainSize->Get();
 				const data_t grainBlend = m_GrainBlend.load(std::memory_order_acquire);
 
 				m_GrainOffset = grainSize * (1.0f - grainBlend) * (1.0f / stretchFactor);
@@ -111,33 +99,18 @@ public:
 		}
 
 		const bool stretchTimeChanged = m_StretchTimeChanged.load(std::memory_order_acquire);
-
-		bool stretchFactorChanged = m_StretchFactorChanged.load(std::memory_order_acquire);
-		if (!stretchFactorChanged && m_StretchFactorFunc)
-		{
-			const data_t stretchFactor = m_StretchFactorFunc();
-			if (m_StretchFactor.load(std::memory_order_acquire) != stretchFactor)
-			{
-				m_StretchFactor.store(stretchFactor, std::memory_order_release);
-				stretchFactorChanged = true;
-			}
-		}
-
-		const bool grainSizeChanged = m_GrainSizeChanged.load(std::memory_order_acquire);
-		const bool grainBlendChanged = m_GrainBlend.load(std::memory_order_acquire);
+		const bool grainBlendChanged = m_GrainBlendChanged.load(std::memory_order_acquire);
 
 		if (m_SampleRate != sampleRate ||
 		    m_NumChannels != numChannels ||
 		    stretchActiveChanged ||
 		    stretchTimeChanged ||
-		    stretchFactorChanged ||
-		    grainSizeChanged ||
 		    grainBlendChanged)
 		{
 			const bool stretchActive = m_StretchActive.load(std::memory_order_acquire);
 			const data_t stretchTimeMs = m_StretchTimeMs.load(std::memory_order_acquire);
-			const data_t stretchFactor = m_StretchFactor.load(std::memory_order_acquire);
-			const data_t grainSize = m_GrainSize.load(std::memory_order_acquire);
+			const float stretchFactor = m_StretchFactor->Get();
+			const float grainSize = m_GrainSize->Get();
 			const data_t grainBlend = m_GrainBlend.load(std::memory_order_acquire);
 
 			m_GrainOffset = grainSize * (1.0f - grainBlend) * (1.0f / stretchFactor);
@@ -196,16 +169,6 @@ public:
 				m_StretchTimeChanged.store(false, std::memory_order_release);
 			}
 
-			if (grainSizeChanged)
-			{
-				m_GrainSizeChanged.store(false, std::memory_order_release);
-			}
-
-			if (stretchFactorChanged)
-			{
-				m_StretchFactorChanged.store(false, std::memory_order_release);
-			}
-
 			if (grainBlendChanged)
 			{
 				m_GrainBlendChanged.store(false, std::memory_order_release);
@@ -253,41 +216,14 @@ public:
 		}
 	}
 
-	virtual data_t GetStretchFactor() override
+	virtual const FloatParameter &GetStretchFactor() const override
 	{
-		return m_StretchFactor.load(std::memory_order_acquire);
+		return *m_StretchFactor;
 	}
 
-	virtual void SetStretchFactor(data_t stretchFactor) override
+	virtual const FloatParameter &GetGrainSize() const override
 	{
-		stretchFactor = std::max(1.0f, stretchFactor);
-
-		if (m_StretchFactor.load(std::memory_order_acquire) != stretchFactor)
-		{
-			m_StretchFactor.store(stretchFactor, std::memory_order_release);
-			m_StretchFactorChanged.store(true, std::memory_order_release);
-		}
-	}
-
-	virtual void BindStretchFactor(std::function<data_t()> stretchFactorFunc) override
-	{
-		m_StretchFactorFunc = stretchFactorFunc;
-	}
-
-	virtual data_t GetGrainSize() override
-	{
-		return m_GrainSize.load(std::memory_order_acquire);
-	}
-
-	virtual void SetGrainSize(data_t grainSize) override
-	{
-		grainSize = std::max(0.0f, grainSize);
-
-		if (m_GrainSize.load(std::memory_order_acquire) != grainSize)
-		{
-			m_GrainSize.store(grainSize, std::memory_order_release);
-			m_GrainSizeChanged.store(true, std::memory_order_release);
-		}
+		return *m_GrainSize;
 	}
 
 	virtual data_t GetGrainBlend() override
@@ -307,11 +243,20 @@ public:
 	}
 
 private:
+	virtual void SetStretchFactorImpl(Own_t<FloatParameter> &&stretchFactor) override
+	{
+		m_StretchFactor = std::move(stretchFactor);
+	}
+
+	virtual void SetGrainSizeImpl(Own_t<FloatParameter> &&grainSize) override
+	{
+		m_GrainSize = std::move(grainSize);
+	}
+
 	data_t ConsumeChannel(count_t index, data_t input, data_t pitchRatio)
 	{
 		const bool stretchActive = m_StretchActive.load(std::memory_order_acquire);
-		const data_t stretchFactor = m_StretchFactor.load(std::memory_order_acquire);
-		const data_t grainSize = m_GrainSize.load(std::memory_order_acquire);
+		const float grainSize = m_GrainSize->Get();
 		const data_t grainBlend = m_GrainBlend.load(std::memory_order_acquire);
 
 		data_t output = input;
@@ -360,7 +305,7 @@ private:
 			{
 				m_Phases[index][!m_GrainPlayings[index]] = 0.0f;
 				m_Grains[index][!m_GrainPlayings[index]] = m_Grains[index][m_GrainPlayings[index]] + m_GrainOffset;
-				m_GrainPlayings[index] = !m_GrainPlayings[index];
+				m_GrainPlayings[index] = 1 - m_GrainPlayings[index];
 			}
 		}
 
@@ -377,12 +322,10 @@ private:
 	std::atomic<data_t> m_StretchTimeMs = 1000.0f;
 	std::atomic_bool m_StretchTimeChanged = false;
 
-	std::atomic<data_t> m_StretchFactor = 1.0f;
-	std::atomic_bool m_StretchFactorChanged = false;
-	std::function<data_t()> m_StretchFactorFunc;
+	Own_t<FloatParameter> m_StretchFactor = MakeOwn<FloatConstantParameter>(1.0f);
 
-	std::atomic<data_t> m_GrainSize = 1.0f;
-	std::atomic_bool m_GrainSizeChanged = false;
+	Own_t<FloatParameter> m_GrainSize = MakeOwn<FloatConstantParameter>(1.0f);
+
 	std::atomic<data_t> m_GrainBlend = 0.1f;
 	std::atomic_bool m_GrainBlendChanged = false;
 
@@ -397,9 +340,9 @@ private:
 	std::vector<WindowStream<data_t>> m_Samples;
 };
 
-std::shared_ptr<TimeStretcher> CreateTimeStretcher(Stream *stream)
+Ref_t<TimeStretcher> CreateTimeStretcher(Stream *stream)
 {
-	return std::make_shared<TimeStretcherImpl>(stream);
+	return MakeRef<TimeStretcherImpl>(stream);
 }
 
 };

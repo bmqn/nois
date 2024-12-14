@@ -62,9 +62,9 @@ private:
 
 };
 
-std::shared_ptr<Gainer> CreateGainer(Stream *stream)
+Ref_t<Gainer> CreateGainer(Stream *stream)
 {
-	return std::make_shared<GainerImpl>(stream);
+	return MakeRef<GainerImpl>(stream);
 }
 
 };

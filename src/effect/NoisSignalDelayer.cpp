@@ -111,9 +111,9 @@ private:
 	std::vector<WindowStream<data_t>> m_Inps;
 };
 
-std::shared_ptr<SignalDelayer> CreateSignalDelayer(Stream *stream)
+Ref_t<SignalDelayer> CreateSignalDelayer(Stream *stream)
 {
-	return std::make_shared<SignalDelayerImpl>(stream);
+	return MakeRef<SignalDelayerImpl>(stream);
 }
 
 };
