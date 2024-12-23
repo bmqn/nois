@@ -208,15 +208,40 @@ public:
 		CalculateCoefficients();
 	}
 
+	virtual data_t GetResponseMagnitude(data_t freqRatio) const override
+	{
+		constexpr data_t pi = static_cast<data_t>(std::numbers::pi);
+
+		data_t omega = pi * freqRatio;
+
+		data_t cosOmega = std::cos(omega);
+		data_t sinOmega = std::sin(omega);
+		data_t cos2Omega = std::cos(2 * omega);
+		data_t sin2Omega = std::sin(2 * omega);
+
+		// Numerator
+		data_t numReal = m_B0 + m_B2 * cos2Omega;
+		data_t numImag = m_B2 * sin2Omega;
+		data_t numMag2 = numReal * numReal + numImag * numImag;
+
+		// Denominator
+		data_t denReal = 1 + m_A1 * cosOmega + m_A2 * cos2Omega;
+		data_t denImag = m_A1 * sinOmega + m_A2 * sin2Omega;
+		data_t denMag2 = denReal * denReal + denImag * denImag;
+
+		// Magnitude response
+		return std::sqrt(numMag2 / denMag2);
+	}
+
 private:
 	void CalculateCoefficients()
 	{
 		constexpr data_t pi = static_cast<data_t>(std::numbers::pi);
 		constexpr data_t sqrt2 = static_cast<data_t>(std::numbers::sqrt2);
-		data_t omega0 = 2.0f * pi * std::clamp(m_CutoffRatio, 0.001f, 0.999f) * 0.5f;
 
+		data_t omega0 = 2.0f * pi * std::clamp(m_CutoffRatio, 0.001f, 0.999f) * 0.5f;
 		data_t cosw0 = std::cos(omega0);
-		data_t alpha = std::sin(omega0) / (2.0f * m_Q);
+		data_t alpha = std::sin(omega0) / (2.0f * std::max(m_Q, 0.001f));
 
 		float a0inv = 1.0f / (1.0f + alpha);
 

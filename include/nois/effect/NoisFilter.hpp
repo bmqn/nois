@@ -36,6 +36,8 @@ public:
 	virtual void SetCutoffRatio(data_t cutoffRatio) = 0;
 	virtual data_t GetQ() = 0;
 	virtual void SetQ(data_t q) = 0;
+
+	virtual data_t GetResponseMagnitude(data_t freqRatio) const = 0;
 };
 
 Ref_t<Filter> CreateFilter(Stream *stream,
