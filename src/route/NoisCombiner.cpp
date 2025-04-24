@@ -4,41 +4,46 @@ namespace nois {
 
 class CombinerStreamImpl;
 
-class CombinerImpl : public Combiner
+class CombinerImpl : public Combiner, public RefFromThis_t<CombinerImpl>
 {
 	friend class CombinerStreamImpl;
+	friend Ref_t<Combiner> CreateCombiner();
 
 public:
 	CombinerImpl();
-	CombinerImpl(std::initializer_list<Stream*> streams);
 
-	virtual void AddStream(Stream *stream) override
+	virtual void AddStream(Ref_t<Stream> stream) override
 	{
-		if (auto it = std::find(m_Streams.begin(), m_Streams.end(), stream);
+		if (auto it = std::find(
+			m_Streams.begin(),
+			m_Streams.end(),
+			stream);
 			it == m_Streams.end())
 		{
 			m_Streams.push_back(stream);
 		}
 	}
 
-	virtual void RemoveStream(Stream *stream) override
+	virtual void RemoveStream(Ref_t<Stream> stream) override
 	{
-		std::erase_if(m_Streams, [stream](const auto &candidate) {
+		std::erase_if(m_Streams,
+			[stream](const auto &candidate) {
 				return candidate == stream;
 			});
 	}
 
-	virtual Stream *GetStream() override;
+	virtual Ref_t<Stream> GetStream() override;
 
 private:
-	std::vector<Stream*> m_Streams;
-	Own_t<CombinerStreamImpl> m_CombinerStream;
+	Ref_t<CombinerStreamImpl> m_CombinerStream;
+
+	std::vector<Ref_t<Stream>> m_Streams;
 };
 
 class CombinerStreamImpl : public Stream
 {
 public:
-	CombinerStreamImpl(CombinerImpl *combiner)
+	CombinerStreamImpl(Ref_t<CombinerImpl> combiner)
 		: m_Combiner(combiner)
 	{
 	}
@@ -56,18 +61,15 @@ public:
 		{
 			for (const auto &stream : m_Combiner->m_Streams)
 			{
-				if (stream)
-				{
-					std::fill(m_Samples.begin(), m_Samples.end(), data_t{ 0 });
+				std::fill(m_Samples.begin(), m_Samples.end(), data_t{ 0 });
 
-					count_t thisCount = stream->Consume(
-						m_Samples.data(), numSamples,
-						sampleRate, numChannels);
+				count_t thisCount = stream->Consume(
+					m_Samples.data(), numSamples,
+					sampleRate, numChannels);
 
-					std::transform(data, data + thisCount,
-						m_Samples.begin(), data,
-						std::plus<data_t>());
-				}
+				std::transform(data, data + thisCount,
+					m_Samples.begin(), data,
+					std::plus<data_t>());
 			}
 		}
 
@@ -87,49 +89,32 @@ public:
 
 		for (const auto &stream : m_Combiner->m_Streams)
 		{
-			if (stream)
-			{
-				stream->PrepareToConsume(numSamples, sampleRate, numChannels);
-			}
+			stream->PrepareToConsume(numSamples, sampleRate, numChannels);
 		}
 	}
 
 private:
-	CombinerImpl *m_Combiner;
+	Ref_t<CombinerImpl> m_Combiner;
 
 	int32_t m_NumSamples = 0;
-
 	std::vector<data_t> m_Samples;
 };
 
 CombinerImpl::CombinerImpl()
 {
-	m_CombinerStream = MakeOwn<CombinerStreamImpl>(this);
 }
 
-CombinerImpl::CombinerImpl(std::initializer_list<Stream*> streams)
+Ref_t<Stream> CombinerImpl::GetStream()
 {
-	m_CombinerStream = MakeOwn<CombinerStreamImpl>(this);
-
-	for (const auto &stream : streams)
-	{
-		m_Streams.push_back(stream);
-	}
-}
-
-Stream *CombinerImpl::GetStream()
-{
-	return m_CombinerStream.get();
+	return m_CombinerStream;
 }
 
 Ref_t<Combiner> CreateCombiner()
 {
-	return MakeRef<CombinerImpl>();
-}
+	auto combiner = MakeRef<CombinerImpl>();
+	combiner->m_CombinerStream = MakeOwn<CombinerStreamImpl>(combiner);
 
-Ref_t<Combiner> CreateCombiner(std::initializer_list<Stream*> streams)
-{
-	return MakeRef<CombinerImpl>(streams);
+	return combiner;
 }
 
 }

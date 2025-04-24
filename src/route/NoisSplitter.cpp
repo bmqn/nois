@@ -4,12 +4,12 @@
 
 namespace nois {
 
-class SplitterImpl : public Splitter
+class SplitterImpl : public Splitter, public RefFromThis_t<SplitterImpl>
 {
 	friend class SplitterStreamImpl;
 
 public:
-	SplitterImpl(Stream *stream = nullptr)
+	SplitterImpl(Ref_t<Stream> stream = nullptr)
 		: m_Stream(stream)
 	{
 	}
@@ -35,18 +35,12 @@ public:
 		}
 	}
 
-	virtual void SetStream(Stream *stream) override
+	virtual void SetStream(Ref_t<Stream> stream) override
 	{
 		m_Stream = stream;
 	}
 
-	virtual Stream *GetStream() override;
-
-	virtual void Refresh() override
-	{
-		std::fill(m_Samples.begin(), m_Samples.end(), 0.0f);
-		m_NumSamplesConsumed = 0;
-	}
+	Ref_t<Stream> GetStream() override;
 
 private:
 	count_t ConsumeFromCache(data_t *data,
@@ -67,11 +61,9 @@ private:
 	}
 
 private:
-	Stream *m_Stream;
-	std::vector<Own_t<Stream>> m_SplitterStreams;
+	Ref_t<Stream> m_Stream;
 
 	count_t m_NumSamples = 0;
-
 	count_t m_NumSamplesConsumed = 0;
 	std::vector<data_t> m_Samples;
 };
@@ -79,7 +71,7 @@ private:
 class SplitterStreamImpl : public Stream
 {
 public:
-	SplitterStreamImpl(SplitterImpl *splitter)
+	SplitterStreamImpl(Ref_t<SplitterImpl> splitter)
 		: m_Splitter(splitter)
 	{
 	}
@@ -89,7 +81,11 @@ public:
 	                        int32_t sampleRate,
 	                        int32_t numChannels) override
 	{
-		return m_Splitter->ConsumeFromCache(data, numSamples, sampleRate, numChannels);
+		return m_Splitter->ConsumeFromCache(
+			data,
+			numSamples,
+			sampleRate,
+			numChannels);
 	}
 
 	virtual void PrepareToConsume(count_t numSamples,
@@ -98,23 +94,26 @@ public:
 	{
 		if (m_Splitter->m_NumSamplesConsumed <= m_NumSamplesConsumed)
 		{
-			m_Splitter->PrepareToConsume(numSamples, sampleRate, numChannels);
+			m_Splitter->PrepareToConsume(
+				numSamples,
+				sampleRate,
+				numChannels);
 		}
 
 		m_NumSamplesConsumed += numSamples;
 	}
 
 private:
-	SplitterImpl *m_Splitter;
+	Ref_t<SplitterImpl> m_Splitter;
 
 	count_t m_NumSamplesConsumed = 0;
 };
 
-Stream *SplitterImpl::GetStream()
+Ref_t<Stream> SplitterImpl::GetStream()
 {
-	auto splitterStream = MakeOwn<SplitterStreamImpl>(this);
-	m_SplitterStreams.push_back(std::move(splitterStream));
-	return m_SplitterStreams.back().get();
+	m_NumSamplesConsumed = 0;
+
+	return MakeRef<SplitterStreamImpl>(shared_from_this());
 }
 
 Ref_t<Splitter> CreateSplitter()
@@ -122,7 +121,7 @@ Ref_t<Splitter> CreateSplitter()
 	return MakeRef<SplitterImpl>();
 }
 
-Ref_t<Splitter> CreateSplitter(Stream *stream)
+Ref_t<Splitter> CreateSplitter(Ref_t<Stream> stream)
 {
 	return MakeRef<SplitterImpl>(stream);
 }

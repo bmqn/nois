@@ -11,12 +11,11 @@ namespace nois {
 class Combiner
 {
 public:
-	virtual void AddStream(Stream *stream) = 0;
-	virtual void RemoveStream(Stream *stream) = 0;
-	virtual Stream *GetStream() = 0;
+	virtual void AddStream(Ref_t<Stream> stream) = 0;
+	virtual void RemoveStream(Ref_t<Stream> stream) = 0;
+	virtual Ref_t<Stream> GetStream() = 0;
 };
 
 Ref_t<Combiner> CreateCombiner();
-Ref_t<Combiner> CreateCombiner(std::initializer_list<Stream*> streams);
 
 }

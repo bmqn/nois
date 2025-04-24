@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
+#include "nois/core/NoisParameter.hpp"
 #include "nois/core/NoisStream.hpp"
 
 namespace nois {
@@ -16,8 +17,8 @@ public:
 public:
 	virtual ~Filter() {}
 
-	virtual data_t GetCutoffRatio() = 0;
-	virtual void SetCutoffRatio(data_t cutoffRatio) = 0;
+	virtual const FloatParameter &GetCutoffRatio() const = 0;
+	virtual void SetCutoffRatio(Ref_t<FloatParameter> gain) = 0;
 };
 
 class BandpassFilter : public Stream
@@ -32,8 +33,9 @@ public:
 public:
 	virtual ~BandpassFilter() {}
 
-	virtual data_t GetCutoffRatio() = 0;
-	virtual void SetCutoffRatio(data_t cutoffRatio) = 0;
+	virtual const FloatParameter &GetCutoffRatio() const = 0;
+	virtual void SetCutoffRatio(Ref_t<FloatParameter> gain) = 0;
+
 	virtual data_t GetQ() = 0;
 	virtual void SetQ(data_t q) = 0;
 
