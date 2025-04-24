@@ -10,6 +10,7 @@ public:
 	
 	N2ButterworthFilterImpl(Stream *stream)
 		: m_Stream(stream)
+		, m_CutoffRatio(MakeOwn<FloatConstantParameter>(1.0f))
 	{
 		CalculateCoefficients();
 	}
@@ -26,6 +27,11 @@ public:
 				numSamples,
 				sampleRate,
 				numChannels);
+
+			if (m_CutoffRatio->Changed())
+			{
+				CalculateCoefficients();
+			}
 			
 			for (count_t i = 0; i < count; i += numChannels)
 			{
@@ -50,8 +56,6 @@ public:
 			m_Inps.resize(numChannels, WindowStream<data_t>(2));
 			m_Outs.resize(numChannels, WindowStream<data_t>(2));
 		
-			CalculateCoefficients();
-		
 			m_SampleRate = sampleRate;
 			m_NumChannels = numChannels;
 		}
@@ -65,24 +69,24 @@ public:
 		}
 	}
 
-	virtual data_t GetCutoffRatio() override
+	virtual const FloatParameter &GetCutoffRatio() const override
 	{
-		return m_CutoffRatio;
+		return *m_CutoffRatio;
 	}
 
-	virtual void SetCutoffRatio(data_t cutoffRatio) override
+	virtual void SetCutoffRatio(Ref_t<FloatParameter> cutoffRatio) override
 	{
-		m_CutoffRatio = std::clamp(cutoffRatio, 0.0f, 1.0f);
-
-		CalculateCoefficients();
+		m_CutoffRatio = cutoffRatio;
 	}
 
 private:
 	void CalculateCoefficients()
 	{
+		float cutoffRatio = m_CutoffRatio->Get();
+
 		constexpr data_t pi = static_cast<data_t>(std::numbers::pi);
 		constexpr data_t sqrt2 = static_cast<data_t>(std::numbers::sqrt2);
-		data_t wc = std::tan(pi * std::clamp(m_CutoffRatio, 0.001f, 0.999f) * 0.5f);
+		data_t wc = std::tan(pi * std::clamp(cutoffRatio, 0.001f, 0.999f) * 0.5f);
 		data_t invwc = 1.0f / wc;
 
 		m_B0 = 1.0f / (1.0f + sqrt2 * invwc + invwc * invwc);
@@ -111,7 +115,7 @@ private:
 private:
 	Stream *m_Stream;
 
-	data_t m_CutoffRatio = 1.0f;
+	Ref_t<FloatParameter> m_CutoffRatio;
 
 	data_t m_A1 = 0.0f, m_A2 = 0.0f;
 	data_t m_B0 = 0.0f, m_B1 = 0.0f, m_B2 = 0.0f;
@@ -129,6 +133,7 @@ public:
 
 	BiquadBandpassFilterImpl(Stream* stream)
 		: m_Stream(stream)
+		, m_CutoffRatio(MakeOwn<FloatConstantParameter>(1.0f))
 	{
 		CalculateCoefficients();
 	}
@@ -145,6 +150,11 @@ public:
 				numSamples,
 				sampleRate,
 				numChannels);
+
+			if (m_CutoffRatio->Changed())
+			{
+				CalculateCoefficients();
+			}
 
 			for (count_t i = 0; i < count; i += numChannels)
 			{
@@ -169,8 +179,6 @@ public:
 			m_Inps.resize(numChannels, WindowStream<data_t>(2));
 			m_Outs.resize(numChannels, WindowStream<data_t>(2));
 
-			CalculateCoefficients();
-
 			m_SampleRate = sampleRate;
 			m_NumChannels = numChannels;
 		}
@@ -184,16 +192,14 @@ public:
 		}
 	}
 
-	virtual data_t GetCutoffRatio() override
+	virtual const FloatParameter &GetCutoffRatio() const override
 	{
-		return m_CutoffRatio;
+		return *m_CutoffRatio;
 	}
 
-	virtual void SetCutoffRatio(data_t cutoffRatio) override
+	virtual void SetCutoffRatio(Ref_t<FloatParameter> cutoffRatio) override
 	{
-		m_CutoffRatio = std::clamp(cutoffRatio, 0.0f, 1.0f);
-
-		CalculateCoefficients();
+		m_CutoffRatio = cutoffRatio;
 	}
 
 	virtual data_t GetQ() override
@@ -236,10 +242,12 @@ public:
 private:
 	void CalculateCoefficients()
 	{
+		float cutoffRatio = m_CutoffRatio->Get();
+
 		constexpr data_t pi = static_cast<data_t>(std::numbers::pi);
 		constexpr data_t sqrt2 = static_cast<data_t>(std::numbers::sqrt2);
+		data_t omega0 = 2.0f * pi * std::clamp(cutoffRatio, 0.001f, 0.999f) * 0.5f;
 
-		data_t omega0 = 2.0f * pi * std::clamp(m_CutoffRatio, 0.001f, 0.999f) * 0.5f;
 		data_t cosw0 = std::cos(omega0);
 		data_t alpha = std::sin(omega0) / (2.0f * std::max(m_Q, 0.001f));
 
@@ -271,7 +279,7 @@ private:
 private:
 	Stream* m_Stream;
 
-	data_t m_CutoffRatio = 1.0f;
+	Ref_t<FloatParameter> m_CutoffRatio;
 	data_t m_Q = 1.0f;
 
 	data_t m_A1 = 0.0f, m_A2 = 0.0f;

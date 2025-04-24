@@ -7,14 +7,47 @@ namespace nois {
 template<typename T>
 using BinderFunc_t = std::function<T()>;
 
-class FloatParameter
+using ImplType_t = float;
+
+enum class ParameterType
+{
+	Float
+};
+
+class Parameter
 {
 public:
-	virtual float Get() = 0;
-	virtual bool Changed() = 0;
-	virtual float Peek() const = 0;
+	virtual ~Parameter() {}
 
-	virtual operator float() const = 0;
+	// TODO: We should make block-based parameters for things that don't change per-parameter
+	template<typename T = ImplType_t>
+	T Get(count_t sampleIndex = 0) const;
+
+	// TODO: We should make block-based parameters for things that don't change per-parameter
+	template<typename T = ImplType_t>
+	bool Changed(count_t sampleIndex = 0) const;
+
+	virtual void PrepareToGet(count_t numSamples,
+	                          int32_t sampleRate,
+	                          int32_t numChannels) {}
+
+	virtual ParameterType GetType() const = 0;
+
+protected:
+	virtual ImplType_t GetImpl(count_t sampleIndex) const = 0;
+	virtual bool ChangedImpl(count_t sampleIndex) const = 0;
+};
+
+class FloatParameter : public Parameter
+{
+public:
+	virtual ~FloatParameter() {}
+
+	virtual ParameterType GetType() const = 0;
+
+protected:
+	virtual ImplType_t GetImpl(count_t sampleIndex) const = 0;
+	virtual bool ChangedImpl(count_t sampleIndex) const = 0;
 };
 
 class FloatConstantParameter : public FloatParameter
@@ -24,13 +57,18 @@ public:
 		: m_Value(value)
 	{}
 
+	virtual ParameterType GetType() const override
+	{
+		return ParameterType::Float;
+	}
+
 	void Set(float value) { m_Value = value; }
 
-	virtual float Get() override { return m_Value; }
-	virtual bool Changed() override { return false; }
-	virtual float Peek() const override { return m_Value; }
+	float *GetPtr() { return &m_Value; }
 
-	virtual operator float() const override { return m_Value; }
+protected:
+	virtual ImplType_t GetImpl(count_t sampleIndex) const override { return m_Value; }
+	virtual bool ChangedImpl(count_t sampleIndex) const override { return false; }
 
 private:
 	float m_Value;
@@ -41,62 +79,92 @@ class FloatBinderParameter : public FloatParameter
 public:
 	FloatBinderParameter(BinderFunc_t<float> binder)
 		: m_Binder(binder)
-		, m_Value(0.0f)
-		, m_Changed(false)
 	{
+	}
+
+	virtual void PrepareToGet(count_t numSamples,
+	                          int32_t sampleRate,
+	                          int32_t numChannels) override
+	{
+		if (m_NumSamples != numSamples)
+		{
+			m_Values.resize(numSamples);
+			m_Changes.resize(numSamples);
+
+			m_NumSamples = numSamples;
+		}
+
+		if (m_Binder)
+		{
+			for (count_t i = 0; i < numSamples; ++i)
+			{
+				float value = m_Binder();
+
+				m_Changes[i] = i > 0
+					? value != m_Values[i - 1]
+					: value != m_LastValue;
+
+				m_Values[i] = value;
+			}
+
+			m_LastValue = m_Values.back();
+		}
+		else
+		{
+			std::fill(m_Values.begin(), m_Values.end(), 0.0f);
+			std::fill(m_Changes.begin(), m_Changes.end(), false);
+		}
+	}
+
+	virtual ParameterType GetType() const override
+	{
+		return ParameterType::Float;
 	}
 
 	void Bind(BinderFunc_t<float> binder) { m_Binder = binder; }
 
-	virtual float Get() override { return GetImpl(); }
-	virtual bool Changed() override { return ChangedImpl(); }
-	virtual float Peek() const override { return PeekImpl(); }
-
-	operator float() const override { return PeekImpl(); }
-
-private:
-	float GetImpl()
+protected:
+	virtual ImplType_t GetImpl(count_t sampleIndex) const override
 	{
-		float value = m_Binder ? m_Binder() : 0.0f;
-
-		if (value != m_Value.exchange(value, std::memory_order_acquire))
+		if (sampleIndex >= m_Values.size())
 		{
-			m_Changed.store(true, std::memory_order_release);
-		}
-		else
-		{
-			m_Changed.store(false, std::memory_order_release);
+			return 0.0f;
 		}
 
-		return value;
+		return m_Values[sampleIndex];
 	}
 
-	bool ChangedImpl()
+	virtual bool ChangedImpl(count_t sampleIndex) const override
 	{
-		bool changed = m_Changed.load(std::memory_order_acquire);
-
-		if (!changed)
+		if (sampleIndex >= m_Changes.size())
 		{
-			float value = m_Binder ? m_Binder() : 0.0f;
-
-			changed = value != m_Value.load(std::memory_order_acquire);
-
-			m_Changed.store(changed, std::memory_order_release);
+			return false;
 		}
 
-		return changed;
-	}
-
-	float PeekImpl() const
-	{
-		return m_Value.load(std::memory_order_acquire);
+		return m_Changes[sampleIndex];
 	}
 
 private:
 	BinderFunc_t<float> m_Binder;
-	std::atomic<float> m_Value;
-	std::atomic_bool m_Changed;
+
+	count_t m_NumSamples = 0;
+	float m_LastValue = 0.0f;
+	std::vector<float> m_Values;
+	std::vector<bool> m_Changes;
 };
+
+template<typename T>
+T Parameter::Get(count_t sampleIndex) const
+{
+	return static_cast<T>(GetImpl(sampleIndex));
+}
+
+template<typename T>
+bool Parameter::Changed(count_t sampleIndex) const
+{
+	// TODO: This should mean 'changed' from perspective of destination type!
+	return ChangedImpl(sampleIndex);
+}
 
 Ref_t<FloatBinderParameter> CreateParameter(BinderFunc_t<float> binder);
 

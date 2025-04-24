@@ -2,6 +2,7 @@
 
 #include "NoisTypes.hpp"
 #include "NoisConfig.hpp"
+#include "NoisUtil.hpp"
 
 #include "core/NoisStream.hpp"
 #include "core/NoisChannel.hpp"

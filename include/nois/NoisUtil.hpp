@@ -4,6 +4,7 @@
 #include "NoisConfig.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace nois {
@@ -52,7 +53,7 @@ struct WindowStream
 	{
 		m_Data.resize(length, T{ 0 });
 		m_Offset = m_Offset % length;
-		m_Count = std::min(m_Count, length);
+		m_Count = (std::min)(m_Count, length);
 	}
 
 	inline const T *GetData() const { return m_Data.data(); }

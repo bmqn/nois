@@ -33,11 +33,11 @@ public:
 	}
 
 protected:
-	virtual void OnUnsetStream(Ref_t<nois::Stream> stream) {}
-	virtual void OnSetStream(Ref_t<nois::Stream> stream) {}
+	virtual void OnUnsetStream(Ref_t<Stream> stream) {}
+	virtual void OnSetStream(Ref_t<Stream> stream) {}
 
 private:
-	Ref_t<Stream> m_Stream = nullptr;
+	Ref_t<Stream> m_Stream;
 };
 
 Ref_t<Channel> CreateChannel();

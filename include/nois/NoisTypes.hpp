@@ -1,10 +1,11 @@
 #pragma once
 
-#include <cinttypes>
+#include <cstdint>
 
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 namespace nois {
@@ -14,6 +15,9 @@ using count_t = int64_t;
 
 template<typename T>
 using Ref_t = std::shared_ptr<T>;
+
+template<typename T>
+using RefFromThis_t = std::enable_shared_from_this<T>;
 
 template<typename T, typename... Args>
 Ref_t<T> MakeRef(Args &&...args)

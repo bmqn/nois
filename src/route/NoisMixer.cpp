@@ -32,11 +32,13 @@ public:
 
 		for (auto &[channel, gain] : m_Channels)
 		{
-			Ref_t<Stream> stream = channel->GetStream();
-
-			if (stream)
+			if (const auto &stream = channel->GetStream())
 			{
-				count_t thisCount = stream->Consume(buffer.data(), count, sampleRate, numChannels);
+				count_t thisCount = stream->Consume(
+					buffer.data(),
+					count,
+					sampleRate,
+					numChannels);
 
 				for (count_t i = 0; i < thisCount; ++i)
 				{

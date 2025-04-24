@@ -10,6 +10,7 @@ public:
 	
 	GainerImpl(Stream *stream)
 		: m_Stream(stream)
+		, m_Gain(MakeOwn<FloatConstantParameter>(0.0f))
 	{
 	}
 
@@ -28,7 +29,7 @@ public:
 
 			for (count_t i = 0; i < count; ++i)
 			{
-				data[i] *= m_Gain;
+				data[i] *= m_Gain->Get(i);
 			}
 
 			return count;
@@ -50,16 +51,19 @@ public:
 		}
 	}
 
-	virtual data_t GetGain() const override { return m_Gain; }
-	virtual data_t GetGainDb() const override { return ToDb(m_Gain); }
+	virtual const FloatParameter &GetGain() const
+	{
+		return *m_Gain;
+	}
 
-	virtual void SetGain(data_t gain) override { m_Gain = gain; };
-	virtual void SetGainDb(data_t gainDb) override { m_Gain = FromDb(gainDb); };
+	virtual void SetGain(Ref_t<FloatParameter> gain) override
+	{
+		m_Gain = gain;
+	}
 
 private:
 	Stream *m_Stream;
-	data_t m_Gain = data_t{ 1.0f };
-
+	Ref_t<FloatParameter> m_Gain;
 };
 
 Ref_t<Gainer> CreateGainer(Stream *stream)
