@@ -1,7 +1,7 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
-#include "nois/core/NoisParameter.hpp"
+#include "nois/parameter/NoisParameter.hpp"
 #include "nois/core/NoisStream.hpp"
 
 namespace nois {
@@ -11,14 +11,17 @@ class Filter : public Stream
 public:
 	enum Kind
 	{
-		k_N2ButterWorth
+		k_N2ButterWorthLow,
+		k_N2ButterWorthHigh
 	};
 
 public:
 	virtual ~Filter() {}
 
-	virtual const FloatParameter &GetCutoffRatio() const = 0;
-	virtual void SetCutoffRatio(Ref_t<FloatParameter> gain) = 0;
+	virtual Ref_t<FloatParameter> GetCutoffRatio() = 0;
+	virtual void SetCutoffRatio(Ref_t<FloatParameter> cutoffRatio) = 0;
+
+	virtual f32_t GetResponseMagnitude(f32_t freqRatio) const = 0;
 };
 
 class BandpassFilter : public Stream
@@ -33,19 +36,19 @@ public:
 public:
 	virtual ~BandpassFilter() {}
 
-	virtual const FloatParameter &GetCutoffRatio() const = 0;
-	virtual void SetCutoffRatio(Ref_t<FloatParameter> gain) = 0;
+	virtual Ref_t<FloatParameter> GetCutoffRatio() = 0;
+	virtual void SetCutoffRatio(Ref_t<FloatParameter> cutoffRatio) = 0;
 
-	virtual data_t GetQ() = 0;
-	virtual void SetQ(data_t q) = 0;
+	virtual Ref_t<FloatParameter> GetQ() = 0;
+	virtual void SetQ(Ref_t<FloatParameter> q) = 0;
 
-	virtual data_t GetResponseMagnitude(data_t freqRatio) const = 0;
+	virtual f32_t GetResponseMagnitude(f32_t freqRatio) const = 0;
 };
 
-Ref_t<Filter> CreateFilter(Stream *stream,
-	Filter::Kind kind = Filter::k_N2ButterWorth);
+Ref_t<Filter> CreateFilter(Ref_t<Stream> stream,
+	Filter::Kind kind = Filter::k_N2ButterWorthLow);
 
-Ref_t<BandpassFilter> CreateBandpassFilter(Stream* stream,
+Ref_t<BandpassFilter> CreateBandpassFilter(Ref_t<Stream> stream,
 	BandpassFilter::Kind kind = BandpassFilter::k_Biquad);
 
 }

@@ -8,113 +8,90 @@ class SignalDelayerImpl : public SignalDelayer
 {
 public:
 	
-	SignalDelayerImpl(Stream *stream)
+	SignalDelayerImpl(Ref_t<Stream> stream)
 		: m_Stream(stream)
+		, m_DelayMs(MakeRef<FloatConstantParameter>(0.0f))
+		, m_Samples(0)
+		, m_SampleRate(0)
 	{
 	}
 
-	virtual count_t Consume(data_t *data,
-	                        count_t numSamples,
-	                        int32_t sampleRate,
-	                        int32_t numChannels) override
+	virtual Stream::Result Consume(
+		FloatBuffer &buffer,
+		f32_t sampleRate) override
 	{
-		if (m_Stream)
-		{
-			count_t count = m_Stream->Consume(
-				data,
-				numSamples,
-				sampleRate,
-				numChannels);
-			
-			for (count_t i = 0; i < count; i += numChannels)
-			{
-				for (count_t j = 0; j < static_cast<count_t>(numChannels); ++j)
-				{
-					data[i + j] = ConsumeChannel(j, data[i + j]);
-				}
-			}
+		m_Stream->Consume(buffer, sampleRate);
 
-			return count;
+		for (count_t i = 0; i < buffer.GetNumFrames(); ++i)
+		{
+			buffer.SetStereoSample(i, ConsumeSample(buffer.GetStereoSample(i)));
 		}
 
-		return 0;
+		return Stream::Success;
 	}
 
-	virtual void PrepareToConsume(count_t numSamples,
-	                              int32_t sampleRate,
-	                              int32_t numChannels) override
+	virtual void PrepareToConsume(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override
 	{
-		bool delayChanged = m_DelayChanged.load(std::memory_order_acquire);
+		m_Stream->PrepareToConsume(
+			numFrames,
+			numChannels,
+			sampleRate);
 
 		if (m_SampleRate != sampleRate ||
-			m_NumChannels != numChannels ||
-			delayChanged)
+			m_DelayMs->Changed(0))
 		{
-			data_t delayMs = m_DelayMs.load(std::memory_order_acquire);
-			count_t delaySamples = static_cast<count_t>(delayMs / 1000.0f) * sampleRate;
-			
-			m_Inps.clear();
-			m_Inps.resize(numChannels, WindowStream<data_t>(delaySamples));
-		
+			const f32_t delayMs = m_DelayMs->Get(0);
+
+			count_t delaySamples = static_cast<count_t>((delayMs * sampleRate) / 1000.0f);
+
+			m_Samples.Resize(delaySamples);
+	
 			m_SampleRate = sampleRate;
-			m_NumChannels = numChannels;
-
-			if (delayChanged)
-			{
-				m_DelayChanged.store(false, std::memory_order_release);
-			}
 		}
-
-		m_Stream->PrepareToConsume(
-			numSamples,
-			sampleRate,
-			numChannels);
 	}
 
-	virtual data_t GetDelayMs() override
+	virtual Ref_t<FloatParameter> GetDelayMs() override
 	{
-		return m_DelayMs.load(std::memory_order_acquire);
+		return m_DelayMs;
 	}
 
-	virtual void SetDelayMs(data_t delayMs) override
+	virtual void SetDelayMs(Ref_t<FloatParameter> delayMs) override
 	{
-		if (m_DelayMs.load(std::memory_order_acquire) != delayMs)
-		{
-			m_DelayMs.store(delayMs, std::memory_order_release);
-			m_DelayChanged.store(true, std::memory_order_release);
-		}
+		m_DelayMs = delayMs;
 	}
 
 private:
-	data_t ConsumeChannel(count_t index, data_t input)
+	FloatStereoSample ConsumeSample(FloatStereoSample input)
 	{
-		data_t output = input;
+		FloatStereoSample output = input;
 
-		if (m_Inps[index].GetSize() > 0)
+		if (m_Samples.GetSize() > 0)
 		{
-			output = m_Inps[index].Get(-1);
-			m_Inps[index].Add(input);
+			output = m_Samples.GetOldest();
+
+			m_Samples.Add(input);
 		}
 
 		return output;
 	}
 
 private:
-	Stream *m_Stream;
+	Ref_t<Stream> m_Stream;
 
-	std::atomic<data_t> m_DelayMs = 2000.0f;
-	std::atomic_bool m_DelayChanged = false;
+	// TODO: make me a block-based parameter
+	Ref_t<FloatParameter> m_DelayMs;
 
-	int32_t m_SampleRate = 0;
-	int32_t m_NumChannels = 0;
+	WindowStream<FloatStereoSample> m_Samples;
 
-	std::vector<WindowStream<data_t>> m_Inps;
+	s32_t m_SampleRate;
 };
 
-Ref_t<SignalDelayer> CreateSignalDelayer(Stream *stream)
+Ref_t<SignalDelayer> CreateSignalDelayer(Ref_t<Stream> stream)
 {
 	return MakeRef<SignalDelayerImpl>(stream);
 }
 
-};
-
+}

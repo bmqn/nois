@@ -8,52 +8,37 @@ class GainerImpl : public Gainer
 {
 public:
 	
-	GainerImpl(Stream *stream)
+	GainerImpl(Ref_t<Stream> stream)
 		: m_Stream(stream)
-		, m_Gain(MakeOwn<FloatConstantParameter>(0.0f))
+		, m_Gain(MakeRef<FloatConstantParameter>(1.0f))
 	{
 	}
 
-	virtual count_t Consume(data_t *data,
-	                        count_t numSamples,
-	                        int32_t sampleRate,
-	                        int32_t numChannels) override
+	virtual Stream::Result Consume(
+		FloatBuffer &buffer,
+		f32_t sampleRate) override
 	{
-		if (m_Stream)
-		{
-			count_t count = m_Stream->Consume(
-				data,
-				numSamples,
-				sampleRate,
-				numChannels);
+		m_Stream->Consume(buffer, sampleRate);
 
-			for (count_t i = 0; i < count; ++i)
-			{
-				data[i] *= m_Gain->Get(i);
-			}
+		buffer.Multiply(*m_Gain);
 
-			return count;
-		}
-
-		return 0;
+		return Stream::Success;
 	}
 
-	virtual void PrepareToConsume(count_t numSamples,
-	                              int32_t sampleRate,
-	                              int32_t numChannels) override
+	virtual void PrepareToConsume(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override
 	{
-		if (m_Stream)
-		{
-			m_Stream->PrepareToConsume(
-				numSamples,
-				sampleRate,
-				numChannels);
-		}
+		m_Stream->PrepareToConsume(
+			numFrames,
+			numChannels,
+			sampleRate);
 	}
 
-	virtual const FloatParameter &GetGain() const
+	virtual Ref_t<FloatParameter> GetGain() const override
 	{
-		return *m_Gain;
+		return m_Gain;
 	}
 
 	virtual void SetGain(Ref_t<FloatParameter> gain) override
@@ -62,14 +47,15 @@ public:
 	}
 
 private:
-	Stream *m_Stream;
+	Ref_t<Stream> m_Stream;
+
 	Ref_t<FloatParameter> m_Gain;
 };
 
-Ref_t<Gainer> CreateGainer(Stream *stream)
+Ref_t<Gainer> CreateGainer(Ref_t<Stream> stream)
 {
 	return MakeRef<GainerImpl>(stream);
 }
 
-};
+}
 

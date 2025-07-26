@@ -46,27 +46,36 @@ set(NOIS_HSPSRC
 	"${NOIS_HSP}/nois/NoisTypes.hpp"
 	"${NOIS_HSP}/nois/NoisUtil.hpp"
 
-	"${NOIS_HSP}/nois/core/NoisChannel.hpp"
+	"${NOIS_HSP}/nois/core/NoisBuffer.hpp"
+	"${NOIS_HSP}/nois/core/NoisRingBuffer.hpp"
 	"${NOIS_HSP}/nois/core/NoisStream.hpp"
-	"${NOIS_HSP}/nois/core/NoisParameter.hpp"
+
+	"${NOIS_HSP}/nois/dynamic/NoisExpander.hpp"
+	"${NOIS_HSP}/nois/dynamic/NoisTransientShaper.hpp"
 
 	"${NOIS_HSP}/nois/effect/NoisDistorter.hpp"
 	"${NOIS_HSP}/nois/effect/NoisFilter.hpp"
 	"${NOIS_HSP}/nois/effect/NoisGainer.hpp"
 	"${NOIS_HSP}/nois/effect/NoisSignalDelayer.hpp"
 	"${NOIS_HSP}/nois/effect/NoisTimeStretcher.hpp"
+
+	"${NOIS_HSP}/nois/midi/NoisMidiBuffer.hpp"
+	"${NOIS_HSP}/nois/midi/NoisMidiStream.hpp"
+
+	"${NOIS_HSP}/nois/parameter/NoisParameter.hpp"
 	
 	"${NOIS_HSP}/nois/route/NoisCombiner.hpp"
-	"${NOIS_HSP}/nois/route/NoisMixer.hpp"
 	"${NOIS_HSP}/nois/route/NoisSplitter.hpp"
 )
+
+source_group(TREE ${NOIS_HSP} PREFIX "Include Files" FILES ${NOIS_HSPSRC})
 
 set(NOIS_SRC
 	"${NOIS_SRC_DIR}/NoisPrefix.pch"
 	"${NOIS_SRC_DIR}/NoisLog.h"
 
-	"${NOIS_SRC_DIR}/core/NoisChannel.cpp"
-	"${NOIS_SRC_DIR}/core/NoisParameter.cpp"
+	"${NOIS_SRC_DIR}/dynamic/NoisExpander.cpp"
+	"${NOIS_SRC_DIR}/dynamic/NoisTransientShaper.cpp"
 
 	"${NOIS_SRC_DIR}/effect/NoisDistorter.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisFilter.cpp"
@@ -74,16 +83,16 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/effect/NoisSignalDelayer.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisTimeStretcher.cpp"
 
+	"${NOIS_SRC_DIR}/parameter/NoisParameter.cpp"
+
 	"${NOIS_SRC_DIR}/route/NoisCombiner.cpp"
-	"${NOIS_SRC_DIR}/route/NoisMixer.cpp"
 	"${NOIS_SRC_DIR}/route/NoisSplitter.cpp"
 )
 
-source_group("Include Files" FILES "${NOIS_HSPSRC}")
-source_group("Source Files" FILES "${NOIS_SRC}")
+source_group(TREE ${NOIS_SRC_DIR} PREFIX "Source Files" FILES ${NOIS_SRC})
 
 
-#--------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 #	Build
 #--------------------------------------------------------------------------------------------------
 add_library(
