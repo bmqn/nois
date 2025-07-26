@@ -26,11 +26,11 @@ public:
 public:
 	virtual ~FolderDistorter() {}
 
-	virtual data_t GetPreGainDb() = 0;
-	virtual void SetPreGainDb(data_t preGainDb) = 0;
+	virtual f32_t GetPreGainDb() = 0;
+	virtual void SetPreGainDb(f32_t preGainDb) = 0;
 
-	virtual data_t GetThresholdGainDb() = 0;
-	virtual void SetThresholdGainDb(data_t thresholdGainDb) = 0;
+	virtual f32_t GetThresholdGainDb() = 0;
+	virtual void SetThresholdGainDb(f32_t thresholdGainDb) = 0;
 
 	virtual count_t GetNumFolds() = 0;
 	virtual void SetNumFolds(count_t numFolds) = 0;
@@ -39,7 +39,8 @@ public:
 	virtual void SetFolderFunc(FolderFunc folderFunc) = 0;
 };
 
-Ref_t<Distorter<FolderDistorter>> CreateFolderDistorter(Stream *stream,
+Ref_t<Distorter<FolderDistorter>> CreateFolderDistorter(
+	Ref_t<Stream> stream,
 	FolderDistorter::FolderFunc folderFunc = FolderDistorter::FolderFunc::k_FolderFuncBasic);
 
 }

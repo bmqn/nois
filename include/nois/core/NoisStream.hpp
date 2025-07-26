@@ -1,22 +1,38 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
+#include "nois/core/NoisBuffer.hpp"
 
 namespace nois {
+
+// TODO: create a chained stream type here
 
 class Stream
 {
 public:
-	virtual ~Stream() {}
+	enum Result
+	{
+		Success,
+		Starved,
+		Failure
+	};
 
-	virtual count_t Consume(data_t *data,
-	                        count_t numSamples,
-	                        int32_t sampleRate,
-	                        int32_t numChannels) = 0;
+public:
+	virtual ~Stream()
+	{
+	}
 
-	virtual void PrepareToConsume(count_t numSamples,
-	                              int32_t sampleRate,
-	                              int32_t numChannels) {}
+	virtual Result Consume(
+		FloatBuffer &buffer,
+		f32_t sampleRate)
+	= 0;
+
+	virtual void PrepareToConsume(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate)
+	{
+	}
 };
 
 }

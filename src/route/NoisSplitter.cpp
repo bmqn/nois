@@ -11,31 +11,66 @@ class SplitterImpl : public Splitter, public RefFromThis_t<SplitterImpl>
 public:
 	SplitterImpl(Ref_t<Stream> stream = nullptr)
 		: m_Stream(stream)
+		, m_BlockConsumed(false)
+		, m_BlockPrepared(false)
 	{
 	}
 
-	virtual void PrepareToConsume(count_t numSamples,
-	                              int32_t sampleRate,
-	                              int32_t numChannels)
+	virtual Stream::Result ConsumeIntoCache(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override
 	{
-		if (m_NumSamples != numSamples)
-		{
-			m_Samples.resize(numSamples);
+		Stream::Result result = Stream::Success;
 
-			m_NumSamples = numSamples;
+		if (!m_BlockConsumed && m_Stream)
+		{
+			m_BlockConsumed = true;
+
+			m_Cache.Zero();
+
+			if (Stream::Result streamResult =
+				m_Stream->Consume(
+					m_Cache,
+					sampleRate);
+				streamResult != Stream::Success)
+			{
+				result = streamResult;
+			}
+
+			m_BlockPrepared = false;
 		}
 
-		// Very important ! This prevents infinite recursion
-		m_NumSamplesConsumed += numSamples;
+		return result;
+	}
 
-		if (m_Stream)
+	virtual const FloatBuffer &GetCacheBuffer() const override
+	{
+		return m_Cache;
+	}
+
+	void PrepareToConsume(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate)
+	{
+		m_Cache.Resize(numFrames, numChannels);
+
+		if (!m_BlockPrepared && m_Stream)
 		{
-			m_Stream->PrepareToConsume(numSamples, sampleRate, numChannels);
-			m_Stream->Consume(m_Samples.data(), numSamples, sampleRate, numChannels);
+			m_BlockPrepared = true;
+
+			m_Stream->PrepareToConsume(
+				numFrames,
+				numChannels,
+				sampleRate);
+
+			m_BlockConsumed = false;
 		}
 	}
 
-	virtual void SetStream(Ref_t<Stream> stream) override
+	virtual void SetStream(
+		Ref_t<Stream> stream) override
 	{
 		m_Stream = stream;
 	}
@@ -43,76 +78,59 @@ public:
 	Ref_t<Stream> GetStream() override;
 
 private:
-	count_t ConsumeFromCache(data_t *data,
-	                         count_t numSamples,
-	                         int32_t sampleRate,
-	                         int32_t numChannels)
+	Stream::Result ConsumeFromCache(
+		FloatBuffer &buffer,
+		f32_t sampleRate)
 	{
-		count_t count = 0;
+		buffer.Copy(m_Cache);
 
-		if (m_Stream)
-		{
-			std::copy_n(m_Samples.data(), numSamples, data);
-
-			count = numSamples;
-		}
-
-		return count;
+		return Stream::Success;
 	}
 
 private:
 	Ref_t<Stream> m_Stream;
 
-	count_t m_NumSamples = 0;
-	count_t m_NumSamplesConsumed = 0;
-	std::vector<data_t> m_Samples;
+	bool m_BlockConsumed;
+	bool m_BlockPrepared;
+
+	FloatBuffer m_Cache;
 };
 
 class SplitterStreamImpl : public Stream
 {
 public:
-	SplitterStreamImpl(Ref_t<SplitterImpl> splitter)
+	SplitterStreamImpl(
+		Ref_t<SplitterImpl> splitter)
 		: m_Splitter(splitter)
 	{
 	}
 
-	virtual count_t Consume(data_t *data,
-	                        count_t numSamples,
-	                        int32_t sampleRate,
-	                        int32_t numChannels) override
+	virtual Stream::Result Consume(
+		FloatBuffer &buffer,
+		f32_t sampleRate) override
 	{
 		return m_Splitter->ConsumeFromCache(
-			data,
-			numSamples,
-			sampleRate,
-			numChannels);
+			buffer,
+			sampleRate);
 	}
 
-	virtual void PrepareToConsume(count_t numSamples,
-	                              int32_t sampleRate,
-	                              int32_t numChannels) override
+	virtual void PrepareToConsume(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override
 	{
-		if (m_Splitter->m_NumSamplesConsumed <= m_NumSamplesConsumed)
-		{
-			m_Splitter->PrepareToConsume(
-				numSamples,
-				sampleRate,
-				numChannels);
-		}
-
-		m_NumSamplesConsumed += numSamples;
+		m_Splitter->PrepareToConsume(
+			numFrames,
+			numChannels,
+			sampleRate);
 	}
 
 private:
 	Ref_t<SplitterImpl> m_Splitter;
-
-	count_t m_NumSamplesConsumed = 0;
 };
 
 Ref_t<Stream> SplitterImpl::GetStream()
 {
-	m_NumSamplesConsumed = 0;
-
 	return MakeRef<SplitterStreamImpl>(shared_from_this());
 }
 

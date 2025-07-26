@@ -7,131 +7,35 @@ namespace nois {
 class TimeStretcherImpl : public TimeStretcher
 {
 public:
-	TimeStretcherImpl(Stream *stream)
+	TimeStretcherImpl(Ref_t<Stream> stream)
 		: m_Stream(stream)
 	{
 	}
 
-	virtual count_t Consume(data_t *data,
-	                        count_t numSamples,
-	                        int32_t sampleRate,
-	                        int32_t numChannels) override
+	virtual Stream::Result Consume(
+		FloatBuffer &buffer,
+		f32_t sampleRate) override
 	{
-		if (m_Stream)
+		Stream::Result result = Stream::Success;
+
+		if (Stream::Result streamResult =
+			m_Stream->Consume(
+				buffer,
+				sampleRate);
+			streamResult != Stream::Success)
 		{
-			count_t count = m_Stream->Consume(
-				data,
-				numSamples,
-				sampleRate,
-				numChannels);
+			result = streamResult;
+		}
 			
-			for (count_t i = 0; i < count; i += numChannels)
-			{
-				bool stretchActiveChanged = m_StretchActiveChanged.load(std::memory_order_acquire);
-				if (!stretchActiveChanged && m_StretchActiveFunc)
-				{
-					const bool stretchActive = m_StretchActiveFunc();
-					if (m_StretchActive.load(std::memory_order_acquire) != stretchActive)
-					{
-						m_StretchActive.store(stretchActive, std::memory_order_release);
-						stretchActiveChanged = true;
-					}
-				}
-
-				const float stretchFactor = m_StretchFactor->Get();
-				const float grainSize = m_GrainSize->Get();
-				const data_t grainBlend = m_GrainBlend.load(std::memory_order_acquire);
-
-				m_GrainOffset = grainSize * (1.0f - grainBlend) * (1.0f / stretchFactor);
-
-				if (stretchActiveChanged)
-				{
-					for (auto &phases : m_Phases)
-					{
-						phases[0] = 0.0f;
-						phases[1] = -1.0f;
-					}
-
-					for (auto &grains : m_Grains)
-					{
-						grains[0] = 0.0f;
-						grains[1] = 0.0f;
-					}
-
-					for (auto &grainPlaying : m_GrainPlayings)
-					{
-						grainPlaying = 0;
-					}
-
-					for (auto &samples : m_Samples)
-					{
-						samples.Wipe();
-					}
-
-					m_StretchActiveChanged.store(false, std::memory_order_release);
-				}
-
-				for (count_t j = 0; j < static_cast<count_t>(numChannels); ++j)
-				{
-					data[i + j] = ConsumeChannel(j, data[i + j], 1.0f);
-				}
-			}
-
-			return count;
-		}
-
-		return 0;
-	}
-
-	virtual void PrepareToConsume(count_t numSamples,
-	                              int32_t sampleRate,
-	                              int32_t numChannels) override
-	{
-		bool stretchActiveChanged = m_StretchActiveChanged.load(std::memory_order_acquire);
-		if (!stretchActiveChanged && m_StretchActiveFunc)
+		for (count_t i = 0; i < buffer.GetNumFrames(); ++i)
 		{
-			const bool stretchActive = m_StretchActiveFunc();
-			if (m_StretchActive.load(std::memory_order_acquire) != stretchActive)
-			{
-				m_StretchActive.store(stretchActive, std::memory_order_release);
-				stretchActiveChanged = true;
-			}
-		}
-
-		const bool stretchTimeChanged = m_StretchTimeChanged.load(std::memory_order_acquire);
-		const bool grainBlendChanged = m_GrainBlendChanged.load(std::memory_order_acquire);
-
-		if (m_SampleRate != sampleRate ||
-		    m_NumChannels != numChannels ||
-		    stretchActiveChanged ||
-		    stretchTimeChanged ||
-		    grainBlendChanged)
-		{
-			const bool stretchActive = m_StretchActive.load(std::memory_order_acquire);
-			const data_t stretchTimeMs = m_StretchTimeMs.load(std::memory_order_acquire);
-			const float stretchFactor = m_StretchFactor->Get();
-			const float grainSize = m_GrainSize->Get();
-			const data_t grainBlend = m_GrainBlend.load(std::memory_order_acquire);
+			const f32_t stretchFactor = m_StretchFactor->Get(i);
+			const f32_t grainSize = m_GrainSize->Get(i);
+			const f32_t grainBlend = m_GrainBlend->Get(i);
 
 			m_GrainOffset = grainSize * (1.0f - grainBlend) * (1.0f / stretchFactor);
 
-			if (m_SampleRate != sampleRate || m_NumChannels != numChannels || stretchTimeChanged)
-			{
-				m_Phases.resize(numChannels, { data_t{ 0 }, data_t{ -1 } });
-				m_Grains.resize(numChannels, { data_t{ 0 }, data_t{ 0 } });
-				m_GrainPlayings.resize(numChannels, 0);
-
-				count_t timeStretchSamples = static_cast<data_t>(stretchTimeMs / 1000.0f) * sampleRate;
-
-				for (auto &samples : m_Samples)
-				{
-					samples.Resize(timeStretchSamples);
-				}
-
-				m_Samples.resize(numChannels, WindowStream<data_t>(timeStretchSamples));
-			}
-
-			if (stretchActiveChanged || stretchTimeChanged)
+			if (m_StretchActive->Changed(i))
 			{
 				for (auto &phases : m_Phases)
 				{
@@ -156,156 +60,153 @@ public:
 				}
 			}
 
+			for (count_t j = 0; j < buffer.GetNumChannels(); ++j)
+			{
+				buffer(i, j) = ConsumeChannel(j, buffer(i, j), 1.0f);
+			}
+		}
+
+		return result;
+	}
+
+	virtual void PrepareToConsume(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override
+	{
+		m_Stream->PrepareToConsume(
+			numFrames,
+			numChannels,
+			sampleRate);
+
+		if (m_SampleRate != sampleRate ||
+			m_NumChannels != numChannels ||
+			m_StretchTimeMs->Changed(0))
+		{
+			const f32_t stretchTimeMs = m_StretchTimeMs->Get(0);
+
+			count_t timeStretchSamples = static_cast<count_t>((stretchTimeMs * sampleRate) / 1000.0f);
+
+			m_Phases.resize(numChannels, { f32_t{ 0 }, f32_t{ -1 } });
+			m_Grains.resize(numChannels, { f32_t{ 0 }, f32_t{ 0 } });
+			m_GrainPlayings.resize(numChannels, 0);
+
+			for (auto &samples : m_Samples)
+			{
+				samples.Resize(timeStretchSamples);
+			}
+
+			m_Samples.resize(numChannels, WindowStream<f32_t>(timeStretchSamples));
+
 			m_SampleRate = sampleRate;
 			m_NumChannels = numChannels;
-
-			if (stretchActiveChanged)
-			{
-				m_StretchActiveChanged.store(false, std::memory_order_release);
-			}
-
-			if (stretchTimeChanged)
-			{
-				m_StretchTimeChanged.store(false, std::memory_order_release);
-			}
-
-			if (grainBlendChanged)
-			{
-				m_GrainBlendChanged.store(false, std::memory_order_release);
-			}
-		}
-
-		m_Stream->PrepareToConsume(
-			numSamples,
-			sampleRate,
-			numChannels);
-	}
-
-	virtual bool GetStretchActive() override
-	{
-		return m_StretchActive.load(std::memory_order_acquire);
-	}
-
-	virtual void SetStretchActive(bool stretchActive) override
-	{
-		if (m_StretchActive.load(std::memory_order_acquire) != stretchActive)
-		{
-			m_StretchActive.store(stretchActive, std::memory_order_release);
-			m_StretchActiveChanged.store(true, std::memory_order_release);
 		}
 	}
 
-	virtual void BindStretchActive(std::function<bool()> stretchActiveFunc) override
+	virtual Ref_t<FloatParameter> GetStretchActive() override
 	{
-		m_StretchActiveFunc = stretchActiveFunc;
+		return m_StretchActive;
 	}
 
-	virtual data_t GetStretchTimeMs() override
+	virtual void SetStretchActive(Ref_t<FloatParameter> stretchActive) override
 	{
-		return m_StretchTimeMs.load(std::memory_order_acquire);
+		m_StretchActive = stretchActive;
 	}
 
-	virtual void SetStretchTimeMs(data_t stretchTimeMs) override
+	virtual Ref_t<FloatParameter> GetStretchTimeMs() override
 	{
-		stretchTimeMs = std::max(0.0f, stretchTimeMs);
-
-		if (m_StretchTimeMs.load(std::memory_order_acquire) != stretchTimeMs)
-		{
-			m_StretchTimeMs.store(stretchTimeMs, std::memory_order_release);
-			m_StretchTimeChanged.store(true, std::memory_order_release);
-		}
+		return m_StretchTimeMs;
 	}
 
-	virtual const FloatParameter &GetStretchFactor() const override
+	virtual void SetStretchTimeMs(Ref_t<FloatParameter> stretchTimeMs) override
 	{
-		return *m_StretchFactor;
+		m_StretchTimeMs = stretchTimeMs;
 	}
 
-	virtual const FloatParameter &GetGrainSize() const override
+	virtual Ref_t<FloatParameter> GetStretchFactor() override
 	{
-		return *m_GrainSize;
+		return m_StretchFactor;
 	}
 
-	virtual data_t GetGrainBlend() override
+	virtual void SetStretchFactor(Ref_t<FloatParameter> stretchFactor) override
 	{
-		return m_GrainBlend.load(std::memory_order_acquire);
+		m_StretchFactor = stretchFactor;
 	}
 
-	virtual void SetGrainBlend(data_t grainBlend) override
+	virtual Ref_t<FloatParameter> GetGrainSize() override
 	{
-		grainBlend = std::clamp(grainBlend, 0.05f, 0.45f);
+		return m_GrainSize;
+	}
 
-		if (m_GrainBlend.load(std::memory_order_acquire) != grainBlend)
-		{
-			m_GrainBlend.store(grainBlend, std::memory_order_release);
-			m_GrainBlendChanged.store(true, std::memory_order_release);
-		}
+	virtual void SetGrainSize(Ref_t<FloatParameter> grainSize) override
+	{
+		m_GrainSize = grainSize;
+	}
+
+	virtual Ref_t<FloatParameter> GetGrainBlend() override
+	{
+		return m_GrainBlend;
+	}
+
+	virtual void SetGrainBlend(Ref_t<FloatParameter> grainBlend) override
+	{
+		m_GrainBlend = grainBlend;
 	}
 
 private:
-	virtual void SetStretchFactorImpl(Own_t<FloatParameter> &&stretchFactor) override
+	f32_t ConsumeChannel(count_t frameIndex, f32_t input, f32_t pitchRatio)
 	{
-		m_StretchFactor = std::move(stretchFactor);
-	}
+		const bool stretchActive = m_StretchActive->Get(frameIndex) > 0.0f;
+		const f32_t grainSize = m_GrainSize->Get(frameIndex);
+		const f32_t grainBlend = m_GrainBlend->Get(frameIndex);
 
-	virtual void SetGrainSizeImpl(Own_t<FloatParameter> &&grainSize) override
-	{
-		m_GrainSize = std::move(grainSize);
-	}
+		f32_t output = input;
 
-	data_t ConsumeChannel(count_t index, data_t input, data_t pitchRatio)
-	{
-		const bool stretchActive = m_StretchActive.load(std::memory_order_acquire);
-		const float grainSize = m_GrainSize->Get();
-		const data_t grainBlend = m_GrainBlend.load(std::memory_order_acquire);
-
-		data_t output = input;
-
-		if (m_Samples[index].GetCount() < m_Samples[index].GetSize())
+		if (m_Samples[frameIndex].GetCount() < m_Samples[frameIndex].GetSize())
 		{
-			m_Samples[index].Add(input);
+			m_Samples[frameIndex].Add(input);
 		}
 
 		if (stretchActive)
 		{
-			if ((m_Phases[index][0] > -1.0f) && (m_Phases[index][1] > -1.0f))
+			if ((m_Phases[frameIndex][0] > -1.0f) && (m_Phases[frameIndex][1] > -1.0f))
 			{
-				data_t m = 1.0f / (grainSize * grainBlend);
-				data_t phi = m_Phases[index][m_GrainPlayings[index]];
-				data_t window = m * phi;
+				f32_t m = 1.0f / (grainSize * grainBlend);
+				f32_t phi = m_Phases[frameIndex][m_GrainPlayings[frameIndex]];
+				f32_t window = m * phi;
 				
-				data_t x0 = m_Grains[index][m_GrainPlayings[index]] + m_Phases[index][m_GrainPlayings[index]];
-				data_t x1 = m_Grains[index][!m_GrainPlayings[index]] + m_Phases[index][!m_GrainPlayings[index]];
-				count_t i0 = static_cast<count_t>(m_Samples[index].GetOffset() - x0);
-				count_t i1 = static_cast<count_t>(m_Samples[index].GetOffset() - x1);
+				f32_t x0 = m_Grains[frameIndex][m_GrainPlayings[frameIndex]] + m_Phases[frameIndex][m_GrainPlayings[frameIndex]];
+				f32_t x1 = m_Grains[frameIndex][!m_GrainPlayings[frameIndex]] + m_Phases[frameIndex][!m_GrainPlayings[frameIndex]];
+				count_t i0 = static_cast<count_t>(m_Samples[frameIndex].GetOffset() - x0);
+				count_t i1 = static_cast<count_t>(m_Samples[frameIndex].GetOffset() - x1);
 
-				output = m_Samples[index].Get(i0) * window + m_Samples[index].Get(i1) * (1.0f - window);
+				output = m_Samples[frameIndex].Get(i0) * window + m_Samples[frameIndex].Get(i1) * (1.0f - window);
 			}
 			else
 			{
-				data_t x = m_Grains[index][m_GrainPlayings[index]] + m_Phases[index][m_GrainPlayings[index]];
-				count_t i = static_cast<count_t>(m_Samples[index].GetOffset() - x);
+				f32_t x = m_Grains[frameIndex][m_GrainPlayings[frameIndex]] + m_Phases[frameIndex][m_GrainPlayings[frameIndex]];
+				count_t i = static_cast<count_t>(m_Samples[frameIndex].GetOffset() - x);
 
-				output = m_Samples[index].Get(i);
+				output = m_Samples[frameIndex].Get(i);
 			}
 
-			m_Phases[index][m_GrainPlayings[index]] += pitchRatio;
+			m_Phases[frameIndex][m_GrainPlayings[frameIndex]] += pitchRatio;
 
-			if (m_Phases[index][!m_GrainPlayings[index]] > -1.0f)
+			if (m_Phases[frameIndex][!m_GrainPlayings[frameIndex]] > -1.0f)
 			{
-				m_Phases[index][!m_GrainPlayings[index]] += pitchRatio;
+				m_Phases[frameIndex][!m_GrainPlayings[frameIndex]] += pitchRatio;
 			}
 
-			if (m_Phases[index][!m_GrainPlayings[index]] >= grainSize)
+			if (m_Phases[frameIndex][!m_GrainPlayings[frameIndex]] >= grainSize)
 			{
-				m_Phases[index][!m_GrainPlayings[index]] = -1.0f;
+				m_Phases[frameIndex][!m_GrainPlayings[frameIndex]] = -1.0f;
 			}
 
-			if (m_Phases[index][m_GrainPlayings[index]] >= grainSize * (1.0f - grainBlend))
+			if (m_Phases[frameIndex][m_GrainPlayings[frameIndex]] >= grainSize * (1.0f - grainBlend))
 			{
-				m_Phases[index][!m_GrainPlayings[index]] = 0.0f;
-				m_Grains[index][!m_GrainPlayings[index]] = m_Grains[index][m_GrainPlayings[index]] + m_GrainOffset;
-				m_GrainPlayings[index] = 1 - m_GrainPlayings[index];
+				m_Phases[frameIndex][!m_GrainPlayings[frameIndex]] = 0.0f;
+				m_Grains[frameIndex][!m_GrainPlayings[frameIndex]] = m_Grains[frameIndex][m_GrainPlayings[frameIndex]] + m_GrainOffset;
+				m_GrainPlayings[frameIndex] = 1 - m_GrainPlayings[frameIndex];
 			}
 		}
 
@@ -313,37 +214,29 @@ private:
 	}
 
 private:
-	Stream *m_Stream;
+	Ref_t<Stream> m_Stream;
 
-	std::atomic_bool m_StretchActive = false;
-	std::atomic_bool m_StretchActiveChanged = false;
-	std::function<bool()> m_StretchActiveFunc;
+	Ref_t<FloatParameter> m_StretchActive = MakeRef<FloatConstantParameter>(0.0f);
+	Ref_t<FloatParameter> m_StretchTimeMs = MakeRef<FloatConstantParameter>(1000.0f);
+	Ref_t<FloatParameter> m_StretchFactor = MakeRef<FloatConstantParameter>(1.0f);
+	Ref_t<FloatParameter> m_GrainSize = MakeOwn<FloatConstantParameter>(1.0f);
+	Ref_t<FloatParameter> m_GrainBlend = MakeRef<FloatConstantParameter>(0.1f);
 
-	std::atomic<data_t> m_StretchTimeMs = 1000.0f;
-	std::atomic_bool m_StretchTimeChanged = false;
+	count_t m_NumChannels = 0;
+	f32_t m_SampleRate = 0.0f;
 
-	Own_t<FloatParameter> m_StretchFactor = MakeOwn<FloatConstantParameter>(1.0f);
-
-	Own_t<FloatParameter> m_GrainSize = MakeOwn<FloatConstantParameter>(1.0f);
-
-	std::atomic<data_t> m_GrainBlend = 0.1f;
-	std::atomic_bool m_GrainBlendChanged = false;
-
-	int32_t m_SampleRate = 0;
-	int32_t m_NumChannels = 0;
-
-	std::vector<std::array<data_t, 2>> m_Phases;
-	std::vector<std::array<data_t, 2>> m_Grains;
+	std::vector<std::array<f32_t, 2>> m_Phases;
+	std::vector<std::array<f32_t, 2>> m_Grains;
 	std::vector<count_t> m_GrainPlayings;
-	data_t m_GrainOffset = 0.0f;
+	f32_t m_GrainOffset = 0.0f;
 
-	std::vector<WindowStream<data_t>> m_Samples;
+	std::vector<WindowStream<f32_t>> m_Samples;
 };
 
-Ref_t<TimeStretcher> CreateTimeStretcher(Stream *stream)
+Ref_t<TimeStretcher> CreateTimeStretcher(Ref_t<Stream> stream)
 {
 	return MakeRef<TimeStretcherImpl>(stream);
 }
 
-};
+}
 

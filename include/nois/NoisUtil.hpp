@@ -9,12 +9,12 @@
 
 namespace nois {
 
-inline data_t ToDb(data_t x)
+inline f32_t ToDb(f32_t x)
 {
 	return 10.0f * std::log10(x - k_DcOffset);
 }
 
-inline data_t FromDb(data_t db)
+inline f32_t FromDb(f32_t db)
 {
 	return std::pow(10.0f, (db) / 10.0f) + k_DcOffset;
 }
@@ -23,9 +23,9 @@ template<typename T>
 struct WindowStream
 {
 	WindowStream(count_t length)
-		: m_Data(length, T{ 0 })
-		, m_Offset(0)
+		: m_Offset(0)
 		, m_Count(0)
+		, m_Data(length, T{})
 	{
 	}
 
@@ -38,33 +38,85 @@ struct WindowStream
 
 	inline T Get(count_t n) const
 	{
-		count_t offset = (m_Offset - n) % m_Data.size();
-		return m_Data[offset];
+		count_t size = m_Data.size();
+
+		count_t index = (m_Offset + size - n - 1) % size;
+
+		if (index < 0)
+		{
+			index += size;
+		}
+
+		return m_Data[index];
+	}
+
+	inline T GetOldest() const
+	{
+		return Get(m_Count - 1);
+	}
+
+	inline T GetNewest() const
+	{
+		return Get(0);
 	}
 
 	inline void Wipe()
 	{
-		std::fill(m_Data.begin(), m_Data.end(), T{ 0 });
 		m_Offset = 0;
 		m_Count = 0;
+		std::fill(m_Data.begin(), m_Data.end(), T{});
 	}
 
 	inline void Resize(count_t length)
 	{
-		m_Data.resize(length, T{ 0 });
+		if (length == 0)
+		{
+			m_Offset = 0;
+			m_Count = 0;
+			m_Data.resize(0);
+		}
+
+		if (length == m_Data.size())
+		{
+			return;
+		}
+
+		std::vector<T> newData(length, T{});
+
+		for (count_t i = std::min(m_Count, length) - 1; i >= 0; --i)
+		{
+			newData[i] = Get(i);
+		}
+
 		m_Offset = m_Offset % length;
 		m_Count = (std::min)(m_Count, length);
+		m_Data = std::move(newData);
 	}
 
-	inline const T *GetData() const { return m_Data.data(); }
-	inline count_t GetSize() const { return m_Data.size(); }
-	inline count_t GetCount() const { return m_Count; }
-	inline count_t GetOffset() const { return m_Offset; }
+	inline const T *GetData() const
+	{
+		return m_Data.data();
+	}
+	
+	inline count_t GetSize() const
+	{
+		return m_Data.size();
+	}
+
+	inline count_t GetCount() const
+	{
+		return m_Count;
+	}
+
+	inline count_t GetOffset() const
+	{
+		return m_Offset;
+	}
 
 private:
-	std::vector<T> m_Data;
 	count_t m_Offset;
 	count_t m_Count;
+	std::vector<T> m_Data;
 };
 
 
