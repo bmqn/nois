@@ -1,6 +1,5 @@
 #include "nois/dynamic/NoisTransientShaper.hpp"
 
-#include "nois/NoisUtil.hpp"
 #include "nois/effect/NoisFilter.hpp"
 
 namespace nois {

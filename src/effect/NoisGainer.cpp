@@ -1,7 +1,5 @@
 #include "nois/effect/NoisGainer.hpp"
 
-#include "nois/NoisUtil.hpp"
-
 namespace nois {
 
 class GainerImpl : public Gainer

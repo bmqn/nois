@@ -20,7 +20,7 @@ public:
 	bool IsNoteOn() const
 	{
 		bool isNoteOn = false;
-		isNoteOn = isNoteOn || (m_Status & 0xf0) == 0x90 && m_Data2 > 0;
+		isNoteOn = isNoteOn || ((m_Status & 0xf0) == 0x90 && m_Data2 > 0);
 		return isNoteOn;
 	}
 

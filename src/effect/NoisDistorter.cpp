@@ -1,13 +1,10 @@
 #include "nois/effect/NoisDistorter.hpp"
 
-#include "nois/NoisUtil.hpp"
-
 namespace nois {
 
 class FolderDistorterImpl : public FolderDistorter
 {
 public:
-	
 	FolderDistorterImpl(Ref_t<Stream> stream, FolderFunc folderFunc)
 		: m_Stream(stream)
 		, m_FolderFunc(folderFunc)

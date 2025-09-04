@@ -1,7 +1,5 @@
 #include "nois/dynamic/NoisExpander.hpp"
 
-#include "nois/NoisUtil.hpp"
-
 namespace nois {
 
 class ExpanderImpl : public Expander

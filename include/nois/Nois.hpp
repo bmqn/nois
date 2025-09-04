@@ -1,8 +1,12 @@
 #pragma once
 
-#include "NoisTypes.hpp"
 #include "NoisConfig.hpp"
+#include "NoisMacros.hpp"
+#include "NoisTypes.hpp"
 #include "NoisUtil.hpp"
+
+#include "analysis/NoisFilterBank.hpp"
+#include "analysis/NoisPitchDetector.hpp"
 
 #include "core/NoisBuffer.hpp"
 #include "core/NoisRingBuffer.hpp"

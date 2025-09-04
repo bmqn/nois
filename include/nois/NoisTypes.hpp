@@ -12,8 +12,13 @@
 namespace nois {
 
 using count_t = int64_t;
+using ucount_t = uint64_t;
 using f32_t = float;
+using f64_t = double;
 using s32_t = int32_t;
+using u32_t = uint32_t;
+using s64_t = int64_t;
+using u64_t = uint64_t;
 
 template<typename T>
 struct MonoSample
