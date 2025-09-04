@@ -9,22 +9,28 @@ namespace nois {
 class TimeStretcher : public Stream
 {
 public:
-	virtual ~TimeStretcher() {}
+	TimeStretcher(Ref_t<Stream> stream);
 
-	virtual Ref_t<FloatParameter> GetStretchActive() = 0;
-	virtual void SetStretchActive(Ref_t<FloatParameter> stretchActive) = 0;
+	TimeStretcher(const TimeStretcher&) = delete;
+	TimeStretcher& operator=(const TimeStretcher&) = delete;
+	TimeStretcher(TimeStretcher&&) noexcept = delete;
+	TimeStretcher& operator=(TimeStretcher&&) noexcept = delete;
 
-	virtual Ref_t<FloatParameter> GetStretchTimeMs() = 0;
-	virtual void SetStretchTimeMs(Ref_t<FloatParameter> stretchTimeMs) = 0;
+	Stream::Result Consume(FloatBuffer& buffer, f32_t sampleRate) override final;
+	void PrepareToConsume(count_t numFrames, count_t numChannels, f32_t sampleRate) override final;
 
-	virtual Ref_t<FloatParameter> GetStretchFactor() = 0;
-	virtual void SetStretchFactor(Ref_t<FloatParameter> stretchFactor) = 0;
+	NOIS_INTERFACE_PARAM(StretchActive, FloatParameter)
+	NOIS_INTERFACE_PARAM(StretchTimeMs, FloatBlockParameter)
+	NOIS_INTERFACE_PARAM(StretchFactor, FloatParameter)
+	NOIS_INTERFACE_PARAM(GrainSize, FloatParameter)
+	NOIS_INTERFACE_PARAM(GrainBlend, FloatParameter)
+	NOIS_INTERFACE_PARAM(GrainGain, FloatParameter)
+	NOIS_INTERFACE_PARAM(GrainPhaseInc, FloatParameter)
+	NOIS_INTERFACE_PARAM(GrainLockActive, FloatParameter)
 
-	virtual Ref_t<FloatParameter> GetGrainSize() = 0;
-	virtual void SetGrainSize(Ref_t<FloatParameter> grainSize) = 0;
-
-	virtual Ref_t<FloatParameter> GetGrainBlend() = 0;
-	virtual void SetGrainBlend(Ref_t<FloatParameter> grainBlend) = 0;
+private:
+	struct Impl;
+	Own_t<Impl> m_Impl;
 };
 
 Ref_t<TimeStretcher> CreateTimeStretcher(Ref_t<Stream> stream);

@@ -24,15 +24,20 @@ template<typename T>
 using BinderFunc_t = std::function<T(count_t)>;
 
 using FloatBlockParameter = BlockParameter<f32_t>;
-using FloatBlockConstantParameter = ConstantBlockParameter<f32_t>;
-using FloatBlockBinderParameter = BinderBlockParameter<f32_t>;
+using FloatConstantBlockParameter = ConstantBlockParameter<f32_t>;
+using FloatBinderBlockParameter = BinderBlockParameter<f32_t>;
+using FloatBlockBinderFunc_t = BlockBinderFunc_t<f32_t>;
 
 using FloatParameter = Parameter<f32_t>;
 using FloatConstantParameter = ConstantParameter<f32_t>;
 using FloatBinderParameter = BinderParameter<f32_t>;
-
-using FloatBlockBinderFunc_t = BlockBinderFunc_t<f32_t>;
 using FloatBinderFunc_t = BinderFunc_t<f32_t>;
+
+using FloatBlockParameterList = std::vector<Ref_t<FloatBlockParameter>>;
+using FloatConstantBlockParameterList = std::vector<Ref_t<FloatConstantBlockParameter>>;
+
+using FloatParameterList = std::vector<Ref_t<FloatParameter>>;
+using FloatConstantParameterList = std::vector<Ref_t<FloatConstantParameter>>;
 
 template<typename T>
 class BlockParameter
@@ -163,7 +168,7 @@ public:
 	virtual bool Changed(
 		count_t frameIndex) const = 0;
 
-	virtual void Dirty() {}
+	virtual void Dirty() = 0;
 };
 
 template<typename T>
@@ -172,7 +177,17 @@ class ConstantParameter : public Parameter<T>
 public:
 	ConstantParameter(T value)
 		: m_Value(value)
+		, m_Change(false)
+		, m_Dirty(true)
 	{
+	}
+
+	virtual void Prepare(
+		count_t numFrames,
+		f32_t sampleRate) override
+	{
+		m_Change = m_Dirty;
+		m_Dirty = false;
 	}
 
 	virtual T Get(
@@ -184,12 +199,22 @@ public:
 	virtual bool Changed(
 		count_t frameIndex) const override
 	{
-		return false;
+		return m_Change;
+	}
+
+	virtual void Dirty() override
+	{
+		m_Dirty = true;
 	}
 
 	void Set(
 		T value)
 	{
+		if (m_Value != value)
+		{
+			m_Dirty = true;
+		}
+
 		m_Value = value;
 	}
 
@@ -200,6 +225,8 @@ public:
 
 private:
 	T m_Value;
+	bool m_Change;
+	bool m_Dirty;
 };
 
 template<typename T>
@@ -235,9 +262,16 @@ public:
 			{
 				T value = m_Binder(i);
 
-				m_Changes[i] = i > 0
-					? value != m_Values[i - 1]
-					: value != m_LastValue;
+				if (m_Dirty)
+				{
+					m_Changes[i] = true;
+				}
+				else
+				{
+					m_Changes[i] = i > 0
+						? value != m_Values[i - 1]
+						: value != m_LastValue;
+				}
 
 				m_Values[i] = value;
 			}

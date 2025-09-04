@@ -6,174 +6,156 @@
 namespace nois {
 
 template<typename>
-class RingBuffer;
+class InterleavedRingBuffer;
 
-using FloatRingBuffer = RingBuffer<f32_t>;
+using FloatInterleavedRingBuffer = InterleavedRingBuffer<f32_t>;
 
 template<typename T>
-class RingBuffer
+class InterleavedRingBuffer
 {
 public:
-	RingBuffer()
-		: m_NumFrames(0)
+	InterleavedRingBuffer()
+		: m_LogicalNumFrames(0)
+		, m_InternalNumFrames(0)
+		, m_FrameModuloMask(0)
+		, m_FrameCount(0)
+		, m_FrameOffset(0)
 		, m_NumChannels(0)
-		, m_Size(0)
-		, m_LatencySize(0)
-		, m_InternalSize(0)
-		, m_LogicalBase(0)
-		, m_LogicalWriteOffset(0)
-		, m_InternalPlayOffset(0)
-		, m_InternalData(0, T{ 0 })
+		, m_Data(0, T{})
 	{
 	}
 
-	RingBuffer(count_t numFrames, count_t numChannels)
-		: m_NumFrames(numFrames)
-		, m_NumChannels(numChannels)
-		, m_Size(numFrames * numChannels)
-		, m_LatencySize(numFrames * numChannels)
-		, m_InternalSize(m_Size + m_LatencySize)
-		, m_LogicalBase(0)
-		, m_LogicalWriteOffset(m_LatencySize)
-		, m_InternalPlayOffset(0)
-		, m_InternalData(m_InternalSize, T{ 0 })
+	inline count_t GetNumFrames() const
 	{
+		return m_LogicalNumFrames;
 	}
 
-	void Consume(Buffer<T> &buffer)
+	inline count_t GetNumChannels() const
 	{
-		count_t sizeToConsume = buffer.GetSize();
-
-		count_t internalPlayOffset = m_InternalPlayOffset.load(std::memory_order_acquire);
-		count_t newInternalPlayEndOffset = (internalPlayOffset + sizeToConsume);
-
-		if (internalPlayOffset < newInternalPlayEndOffset || newInternalPlayEndOffset == 0)
-		{
-			const T *dataToCopy = m_Data.data() + internalPlayOffset;
-			count_t sizeToCopy = sizeToConsume;
-
-			buffer.Copy(dataToCopy, sizeToCopy);
-		}
-		else
-		{
-			const T *dataToCopy1 = m_Data.data() + internalPlayOffset;
-			count_t sizeToCopy1 = m_InternalSize - internalPlayOffset;
-			const T *dataToCopy2 = m_Data.data();
-			count_t sizeToCopy2 = sizeToConsume - sizeToCopy1;
-
-			buffer.Copy(dataToCopy1, sizeToCopy1);
-			buffer.Copy(dataToCopy2, sizeToCopy2);
-		}
-
-		count_t newInternalPlayOffset = newInternalPlayEndOffset % m_InternalSize;
-		
-		m_InternalPlayOffset.store(newInternalPlayOffset, std::memory_order_release);
-	
-		if ((internalPlayOffset + m_InternalSize - m_LogicalBase) % m_InternalSize >= m_Size)
-		{
-			m_LogicalBase = (m_LogicalBase + m_Size) % m_Size;
-		}
+		return m_NumChannels;
 	}
 
-	void GetOffsets(count_t &playOffset, count_t &writeOffset) const
+	inline void Resize(count_t numFrames, count_t numChannels)
 	{
-		count_t internalPlayOffset = m_InternalPlayOffset.load(std::memory_order_acquire);
-		count_t logicalPlayOffset = InternalToLogical(internalPlayOffset);
-		
-		playOffset = logicalPlayOffset;
-		writeOffset = m_LogicalWriteOffset;
-	}
-
-	bool Lock(count_t offset, count_t size, T *&ptr1, count_t &size1, T *&ptr2, count_t &size2)
-	{
-		if (size > m_Size)
+		if (numFrames == m_LogicalNumFrames)
 		{
-			return false;
+			return;
 		}
 
-		count_t internalOffset = LogicalToInternal(offset);
-		count_t endOffset = (internalOffset + size) % m_InternalSize;
+		ucount_t newLogicalNumFrames = numFrames;
+		ucount_t newInternalNumFrames = NextPowerOfTwo(numFrames);
+		ucount_t newFrameCount = std::min(m_FrameCount, newInternalNumFrames);
 
-		if (internalOffset < endOffset || endOffset == 0)
+		count_t newNumChannels = numChannels;
+
+		std::vector<T> newData(newNumChannels * newInternalNumFrames, T{});
+
+		for (ucount_t f = 0; f < newFrameCount; ++f)
 		{
-			ptr1 = &m_InternalData[internalOffset];
-			size1 = size;
-			ptr2 = nullptr;
-			size2 = 0;
-		}
-		else
-		{
-			ptr1 = &m_InternalData[internalOffset];
-			size1 = m_InternalSize - internalOffset;
-			ptr2 = &m_InternalData[0];
-			size2 = size - size1;
+			// Copy in chronological order
+			GetChronological(f, &newData[f * newNumChannels], newNumChannels);
 		}
 
-		return true;
+		// Replace
+		m_LogicalNumFrames = newLogicalNumFrames;
+		m_InternalNumFrames = newInternalNumFrames;
+		m_FrameModuloMask = newInternalNumFrames - 1;
+		m_FrameOffset = newFrameCount & m_FrameModuloMask;
+		m_FrameCount = newFrameCount;
+		m_NumChannels = newNumChannels;
+		m_Data.swap(newData);
 	}
 
-	bool Unlock(T *ptr1, count_t size1, T *ptr2, count_t size2)
+	inline void Reset()
 	{
-		if (!ptr1)
-		{
-			return false;
-		}
-
-		m_LogicalWriteOffset = (m_LogicalWriteOffset + size1 + size2) % m_Size;
-
-		return true;
+		Zero();
+		m_FrameOffset = 0;
+		m_FrameCount = 0;
 	}
 
-	inline count_t GetSize() const
+	inline void Fill(T value)
 	{
-		return m_Size;
-	}
-
-	inline count_t GetBytes() const
-	{
-		return m_Size * sizeof(T);
+		std::fill(m_Data.begin(), m_Data.end(), value);
 	}
 
 	inline void Zero()
 	{
-		Fill(T{ 0 });
+		Fill(T{});
 	}
 
-	inline void Fill(T sample)
+	inline void Add(const T *samples, count_t numChannels)
 	{
-		std::fill(m_InternalData.begin(), m_InternalData.begin() + m_Size, sample);
-	}
+		ucount_t baseOffset = m_FrameOffset * m_NumChannels;
 
-private:
-	count_t LogicalToInternal(count_t logicalOffset) const
-	{
-		return (m_LogicalBase + logicalOffset) % m_InternalSize;
-	}
-
-	count_t InternalToLogical(count_t internalOffset) const
-	{
-		if (internalOffset < m_LogicalBase)
+		for (size_t c = 0; c < std::min(m_NumChannels, numChannels); ++c)
 		{
-			internalOffset += m_InternalSize;
+			m_Data[baseOffset + c] = samples[c];
 		}
 
-		return (internalOffset - m_LogicalBase) % m_Size;
+		m_FrameOffset = (m_FrameOffset + 1) & m_FrameModuloMask;
+
+		if (m_FrameCount < m_InternalNumFrames)
+		{
+			++m_FrameCount;
+		}
+	}
+
+	inline void GetChronological(count_t frameIndex, T *samples, count_t numChannels) const
+	{
+		ucount_t baseOffset = ((
+			m_FrameOffset -
+			m_FrameCount +
+			frameIndex +
+			m_InternalNumFrames) &
+			m_FrameModuloMask) *
+			m_NumChannels;
+
+		for (count_t c = 0; c < std::min(m_NumChannels, numChannels); ++c)
+		{
+			samples[c] = m_Data[baseOffset + c];
+		}
+	}
+
+	inline void GetOldest(T *samples, count_t numChannels) const
+	{
+		if (m_FrameCount < m_LogicalNumFrames)
+		{
+			std::fill(samples, samples + numChannels, T{});
+		}
+		else
+		{
+			GetChronological(0, samples, numChannels);
+		}
+	}
+
+	inline bool IsFull() const
+	{
+		return m_FrameCount == m_LogicalNumFrames;
 	}
 
 private:
-	count_t m_NumFrames;
+	ucount_t NextPowerOfTwo(ucount_t n)
+	{
+		ucount_t power = 1;
+
+		while (power < n)
+		{
+			power <<= 1;
+		}
+		
+		return power;
+	}
+
+private:
+	ucount_t m_LogicalNumFrames;
+	ucount_t m_InternalNumFrames;
+	ucount_t m_FrameModuloMask;
+	ucount_t m_FrameOffset;
+	ucount_t m_FrameCount;
+
 	count_t m_NumChannels;
-	count_t m_Size;
 
-	count_t m_LatencySize;
-	count_t m_InternalSize;
-
-	count_t m_LogicalBase;
-	count_t m_LogicalWriteOffset;
-
-	std::atomic<count_t> m_InternalPlayOffset;
-
-	std::vector<T> m_InternalData;
+	std::vector<T> m_Data;
 };
 
 }

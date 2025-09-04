@@ -66,7 +66,10 @@ public:
 
 		std::vector<T> newData(size, T{ 0 });
 
-		std::copy_n(m_Data.begin(), std::min(m_Size, size), newData.begin());
+		if (m_Size > 0)
+		{
+			std::copy_n(m_Data.begin(), std::min(m_Size, size), newData.begin());
+		}
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;

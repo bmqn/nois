@@ -29,8 +29,14 @@
 #include <type_traits>
 #include <utility>
 
-#define NOIS_ENABLE_BREAKS             0
-#define NOIS_ENABLE_LOGGING            1
-#define NOIS_ENABLE_ASSERSIONS         1
+#define NOIS_ENABLE_BREAKS 0
+#define NOIS_ENABLE_LOGGING 1
+#define NOIS_ENABLE_ASSERSIONS 1
+
+#include "nois/NoisTypes.hpp"
+
+#include "nois/NoisConfig.hpp"
+#include "nois/NoisUtil.hpp"
 
 #include "NoisLog.h"
+#include "NoisMacros.hpp"

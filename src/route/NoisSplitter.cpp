@@ -1,7 +1,5 @@
 #include "nois/route/NoisSplitter.hpp"
 
-#include "nois/NoisUtil.hpp"
-
 namespace nois {
 
 class SplitterImpl : public Splitter, public RefFromThis_t<SplitterImpl>

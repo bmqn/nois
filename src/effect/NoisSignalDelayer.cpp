@@ -1,18 +1,15 @@
 #include "nois/effect/NoisSignalDelayer.hpp"
 
-#include "nois/NoisUtil.hpp"
+#include "nois/core/NoisRingBuffer.hpp"
 
 namespace nois {
 
 class SignalDelayerImpl : public SignalDelayer
 {
 public:
-	
 	SignalDelayerImpl(Ref_t<Stream> stream)
 		: m_Stream(stream)
 		, m_DelayMs(MakeRef<FloatConstantParameter>(0.0f))
-		, m_Samples(0)
-		, m_SampleRate(0)
 	{
 	}
 
@@ -20,14 +17,44 @@ public:
 		FloatBuffer &buffer,
 		f32_t sampleRate) override
 	{
-		m_Stream->Consume(buffer, sampleRate);
+		Stream::Result result = Stream::Success;
 
-		for (count_t i = 0; i < buffer.GetNumFrames(); ++i)
+		if (Stream::Result streamResult =
+			m_Stream->Consume(
+				buffer,
+				sampleRate);
+			streamResult != Stream::Success)
 		{
-			buffer.SetStereoSample(i, ConsumeSample(buffer.GetStereoSample(i)));
+			result = streamResult;
 		}
 
-		return Stream::Success;
+		count_t numFrames = buffer.GetNumFrames();
+		count_t numChannels = buffer.GetNumChannels();
+
+		// Scratch storage for samples
+		std::array<f32_t, k_MaxChannels> samples;
+
+		for (count_t f = 0; f < numFrames; ++f)
+		{
+			// Add the latest samples to our cache
+			{
+				for (count_t c = 0; c < numChannels; ++c)
+				{
+					samples[c] = buffer(f, c);
+				}
+
+				m_CacheBuffer.Add(samples.data(), numChannels);
+			}
+
+			// Grab the oldest samples
+			for (count_t c = 0; c < numChannels; ++c)
+			{
+				m_CacheBuffer.GetOldest(samples.data(), numChannels);
+				buffer(f, c) = samples[c];
+			}
+		}
+
+		return result;
 	}
 
 	virtual void PrepareToConsume(
@@ -45,9 +72,8 @@ public:
 		{
 			const f32_t delayMs = m_DelayMs->Get(0);
 
-			count_t delaySamples = static_cast<count_t>((delayMs * sampleRate) / 1000.0f);
-
-			m_Samples.Resize(delaySamples);
+			count_t numCacheFrames = static_cast<count_t>((delayMs * sampleRate) / 1000.0f);
+			m_CacheBuffer.Resize(numCacheFrames, numChannels);
 	
 			m_SampleRate = sampleRate;
 		}
@@ -64,29 +90,13 @@ public:
 	}
 
 private:
-	FloatStereoSample ConsumeSample(FloatStereoSample input)
-	{
-		FloatStereoSample output = input;
-
-		if (m_Samples.GetSize() > 0)
-		{
-			output = m_Samples.GetOldest();
-
-			m_Samples.Add(input);
-		}
-
-		return output;
-	}
-
-private:
 	Ref_t<Stream> m_Stream;
-
 	// TODO: make me a block-based parameter
 	Ref_t<FloatParameter> m_DelayMs;
 
-	WindowStream<FloatStereoSample> m_Samples;
+	FloatInterleavedRingBuffer m_CacheBuffer;
 
-	s32_t m_SampleRate;
+	s32_t m_SampleRate = 0.0f;
 };
 
 Ref_t<SignalDelayer> CreateSignalDelayer(Ref_t<Stream> stream)
