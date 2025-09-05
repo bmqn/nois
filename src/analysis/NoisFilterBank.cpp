@@ -150,7 +150,7 @@ public:
 		return m_BandCutoffRatios[bandIndex] * (sampleRate * 0.5f);
 	}
 
-	virtual void SetBandGains(FloatBlockParameterList bandGains)
+	virtual void SetBandGains(FloatBlockParameterList bandGains) override
 	{
 		m_BandGains = bandGains;
 	}

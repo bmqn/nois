@@ -29,7 +29,7 @@ public:
 	NOIS_INTERFACE_PARAM(GrainLockActive, FloatParameter)
 
 private:
-	struct Impl;
+	class Impl;
 	Own_t<Impl> m_Impl;
 };
 

@@ -544,7 +544,7 @@ tresult PLUGIN_API NoisController::initialize(FUnknown* context)
 	return result;
 }
 
-tresult PLUGIN_API NoisController::terminate ()
+tresult PLUGIN_API NoisController::terminate()
 {
 	return EditController::terminate();
 }
