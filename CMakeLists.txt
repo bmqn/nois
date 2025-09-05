@@ -5,12 +5,6 @@ set(NOIS_INC_DIR "${NOIS_ROOT_DIR}/include")
 set(NOIS_SRC_DIR "${NOIS_ROOT_DIR}/src")
 set(NOIS_LIB_DIR "${NOIS_ROOT_DIR}/libs")
 
-set(VST3_SDK_PATH "${NOIS_ROOT_DIR}/libs/vst3sdk")
-set(VST3_SDK_ROOT "${NOIS_ROOT_DIR}/libs/vst3sdk")
-set(SMTG_ENABLE_VST3_PLUGIN_EXAMPLES OFF)
-set(SMTG_ENABLE_VST3_HOSTING_EXAMPLES OFF)
-set(SMTG_ENABLE_VSTGUI_SUPPORT OFF)
-
 project(nois VERSION 1.0.0)
 
 
@@ -19,10 +13,6 @@ project(nois VERSION 1.0.0)
 #--------------------------------------------------------------------------------------------------
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
-
-add_compile_options(
-	-w
-)
 
 if(MSVC)
 add_compile_options(
@@ -147,6 +137,8 @@ target_compile_options(
 	-Wall
 	-Wextra
 	-Wpedantic
+	-Wno-unused-parameter
+	-Wno-sign-compare
 )
 
 set_property(
@@ -156,10 +148,7 @@ set_property(
 
 
 #-------------------------------------------------------------------------------------------------
-#	Subdirectories
+#	Sub-directories
 #--------------------------------------------------------------------------------------------------
-# vst3sdk
-add_subdirectory(${VST3_SDK_PATH})
-
-# nois-sretch-vst3
-add_subdirectory("${NOIS_ROOT_DIR}/examples/nois-stretch/vst3")
+# examples
+add_subdirectory("${NOIS_ROOT_DIR}/examples")

@@ -1,6 +1,6 @@
 [submodule "libs/debugbreak"]
 	path = libs/debugbreak
 	url = git@github.com:scottt/debugbreak.git
-[submodule "libs/vst3sdk"]
-	path = libs/vst3sdk
-	url = https://github.com/steinbergmedia/vst3sdk.git
+[submodule "examples/libs/vst3sdk"]
+	path = examples/libs/vst3sdk
+	url = git@github.com:steinbergmedia/vst3sdk.git
