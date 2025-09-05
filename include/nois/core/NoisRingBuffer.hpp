@@ -18,8 +18,8 @@ public:
 		: m_LogicalNumFrames(0)
 		, m_InternalNumFrames(0)
 		, m_FrameModuloMask(0)
-		, m_FrameCount(0)
 		, m_FrameOffset(0)
+		, m_FrameCount(0)
 		, m_NumChannels(0)
 		, m_Data(0, T{})
 	{
