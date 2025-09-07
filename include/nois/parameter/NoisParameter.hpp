@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
+#include "nois/util/NoisSmallVector.hpp"
 
 namespace nois {
 
@@ -232,14 +233,19 @@ private:
 template<typename T>
 class BinderParameter : public Parameter<T>
 {
+private:
+	struct Frame
+	{
+		T value;
+		bool changed;
+	};
+
 public:
 	BinderParameter(
 		BinderFunc_t<T> binder)
 		: m_Binder(binder)
 		, m_NumFrames(0)
-		, m_Values(0, T{})
-		, m_Changes(0, false)
-		, m_LastValue(T{})
+		, m_Frames(0, Frame{ T{}, false})
 		, m_Dirty(false)
 	{
 	}
@@ -250,33 +256,35 @@ public:
 	{
 		if (m_NumFrames != numFrames)
 		{
-			m_Values.resize(numFrames);
-			m_Changes.resize(numFrames);
-
+			m_Frames.resize(numFrames);
 			m_NumFrames = numFrames;
 		}
 
 		if (m_Binder)
 		{
+			Frame lastFrame = m_Frames.back();
+
 			for (count_t i = 0; i < numFrames; ++i)
 			{
 				T value = m_Binder(i);
 
+				Frame &frame = m_Frames[i];
+
 				if (m_Dirty)
 				{
-					m_Changes[i] = true;
+					frame.changed = true;
 				}
 				else
 				{
-					m_Changes[i] = i > 0
-						? value != m_Values[i - 1]
-						: value != m_LastValue;
+					Frame previousFrame = m_Frames[i - 1];
+
+					frame.changed = i > 0
+						? value != previousFrame.value
+						: value != lastFrame.value;
 				}
 
-				m_Values[i] = value;
+				m_Frames[i].value = value;
 			}
-
-			m_LastValue = m_Values.back();
 		}
 
 		m_Dirty = false;
@@ -285,12 +293,12 @@ public:
 	virtual T Get(
 		count_t frameIndex) const override
 	{
-		if (frameIndex < 0 || frameIndex >= m_Values.size())
+		if (frameIndex < 0 || frameIndex >= m_NumFrames)
 		{
 			return T{};
 		}
 
-		return m_Values[frameIndex];
+		return m_Frames[frameIndex].value;
 	}
 
 	virtual bool Changed(
@@ -301,12 +309,12 @@ public:
 			return true;
 		}
 
-		if (frameIndex < 0 || frameIndex >= m_Changes.size())
+		if (frameIndex < 0 || frameIndex >= m_NumFrames)
 		{
 			return false;
 		}
 
-		return m_Changes[frameIndex];
+		return m_Frames[frameIndex].value;
 	}
 
 	virtual void Dirty() override
@@ -321,11 +329,11 @@ public:
 	}
 
 private:
+	using FramesStore = SmallVector<Frame, 1024>;
+
 	BinderFunc_t<T> m_Binder;
 	count_t m_NumFrames;
-	std::vector<T> m_Values;
-	std::vector<bool> m_Changes;
-	T m_LastValue;
+	FramesStore m_Frames;
 	bool m_Dirty;
 };
 
