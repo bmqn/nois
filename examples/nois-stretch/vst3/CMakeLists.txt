@@ -15,6 +15,7 @@ smtg_add_vst3plugin(
 	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Plugin.cpp"
 	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Plugin.hpp"
 	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Factory.cpp"
+	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Parameter.hpp"
 )
 
 smtg_target_configure_version_file(
@@ -41,6 +42,9 @@ target_compile_options(nois-stretch-vst3
 	-Wall
 	-Wextra
 	-Wpedantic
+	-Wno-unused-parameter
+	-Wno-sign-compare
+	-Wno-pragma-pack
 	$<$<CONFIG:Debug>:-g>
 	$<$<CONFIG:Release>:-g>
 	$<$<CONFIG:Release>:-O3>
