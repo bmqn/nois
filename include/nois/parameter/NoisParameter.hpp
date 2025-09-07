@@ -329,7 +329,7 @@ public:
 	}
 
 private:
-	using FramesStore = SmallVector<Frame, 1024>;
+	using FramesStore = SmallVector<Frame, k_CacheOptimisedNumFrames>;
 
 	BinderFunc_t<T> m_Binder;
 	count_t m_NumFrames;
