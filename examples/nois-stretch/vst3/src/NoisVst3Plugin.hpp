@@ -2,19 +2,15 @@
 
 #include <nois/Nois.hpp>
 
+#include "NoisVst3Parameter.hpp"
+
 #include <public.sdk/source/vst/vstaudioeffect.h>
 #include <public.sdk/source/vst/vsteditcontroller.h>
 #include <public.sdk/source/vst/vstparameters.h>
 
-using namespace Steinberg;
+#include <variant>
 
-enum
-{
-	kParameterTagStretchActive,
-	kParameterTagStretchFactor,
-	kParameterTagGrainPhaseInc,
-	kParameterTagGrainLockActive
-};
+using namespace Steinberg;
 
 class NoisVstSource : public nois::Stream
 {
@@ -48,19 +44,23 @@ public:
 private:
 	nois::Ref_t<NoisVstSource> mSource;
 	nois::Ref_t<nois::TimeStretcher> mTimeStretcher;
-	nois::Ref_t<nois::FloatParameter> mStretchActive;
-	nois::Ref_t<nois::FloatParameter> mStretchFactor;
-	nois::Ref_t<nois::FloatParameter> mGrainGain;
-	nois::Ref_t<nois::FloatParameter> mGrainPhaseInc;
-	nois::Ref_t<nois::FloatParameter> mGrainLockActive;
-	std::vector<nois::f32_t> mStretchActiveValues;
-	std::vector<nois::f32_t> mStretchFactorValues;
-	std::vector<nois::f32_t> mGrainGainValues;
-	std::vector<nois::f32_t> mGrainPhaseIncValues;
-	std::vector<nois::f32_t> mGrainLockActiveValues;
 
 	nois::Ref_t<NoisVstSource> mAuxSource;
 	nois::Ref_t<nois::FilterBank> mAuxFilterBank;
+
+	NoisVstProcessorParameter<parameter::StretchActive> mStretchActive;
+	NoisVstProcessorParameter<parameter::StretchFactor> mStretchFactor;
+	NoisVstProcessorParameter<parameter::GrainPhaseInc> mGrainPhaseInc;
+	NoisVstProcessorParameter<parameter::GrainPhaseLockActive> mGrainPhaseLockActive;
+
+	using ParameterPtr = std::variant<
+		NoisVstProcessorParameter<parameter::StretchActive>*,
+		NoisVstProcessorParameter<parameter::StretchFactor>*,
+		NoisVstProcessorParameter<parameter::GrainPhaseInc>*,
+		NoisVstProcessorParameter<parameter::GrainPhaseLockActive>*
+	>;
+
+	std::unordered_map<Vst::ParamID, ParameterPtr> mParameterLookup;
 
 	double mSampleRate;
 };
@@ -68,7 +68,7 @@ private:
 class NoisController : public Vst::EditController
 {
 public:
-	inline static DECLARE_UID(kUid, 0x9ee7ec38,-0x41254df7, 0x8863c27f, 0x3782767d);
+	inline static DECLARE_UID(kUid, 0x9ee7ec38,-0x41254df7, 0x8863c27f, 0x3782767d)
 
 public:
 	static FUnknown* PLUGIN_API createInstance(void*);

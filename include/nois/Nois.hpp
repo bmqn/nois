@@ -28,3 +28,5 @@
 
 #include "route/NoisSplitter.hpp"
 #include "route/NoisCombiner.hpp"
+
+#include "util/NoisSmallVector.hpp"

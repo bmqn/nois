@@ -1,7 +1,8 @@
 #pragma once
 
-#include "NoisTypes.hpp"
 #include "NoisConfig.hpp"
+#include "NoisMacros.hpp"
+#include "NoisTypes.hpp"
 
 #include <algorithm>
 #include <cmath>

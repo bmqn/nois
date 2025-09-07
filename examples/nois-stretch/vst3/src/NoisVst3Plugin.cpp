@@ -20,109 +20,6 @@ nois::f32_t ComputeRMS(const nois::FloatBuffer& buffer, size_t channelIndex)
 	return std::sqrt(sumSquares / static_cast<nois::f32_t>(numFrames));
 }
 
-class NoisVstParameter : public Vst::Parameter
-{
-public:
-	NoisVstParameter(const char* title, int pid, double value, double min, double max, int steps = 0);
-
-	Vst::ParamValue applyStep(Vst::ParamValue valuePlain) const;
-
-	void toString(Vst::ParamValue valueNormalized, Vst::String128 string) const SMTG_OVERRIDE;
-	bool fromString(const Vst::TChar* string, Vst::ParamValue& valueNormalized) const SMTG_OVERRIDE;
-
-	Vst::ParamValue toPlain(Vst::ParamValue valueNormalized) const SMTG_OVERRIDE;
-	Vst::ParamValue toNormalized(Vst::ParamValue valuePlain) const SMTG_OVERRIDE;
-
-private:
-	static constexpr Vst::TChar kOffStr[] = {'O','f','f','\0'};
-	static constexpr Vst::TChar kOnStr[] = {'O','n','\0'};
-
-private:
-	double mMin;
-	double mMax;
-	int mSteps;
-};
-
-NoisVstParameter::NoisVstParameter(const char* title, int pid, double value, double min, double max, int steps)
-	: Parameter(USTRING(title), pid)
-	, mMin(min)
-	, mMax(max)
-	, mSteps(steps)
-{
-	setNormalized(toNormalized(value));
-	setPrecision(2);
-}
-
-Vst::ParamValue NoisVstParameter::applyStep(Vst::ParamValue valuePlain) const
-{
-	if (mSteps <= 0)
-	{
-		return valuePlain;
-	}
-
-	double step = (mMax - mMin) / float(mSteps);
-	int steps = (valuePlain - mMin) / step;
-
-	return mMin + steps * step;
-}
-
-Vst::ParamValue NoisVstParameter::toPlain(Vst::ParamValue valueNormalized) const
-{
-	return applyStep(valueNormalized * (mMax - mMin) + mMin);
-}
-
-Vst::ParamValue NoisVstParameter::toNormalized(Vst::ParamValue valuePlain) const
-{
-	return (applyStep(valuePlain) - mMin) / (mMax - mMin);
-}
-
-void NoisVstParameter::toString(Vst::ParamValue valueNormalized, Vst::String128 string) const
-{
-	UString wrapper(string, USTRINGSIZE(Vst::String128));
-
-	if (mSteps == 1)
-	{
-		wrapper.assign(valueNormalized > 0.0f ? kOnStr : kOffStr);
-	}
-	else
-	{
-		wrapper.printFloat(toPlain(valueNormalized), precision);
-	}
-}
-
-bool NoisVstParameter::fromString(const Vst::TChar* string, Vst::ParamValue& valueNormalized) const
-{
-	UString wrapper(const_cast<Vst::TChar*>(string), USTRINGSIZE(Vst::String128));
-
-	double value = 0.0;
-
-	if (mSteps == 1 && std::memcmp(wrapper, kOffStr, sizeof(kOffStr)) == 0)
-	{
-		value = 0.0;
-	}
-	else if (mSteps == 1 && std::memcmp(wrapper, kOnStr, sizeof(kOnStr)) == 0)
-	{
-		value = 1.0;
-	}
-	else if (wrapper.scanFloat(value))
-	{
-		if (value < mMin)
-		{
-			value = mMin;
-		}
-		else if (value > mMax)
-		{
-			value = mMax;
-		}
-	
-		valueNormalized = toNormalized(value);
-
-		return true;
-	}
-
-	return false;
-}
-
 nois::Stream::Result NoisVstSource::Consume(nois::FloatBuffer& buffer, nois::f32_t sampleRate)
 {
 	buffer.Copy(mBuffer);
@@ -143,8 +40,6 @@ nois::FloatBuffer& NoisVstSource::GetBuffer()
 NoisPlugin::NoisPlugin()
 	: mSource(nullptr)
 	, mTimeStretcher(nullptr)
-	, mStretchActive(nullptr)
-	, mStretchFactor(nullptr)
 	, mAuxSource(nullptr)
 	, mAuxFilterBank(nullptr)
 	, mSampleRate(0.0)
@@ -152,45 +47,18 @@ NoisPlugin::NoisPlugin()
 	mSource = nois::MakeRef<NoisVstSource>();
 	mTimeStretcher = nois::CreateTimeStretcher(mSource);
 
-	mStretchActive = nois::CreateParameter(
-		nois::FloatBinderFunc_t([this]
-		(nois::count_t frameIndex)
-		{
-			return mStretchActiveValues[frameIndex];
-		}));
-	mStretchFactor = nois::CreateParameter(
-		nois::FloatBinderFunc_t([this]
-		(nois::count_t frameIndex)
-		{
-			return mStretchFactorValues[frameIndex];
-		}));
-	mGrainGain = nois::CreateParameter(
-		nois::FloatBinderFunc_t([this]
-		(nois::count_t frameIndex)
-		{
-			return mGrainGainValues[frameIndex];
-		}));
-	mGrainPhaseInc = nois::CreateParameter(
-		nois::FloatBinderFunc_t([this]
-		(nois::count_t frameIndex)
-		{
-			return mGrainPhaseIncValues[frameIndex];
-		}));
-	mGrainLockActive = nois::CreateParameter(
-		nois::FloatBinderFunc_t([this]
-		(nois::count_t frameIndex)
-		{
-			return mGrainLockActiveValues[frameIndex];
-		}));
-	
-	mTimeStretcher->SetStretchActive(mStretchActive);
-	mTimeStretcher->SetStretchFactor(mStretchFactor);
-	mTimeStretcher->SetGrainGain(mGrainGain);
-	mTimeStretcher->SetGrainPhaseInc(mGrainPhaseInc);
-	mTimeStretcher->SetGrainLockActive(mGrainLockActive);
-
 	mAuxSource = nois::MakeRef<NoisVstSource>();
 	mAuxFilterBank = nois::CreateFilterBank(mAuxSource, 16, 0.1f, 0.9f);
+
+	mTimeStretcher->SetStretchActive(mStretchActive);
+	mTimeStretcher->SetStretchFactor(mStretchFactor);
+	mTimeStretcher->SetGrainPhaseInc(mGrainPhaseInc);
+	mTimeStretcher->SetGrainLockActive(mGrainPhaseLockActive);
+
+	mParameterLookup[decltype(mStretchActive)::kPid] = &mStretchActive;
+	mParameterLookup[decltype(mStretchFactor)::kPid] = &mStretchFactor;
+	mParameterLookup[decltype(mGrainPhaseInc)::kPid] = &mGrainPhaseInc;
+	mParameterLookup[decltype(mGrainPhaseLockActive)::kPid] = &mGrainPhaseLockActive;
 
 	setControllerClass(NoisController::kUid);
 }
@@ -241,45 +109,8 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 		return kResultOk;
 	}
 
-	if (mStretchActiveValues.size() != data.numSamples)
-	{
-		mStretchActiveValues.resize(data.numSamples, 0.0f);
-	}
-	if (mStretchFactorValues.size() != data.numSamples)
-	{
-		mStretchFactorValues.resize(data.numSamples, 1.0f);
-	}
-	if (mGrainGainValues.size() != data.numSamples)
-	{
-		mGrainGainValues.resize(data.numSamples, 1.0f);
-	}
-	if (mGrainPhaseIncValues.size() != data.numSamples)
-	{
-		mGrainPhaseIncValues.resize(data.numSamples, 1.0f);
-	}
-	if (mGrainLockActiveValues.size() != data.numSamples)
-	{
-		mGrainLockActiveValues.resize(data.numSamples, 1.0f);
-	}
-
 	if (data.inputParameterChanges)
 	{
-		std::unordered_map<int, int> currentSampleOffsets;
-		currentSampleOffsets[kParameterTagStretchActive] = 0;
-		currentSampleOffsets[kParameterTagStretchFactor] = 0;
-		currentSampleOffsets[kParameterTagGrainPhaseInc] = 0;
-		currentSampleOffsets[kParameterTagGrainLockActive] = 0;
-
-		std::unordered_map<int, nois::f32_t> parameterLastValues;
-		parameterLastValues[kParameterTagStretchActive] =
-			mStretchActiveValues[data.numSamples - 1];
-		parameterLastValues[kParameterTagStretchFactor] =
-			mStretchFactorValues[data.numSamples - 1];
-		parameterLastValues[kParameterTagGrainPhaseInc] =
-			mGrainPhaseIncValues[data.numSamples - 1];
-		parameterLastValues[kParameterTagGrainLockActive] =
-			mGrainLockActiveValues[data.numSamples - 1];
-
 		int numParamsChanged = data.inputParameterChanges->getParameterCount();
 		for (int i = 0; i < numParamsChanged; i++)
 		{
@@ -288,97 +119,79 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 			{
 				continue;
 			}
-
-			int numPoints = queue->getPointCount();
-			for (int j = 0; j < numPoints; ++j)
+			
+			Vst::ParamID pid = queue->getParameterId();
+			auto it = mParameterLookup.find(pid);
+			if (it == mParameterLookup.end())
 			{
-				Vst::ParamID pid = queue->getParameterId();
+				continue;
+			}
 
-				std::vector<nois::f32_t>* parameterValues = nullptr;
+			std::visit([&](auto &&parameter)
+			{
+				using T = std::decay_t<decltype(parameter)>;
 
-				switch (pid)
+				parameter->PrepareForWrite(data.numSamples);
+
+				nois::f32_t lastValuePlain = parameter->GetLastValue();
+
+				nois::count_t currentSampleOffset = 0;
+
+				int numPoints = queue->getPointCount();
+				for (int j = 0; j < numPoints; ++j)
 				{
-					case kParameterTagStretchActive:
-						parameterValues = &mStretchActiveValues;
-						break;
-					case kParameterTagStretchFactor:
-						parameterValues = &mStretchFactorValues;
-						break;
-					case kParameterTagGrainPhaseInc:
-						parameterValues = &mGrainPhaseIncValues;
-						break;
-					case kParameterTagGrainLockActive:
-						parameterValues = &mGrainLockActiveValues;
-						break;
-					default:
-						break;
-				}
-
-				if (!parameterValues)
-				{
-					continue;
-				}
-
-				int& currentSampleOffset = currentSampleOffsets[pid];
-				nois::f32_t &lastPlainValue = parameterLastValues[pid];
-
-				int sampleOffset;
-				Vst::ParamValue value;
-				if (queue->getPoint(j, sampleOffset, value) == kResultTrue)
-				{
-					nois::f32_t plainValue = value;
-
-					if (pid == kParameterTagStretchFactor)
+					int sampleOffset;
+					Vst::ParamValue valueNormalized;
+					if (queue->getPoint(j, sampleOffset, valueNormalized) == kResultTrue)
 					{
-						plainValue = 1.0f + (16.0f - 1.0f) * value;
-					}
-					else if (pid == kParameterTagGrainPhaseInc)
-					{
-						plainValue = 0.01f + (1.0f - 0.01f) * value;
-					}
+						nois::f32_t valuePlain = parameter->ToPlain(valueNormalized);
 
-					if (numPoints == 1)
-					{
+						if (numPoints == 1 || std::remove_pointer_t<T>::kNumSteps > 0)
+						{
+							for (;
+								currentSampleOffset < data.numSamples;
+								++currentSampleOffset)
+							{
+								parameter->WriteValue(
+									currentSampleOffset,
+									valuePlain);
+							}
+
+							break;
+						}
+
+						nois::count_t nextSampleOffset = sampleOffset;
+						nois::count_t lastSampleOffset = currentSampleOffset;
+
 						for (;
+							currentSampleOffset <= nextSampleOffset &&
 							currentSampleOffset < data.numSamples;
 							++currentSampleOffset)
 						{
-							(*parameterValues)[currentSampleOffset] =
-								plainValue;
+							if (currentSampleOffset == nextSampleOffset ||
+								nextSampleOffset == lastSampleOffset)
+							{
+								parameter->WriteValue(
+									currentSampleOffset,
+									valuePlain);
+							}
+							else
+							{
+								nois::f32_t t =
+									nois::f32_t(currentSampleOffset - lastSampleOffset) /
+									nois::f32_t(nextSampleOffset - lastSampleOffset);
+
+								parameter->WriteValue(
+									currentSampleOffset,
+									valuePlain * t +
+									lastValuePlain * (1.0f - t));
+							}
 						}
 
-						continue;
+						lastValuePlain = valuePlain;
 					}
-
-					int nextSampleOffset = sampleOffset;
-					int lastSampleOffset = currentSampleOffset;
-
-					for (;
-						currentSampleOffset <= nextSampleOffset &&
-						currentSampleOffset < data.numSamples;
-						++currentSampleOffset)
-					{
-						if (currentSampleOffset == nextSampleOffset ||
-							nextSampleOffset == lastSampleOffset)
-						{
-							(*parameterValues)[currentSampleOffset] =
-								plainValue;
-						}
-						else
-						{
-							float t =
-								float(currentSampleOffset - lastSampleOffset) /
-								float(nextSampleOffset - lastSampleOffset);
-
-							(*parameterValues)[currentSampleOffset] =
-								plainValue * t +
-								lastPlainValue * (1.0f - t);
-						}
-					}
-
-					lastPlainValue = plainValue;
 				}
-			}
+			}, it->second);
 		}
 	}
 
@@ -518,28 +331,18 @@ tresult PLUGIN_API NoisController::initialize(FUnknown* context)
 		return result;
 	}
 
-	parameters.addParameter(new NoisVstParameter(
-		"Stretch Active",
-		kParameterTagStretchActive,
-		0.0,
-		0.0, 1.0,
-		1));
-	parameters.addParameter(new NoisVstParameter(
-		"Stretch Factor",
-		kParameterTagStretchFactor,
-		1.0,
-		1.0, 16.0));
-	parameters.addParameter(new NoisVstParameter(
-		"Grain Phase Increment",
-		kParameterTagGrainPhaseInc,
-		1.0,
-		0.01, 1.0));
-	parameters.addParameter(new NoisVstParameter(
-		"Grain Lock Active",
-		kParameterTagGrainLockActive,
-		0.0,
-		0.0, 1.0,
-		1));
+	parameters.addParameter(new
+		NoisVstControllerParameter<parameter::StretchActive>(
+		"Stretch"));
+	parameters.addParameter(new
+		NoisVstControllerParameter<parameter::StretchFactor>(
+		"Factor"));
+	parameters.addParameter(new
+		NoisVstControllerParameter<parameter::GrainPhaseInc>(
+		"Grain Increment"));
+	parameters.addParameter(new
+		NoisVstControllerParameter<parameter::GrainPhaseLockActive>(
+		"Grain Lock"));
 
 	return result;
 }

@@ -73,6 +73,8 @@ set(NOIS_HSPSRC
 	
 	"${NOIS_HSP}/nois/route/NoisCombiner.hpp"
 	"${NOIS_HSP}/nois/route/NoisSplitter.hpp"
+
+	"${NOIS_HSP}/nois/util/NoisSmallVector.hpp"
 )
 
 source_group(
