@@ -1,5 +1,12 @@
 #pragma once
 
+#if NOIS_ENABLE_PROFILING
+#if !defined(TRACY_ENABLE)
+#define TRACY_ENABLE
+#endif // !defined(TRACY_ENABLE)
+#include <tracy/Tracy.hpp>
+#endif // NOIS_ENABLE_PROFILING
+
 #if defined(__x86_64__) || defined(_M_X64)
 #define NOIS_ARCH_X64 1
 #elif defined(__aarch64__) || defined(_M_ARM64)
@@ -23,6 +30,15 @@
 #endif
 #endif
 
+#if NOIS_ENABLE_PROFILING
+#define NOIS_PROFILE_MARK() FrameMark
+#define NOIS_PROFILE_SCOPE() ZoneScoped
+#define NOIS_PROFILE_SCOPE_NAMED(_name) ZoneScopedN(_name)
+#else
+#define NOIS_PROFILE_MARK() do {} while (false)
+#define NOIS_PROFILE_SCOPE() do {} while (false)
+#define NOIS_PROFILE_SCOPE_NAMED(_name) do {} while (false)
+#endif // NOIS_ENABLE_PROFILING
 
 #define NOIS_INTERFACE_GETTER(_name, _type) \
 	Ref_t<_type> Get##_name() const;

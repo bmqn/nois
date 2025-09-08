@@ -19,6 +19,8 @@ public:
 		FloatBuffer &buffer,
 		f32_t sampleRate)
 	{
+		NOIS_PROFILE_SCOPE_NAMED("TimeStretcher - Consume");
+
 		Stream::Result result = Stream::Success;
 
 		if (Stream::Result streamResult =
@@ -112,6 +114,8 @@ public:
 		count_t numChannels,
 		f32_t sampleRate)
 	{
+		NOIS_PROFILE_SCOPE_NAMED("TimeStretcher - PrepareToConsume");
+
 		m_Stream->PrepareToConsume(
 			numFrames,
 			numChannels,

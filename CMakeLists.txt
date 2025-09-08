@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 3.25.0)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+include(SetupConfigs)
+
 set(NOIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(NOIS_INC_DIR "${NOIS_ROOT_DIR}/include")
 set(NOIS_SRC_DIR "${NOIS_ROOT_DIR}/src")
 set(NOIS_LIB_DIR "${NOIS_ROOT_DIR}/libs")
 
 project(nois VERSION 1.0.0)
+
+option(NOIS_ENABLE_PROFILING "Enable profiling" OFF)
 
 
 #--------------------------------------------------------------------------------------------------
@@ -19,9 +25,6 @@ add_compile_options(
 	$<$<CONFIG:Release>:/Ox>
 	$<$<CONFIG:Release>:/GL>
 )
-add_link_options(
-	$<$<CONFIG:Release>:/LTCG>
-)
 else()
 add_compile_options(
 	$<$<CONFIG:Debug>:-g>
@@ -29,9 +32,20 @@ add_compile_options(
 	$<$<CONFIG:Release>:-O3>
 	$<$<CONFIG:Release>:-flto>
 	$<$<CONFIG:Release>:-funroll-loops>
+	$<$<CONFIG:Distribution>:-O3>
+	$<$<CONFIG:Distribution>:-flto>
+	$<$<CONFIG:Distribution>:-funroll-loops>
 )
+endif()
+
+if(MSVC)
+add_link_options(
+	$<$<CONFIG:Release>:/LTCG>
+)
+else()
 add_link_options(
 	$<$<CONFIG:Release>:-flto>
+	$<$<CONFIG:Distribution>:-flto>
 )
 endif()
 
@@ -143,6 +157,29 @@ target_compile_options(
 	-Wno-sign-compare
 )
 
+target_compile_definitions(
+	nois
+	PUBLIC
+	$<$<CONFIG:Debug>:NOIS_DEBUG=1>
+	$<$<CONFIG:Release>:NOIS_RELEASE=1>
+	$<$<CONFIG:Distribution>:NOIS_DISTRIBUTION=1>
+)
+if (NOIS_ENABLE_PROFILING)
+target_compile_definitions(
+	nois
+	PUBLIC
+	NOIS_ENABLE_PROFILING=1
+)
+endif()
+
+if (NOIS_ENABLE_PROFILING)
+target_link_libraries(
+	nois
+	PUBLIC
+	Tracy::TracyClient
+)
+endif()
+
 set_property(
 	TARGET nois
 	PROPERTY POSITION_INDEPENDENT_CODE ON
@@ -154,3 +191,12 @@ set_property(
 #--------------------------------------------------------------------------------------------------
 # examples
 add_subdirectory("${NOIS_ROOT_DIR}/examples")
+
+if(NOIS_ENABLE_PROFILING)
+# tracy
+add_subdirectory("${NOIS_LIB_DIR}/tracy")
+set_property(
+	TARGET TracyClient
+	PROPERTY POSITION_INDEPENDENT_CODE ON
+)
+endif()

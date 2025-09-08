@@ -22,12 +22,14 @@ smtg_target_configure_version_file(
 	nois-stretch-vst3
 )
 
-target_link_libraries(nois-stretch-vst3
+target_link_libraries(
+	nois-stretch-vst3
 	PRIVATE sdk nois
 )
 
 if(MSVC)
-target_compile_options(nois-stretch-vst3
+target_compile_options(
+	nois-stretch-vst3
 	PRIVATE
 	$<$<CONFIG:Release>:/Ox>
 	$<$<CONFIG:Release>:/GL>
@@ -37,7 +39,8 @@ target_link_options(nois-stretch-vst3
 	$<$<CONFIG:Release>:/LTCG>
 )
 else()
-target_compile_options(nois-stretch-vst3
+target_compile_options(
+	nois-stretch-vst3
 	PRIVATE
 	-Wall
 	-Wextra
@@ -50,9 +53,19 @@ target_compile_options(nois-stretch-vst3
 	$<$<CONFIG:Release>:-O3>
 	$<$<CONFIG:Release>:-flto>
 	$<$<CONFIG:Release>:-funroll-loops>
+	$<$<CONFIG:Distribution>:-O3>
+	$<$<CONFIG:Distribution>:-flto>
+	$<$<CONFIG:Distribution>:-funroll-loops>
 )
-target_link_options(nois-stretch-vst3
+target_link_options(
+	nois-stretch-vst3
 	PRIVATE
 	$<$<CONFIG:Release>:-flto>
+	$<$<CONFIG:Distribution>:-flto>
 )
 endif()
+
+set_property(
+	TARGET nois-stretch-vst3
+	PROPERTY POSITION_INDEPENDENT_CODE ON
+)
