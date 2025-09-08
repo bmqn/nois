@@ -254,6 +254,8 @@ public:
 		count_t numFrames,
 		f32_t sampleRate) override
 	{
+		NOIS_PROFILE_SCOPE_NAMED("Binder Parameter - Prepare");
+
 		if (m_NumFrames != numFrames)
 		{
 			m_Frames.resize(numFrames);
@@ -293,6 +295,8 @@ public:
 	virtual T Get(
 		count_t frameIndex) const override
 	{
+		NOIS_PROFILE_SCOPE_NAMED("Binder Parameter - Get");
+
 		if (frameIndex < 0 || frameIndex >= m_NumFrames)
 		{
 			return T{};
@@ -304,6 +308,8 @@ public:
 	virtual bool Changed(
 		count_t frameIndex) const override
 	{
+		NOIS_PROFILE_SCOPE_NAMED("Binder Parameter - Changed");
+
 		if (m_Dirty)
 		{
 			return true;

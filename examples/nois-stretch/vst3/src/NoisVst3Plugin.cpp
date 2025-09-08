@@ -109,8 +109,12 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 		return kResultOk;
 	}
 
+	NOIS_PROFILE_MARK();
+
 	if (data.inputParameterChanges)
 	{
+		NOIS_PROFILE_SCOPE_NAMED("Prepare parameters");
+
 		int numParamsChanged = data.inputParameterChanges->getParameterCount();
 		for (int i = 0; i < numParamsChanged; i++)
 		{
@@ -211,13 +215,17 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 	auxSourceBuffer.Resize(data.numSamples, inAuxSource.numChannels);
 	auxSinkBuffer.Resize(data.numSamples, inAuxSource.numChannels);
 
-	for (int channel = 0; channel < inAuxSource.numChannels; ++channel)
 	{
-		float* inSamplesStart  = inAuxSource.channelBuffers32[channel];
+		NOIS_PROFILE_SCOPE_NAMED("Read from aux source");
 
-		for (int sample = 0; sample < data.numSamples; ++sample)
+		for (int channel = 0; channel < inAuxSource.numChannels; ++channel)
 		{
-			auxSourceBuffer(sample, channel) = inSamplesStart[sample];
+			float* inSamplesStart  = inAuxSource.channelBuffers32[channel];
+
+			for (int sample = 0; sample < data.numSamples; ++sample)
+			{
+				auxSourceBuffer(sample, channel) = inSamplesStart[sample];
+			}
 		}
 	}
 
@@ -241,18 +249,24 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 	// 	}
 	// }
 
-	for (int channel = 0; channel < inSource.numChannels; ++channel)
 	{
-		float* inSamplesStart  = inSource.channelBuffers32[channel];
+		NOIS_PROFILE_SCOPE_NAMED("Read from source");
 
-		for (int sample = 0; sample < data.numSamples; ++sample)
+		for (int channel = 0; channel < inSource.numChannels; ++channel)
 		{
-			sourceBuffer(sample, channel) = inSamplesStart[sample];
+			float* inSamplesStart  = inSource.channelBuffers32[channel];
+
+			for (int sample = 0; sample < data.numSamples; ++sample)
+			{
+				sourceBuffer(sample, channel) = inSamplesStart[sample];
+			}
 		}
 	}
 
 	{
 		nois::ScopedNoDenorms noDenorms;
+
+		NOIS_PROFILE_SCOPE_NAMED("Consume");
 
 		mTimeStretcher->PrepareToConsume(sinkBuffer.GetNumFrames(), sinkBuffer.GetNumChannels(), mSampleRate);
 		mTimeStretcher->Consume(sinkBuffer, mSampleRate);
@@ -304,13 +318,17 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 	// 	bandGains[i]->Set(1.0f);
 	// }
 	
-	for (int channel = 0; channel < outSink.numChannels; ++channel)
 	{
-		float* outSamplesStart = outSink.channelBuffers32[channel];
+		NOIS_PROFILE_SCOPE_NAMED("Write to sink");
 
-		for (int sample = 0; sample < data.numSamples; ++sample)
+		for (int channel = 0; channel < outSink.numChannels; ++channel)
 		{
-			outSamplesStart[sample] = sinkBuffer(sample, channel);
+			float* outSamplesStart = outSink.channelBuffers32[channel];
+
+			for (int sample = 0; sample < data.numSamples; ++sample)
+			{
+				outSamplesStart[sample] = sinkBuffer(sample, channel);
+			}
 		}
 	}
 

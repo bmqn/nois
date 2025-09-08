@@ -18,23 +18,28 @@ set(SMTG_ENABLE_VSTGUI_SUPPORT OFF)
 set(SMTG_CREATE_PLUGIN_LINK OFF)
 if(MSVC)
 else()
-target_compile_options(base
+target_compile_options(
+	base
 	PRIVATE
 	-w
 )
-target_compile_options(pluginterfaces
+target_compile_options(
+	pluginterfaces
 	PRIVATE
 	-w
 )
-target_compile_options(sdk
+target_compile_options(
+	sdk
 	PRIVATE
 	-w
 )
-target_compile_options(sdk_common
+target_compile_options(
+	sdk_common
 	PRIVATE
 	-w
 )
-target_compile_options(sdk_hosting
+target_compile_options(
+	sdk_hosting
 	PRIVATE
 	-w
 )

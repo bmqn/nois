@@ -4,3 +4,6 @@
 [submodule "examples/libs/vst3sdk"]
 	path = examples/libs/vst3sdk
 	url = git@github.com:steinbergmedia/vst3sdk.git
+[submodule "libs/tracy"]
+	path = libs/tracy
+	url = git@github.com:wolfpld/tracy.git
