@@ -114,7 +114,7 @@ public:
 		return parameter::ToNormalized<Param>(valuePlain);
 	}
 
-	inline void PrepareForWrite(nois::count_t numFrames)
+	inline void Prepare(nois::count_t numFrames)
 	{
 		mParameterValues.resize(numFrames, Param::kDefaultValue);
 	}

@@ -17,10 +17,11 @@ public:
 		count_t bandIndex,
 		f32_t sampleRate) const = 0;
 
+	virtual f32_t GetBandRms(
+		count_t bandIndex) const = 0;
+
 	virtual void SetBandGains(
 		FloatBlockParameterList bandGains) = 0;
-
-	virtual FloatBlockParameterList GetBandRmses() const = 0;
 };
 
 Ref_t<FilterBank> CreateFilterBank(
