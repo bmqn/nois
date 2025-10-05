@@ -278,10 +278,8 @@ public:
 				}
 				else
 				{
-					Frame previousFrame = m_Frames[i - 1];
-
 					frame.changed = i > 0
-						? value != previousFrame.value
+						? value != m_Frames[i - 1].value
 						: value != lastFrame.value;
 				}
 
