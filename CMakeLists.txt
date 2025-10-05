@@ -24,6 +24,7 @@ if(MSVC)
 add_compile_options(
 	$<$<CONFIG:Release>:/Ox>
 	$<$<CONFIG:Release>:/GL>
+	/Zc:__cplusplus
 )
 else()
 add_compile_options(
@@ -147,6 +148,8 @@ target_precompile_headers(
 	PRIVATE "${NOIS_SRC_DIR}/NoisPrefix.pch"
 )
 
+if(MSVC)
+else()
 target_compile_options(
 	nois
 	PRIVATE
@@ -156,6 +159,7 @@ target_compile_options(
 	-Wno-unused-parameter
 	-Wno-sign-compare
 )
+endif()
 
 target_compile_definitions(
 	nois
