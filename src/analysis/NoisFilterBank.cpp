@@ -25,16 +25,18 @@ public:
 			f32_t cutoffRatio =
 				minCutoffRatio *
 				std::pow(maxCutoffRatio / minCutoffRatio, f32_t(i) / f32_t(numBands - 1));
+			m_BandCutoffRatios.emplace_back(cutoffRatio);
+
+			f32_t q = 1.0f;
+			m_BandQs.emplace_back(q);
+
+			f32_t rms = 0.0f;
+			m_BandRmses.emplace_back(rms);
 
 			auto filter = CreateBandpassFilter(m_StreamBufferStream, BandpassFilter::k_Biquad);
 			filter->SetCutoffRatio(MakeRef<FloatConstantParameter>(cutoffRatio));
-			filter->SetQ(MakeRef<FloatConstantParameter>(2.0f));
+			filter->SetQ(MakeRef<FloatConstantParameter>(q));
 			m_Filters.emplace_back(filter);
-
-			auto bandRms = CreateBlockParameter(0.0f);
-			m_BandRmses.emplace_back(bandRms);
-
-			m_BandCutoffRatios.emplace_back(cutoffRatio);
 		}
 	}
 
@@ -78,12 +80,14 @@ public:
 			{
 				for (count_t c = 0; c < numChannels; ++c)
 				{
-					energy += m_ScratchBuffer(f, c) * m_ScratchBuffer(f, c);
+					f32_t s = m_ScratchBuffer(f, c);
+					energy += s * s;
 				}
 			}
 
 			// Update the rms for this band
-			m_BandRmses[i]->Set(std::sqrt(energy / f32_t(numFrames)));
+			count_t numSamples = numFrames * numChannels;
+			m_BandRmses[i] = std::sqrt(energy / f32_t(numSamples));
 
 			// Accumulate filter into result buffer
 			m_ResultBuffer.Add(m_ScratchBuffer);
@@ -117,13 +121,6 @@ public:
 				sampleRate);
 		}
 
-		for (auto &bandRms : m_BandRmses)
-		{
-			bandRms->Prepare(
-				numFrames,
-				sampleRate);
-		}
-
 		m_ResultBuffer.Resize(
 			numFrames,
 			numChannels);
@@ -150,20 +147,20 @@ public:
 		return m_BandCutoffRatios[bandIndex] * (sampleRate * 0.5f);
 	}
 
+	virtual f32_t GetBandRms(
+		count_t bandIndex) const override
+	{
+		if (bandIndex >= m_BandCutoffRatios.size())
+		{
+			return 0.0f;
+		}
+
+		return m_BandRmses[bandIndex];
+	}
+
 	virtual void SetBandGains(FloatBlockParameterList bandGains) override
 	{
 		m_BandGains = bandGains;
-	}
-
-	virtual FloatBlockParameterList GetBandRmses() const override
-	{
-		FloatBlockParameterList bandRmses;
-		bandRmses.reserve(m_BandRmses.size());
-		for (auto &bandRms : m_BandRmses)
-		{
-			bandRmses.emplace_back(bandRms);
-		}
-		return bandRmses;
 	}
 
 private:
@@ -172,8 +169,9 @@ private:
 	FloatBuffer m_SteamBuffer;
 	std::vector<Ref_t<BandpassFilter>> m_Filters;
 	FloatBlockParameterList m_BandGains;
-	FloatConstantBlockParameterList m_BandRmses;
 	std::vector<f32_t> m_BandCutoffRatios;
+	std::vector<f32_t> m_BandQs;
+	std::vector<f32_t> m_BandRmses;
 	FloatBuffer m_ResultBuffer;
 	FloatBuffer m_ScratchBuffer;
 };

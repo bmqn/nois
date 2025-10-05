@@ -12,6 +12,26 @@
 
 using namespace Steinberg;
 
+struct EnvelopeFollower
+{
+	float env = 0.0f;
+	float attackCoeff, releaseCoeff;
+
+	EnvelopeFollower(float sampleRate, float attackMs, float releaseMs)
+	{
+		attackCoeff = 1.0f - std::exp(-1.0f * (1000.0f / attackMs) * (1.0f / sampleRate));
+		releaseCoeff = 1.0f - std::exp(-1.0f * (1000.0f / releaseMs) * (1.0f / sampleRate));
+	}
+
+	float process(float input)
+	{
+		float rect = std::fabs(input);
+		float coeff = (rect > env) ? attackCoeff : releaseCoeff;
+		env += coeff * (rect - env);
+		return env;
+	}
+};
+
 class NoisVstSource : public nois::Stream
 {
 public:
@@ -43,15 +63,19 @@ public:
 
 private:
 	nois::Ref_t<NoisVstSource> mSource;
-	nois::Ref_t<nois::TimeStretcher> mTimeStretcher;
-
 	nois::Ref_t<NoisVstSource> mAuxSource;
-	nois::Ref_t<nois::FilterBank> mAuxFilterBank;
+
+	nois::Ref_t<nois::TimeStretcher> mTimeStretcher;
+	nois::Ref_t<nois::FilterBank> mModulatorFilterBank;
+	nois::Ref_t<nois::FilterBank> mCarrierFilterBank;
 
 	NoisVstProcessorParameter<parameter::StretchActive> mStretchActive;
 	NoisVstProcessorParameter<parameter::StretchFactor> mStretchFactor;
 	NoisVstProcessorParameter<parameter::GrainPhaseInc> mGrainPhaseInc;
 	NoisVstProcessorParameter<parameter::GrainPhaseLockActive> mGrainPhaseLockActive;
+
+	std::vector<EnvelopeFollower> mBandEnvelopes;
+	nois::FloatBlockParameterList mCarrierBandGains;
 
 	using ParameterPtr = std::variant<
 		NoisVstProcessorParameter<parameter::StretchActive>*,

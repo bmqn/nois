@@ -61,7 +61,7 @@ public:
 			// Write history
 			m_InHistory[idx] = x1;
 			m_InHistory[idx + 1] = x2;
-			m_OutHistory[idx] = y2;
+			m_OutHistory[idx] = y1;
 			m_OutHistory[idx + 1]= y2;
 		}
 
@@ -106,19 +106,19 @@ public:
 	{
 		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
 
-		f32_t omega = k_Pi * freqRatio;
+		f32_t omega0 = k_Pi * freqRatio;
 
-		f32_t cosOmega = std::cos(omega);
-		f32_t sinOmega = std::sin(omega);
-		f32_t cos2Omega = std::cos(2.0f * omega);
-		f32_t sin2Omega = std::sin(2.0f * omega);
+		f32_t cosw0 = std::cos(omega0);
+		f32_t sinw0 = std::sin(omega0);
+		f32_t cos2w0 = std::cos(2.0f * omega0);
+		f32_t sin2w0 = std::sin(2.0f * omega0);
 
-		f32_t numReal = m_B0 + m_B1 * cosOmega + m_B2 * cos2Omega;
-		f32_t numImag = m_B1 * sinOmega + m_B2 * sin2Omega;
+		f32_t numReal = m_B0 + m_B1 * cosw0 + m_B2 * cos2w0;
+		f32_t numImag = m_B1 * sinw0 + m_B2 * sin2w0;
 		f32_t numMag2 = numReal * numReal + numImag * numImag;
 
-		f32_t denReal = 1.0f + m_A1 * cosOmega + m_A2 * cos2Omega;
-		f32_t denImag = m_A1 * sinOmega + m_A2 * sin2Omega;
+		f32_t denReal = 1.0f + m_A1 * cosw0 + m_A2 * cos2w0;
+		f32_t denImag = m_A1 * sinw0 + m_A2 * sin2w0;
 		f32_t denMag2 = denReal * denReal + denImag * denImag;
 
 		return std::sqrt(numMag2 / denMag2);
@@ -131,19 +131,19 @@ private:
 		constexpr f32_t k_Sqrt2 = static_cast<f32_t>(std::numbers::sqrt2);
 
 		f32_t cutoffRatio = std::clamp(m_CutoffRatio->Get(frameIndex), 0.001f, 0.999f) * 0.5f;
+		f32_t q = 1.0f / k_Sqrt2;
 
-		float q = 1.0f / k_Sqrt2;
+		f32_t omega0 = k_Pi * cutoffRatio;
 
-		float w0 = k_Pi * cutoffRatio;
-		float cosW0 = std::cos(w0);
-		float sinW0 = std::sin(w0);
-		float alpha = sinW0 / (2.0f * q);
+		float cosw0 = std::cos(omega0);
+		float sinw0 = std::sin(omega0);
+		float alpha = sinw0 / (2.0f * q);
 
 		float a0 = 1.0f + alpha;
-		m_B0 = (1.0f - cosW0) / 2.0f / a0;
-		m_B1 = (1.0f - cosW0) / a0;
-		m_B2 = (1.0f - cosW0) / 2.0f / a0;
-		m_A1 = -2.0f * cosW0 / a0;
+		m_B0 = (1.0f - cosw0) / 2.0f / a0;
+		m_B1 = (1.0f - cosw0) / a0;
+		m_B2 = (1.0f - cosw0) / 2.0f / a0;
+		m_A1 = -2.0f * cosw0 / a0;
 		m_A2 = (1.0f - alpha) / a0;
 	}
 
@@ -220,7 +220,7 @@ public:
 			// Write history
 			m_InHistory[idx] = x1;
 			m_InHistory[idx + 1] = x2;
-			m_OutHistory[idx] = y2;
+			m_OutHistory[idx] = y1;
 			m_OutHistory[idx + 1]= y2;
 		}
 
@@ -265,19 +265,19 @@ public:
 	{
 		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
 
-		f32_t omega = k_Pi * freqRatio;
+		f32_t omega0 = k_Pi * freqRatio;
 
-		f32_t cosOmega = std::cos(omega);
-		f32_t sinOmega = std::sin(omega);
-		f32_t cos2Omega = std::cos(2.0f * omega);
-		f32_t sin2Omega = std::sin(2.0f * omega);
+		f32_t cosw0 = std::cos(omega0);
+		f32_t sinw0 = std::sin(omega0);
+		f32_t cos2w0 = std::cos(2.0f * omega0);
+		f32_t sin2w0 = std::sin(2.0f * omega0);
 
-		f32_t numReal = m_B0 + m_B1 * cosOmega + m_B2 * cos2Omega;
-		f32_t numImag = m_B1 * sinOmega + m_B2 * sin2Omega;
+		f32_t numReal = m_B0 + m_B1 * cosw0 + m_B2 * cos2w0;
+		f32_t numImag = m_B1 * sinw0 + m_B2 * sin2w0;
 		f32_t numMag2 = numReal * numReal + numImag * numImag;
 
-		f32_t denReal = 1.0f + m_A1 * cosOmega + m_A2 * cos2Omega;
-		f32_t denImag = m_A1 * sinOmega + m_A2 * sin2Omega;
+		f32_t denReal = 1.0f + m_A1 * cosw0 + m_A2 * cos2w0;
+		f32_t denImag = m_A1 * sinw0 + m_A2 * sin2w0;
 		f32_t denMag2 = denReal * denReal + denImag * denImag;
 
 		return std::sqrt(numMag2 / denMag2);
@@ -290,19 +290,19 @@ private:
 		constexpr f32_t k_Sqrt2 = static_cast<f32_t>(std::numbers::sqrt2);
 
 		f32_t cutoffRatio = std::clamp(m_CutoffRatio->Get(frameIndex), 0.001f, 0.999f) * 0.5f;
+		f32_t q = 1.0f / k_Sqrt2;
 
-		float q = 1.0f / k_Sqrt2;
+		f32_t omega0 = k_Pi * cutoffRatio;
 
-		float w0 = k_Pi * cutoffRatio;
-		float cosW0 = std::cos(w0);
-		float sinW0 = std::sin(w0);
-		float alpha = sinW0 / (2.0f * q);
+		float cosw0 = std::cos(omega0);
+		float sinw0 = std::sin(omega0);
+		float alpha = sinw0 / (2.0f * q);
 
 		float a0 = 1.0f + alpha;
-		m_B0 = (1.0f + cosW0) / 2.0f / a0;
-		m_B1 = -(1.0f + cosW0) / a0;
-		m_B2 = (1.0f + cosW0) / 2.0f / a0;
-		m_A1 = -2.0f * cosW0 / a0;
+		m_B0 = (1.0f + cosw0) / 2.0f / a0;
+		m_B1 = -(1.0f + cosw0) / a0;
+		m_B2 = (1.0f + cosw0) / 2.0f / a0;
+		m_A1 = -2.0f * cosw0 / a0;
 		m_A2 = (1.0f - alpha) / a0;
 	}
 
@@ -382,7 +382,7 @@ public:
 			// Write history
 			m_InHistory[idx] = x1;
 			m_InHistory[idx + 1] = x2;
-			m_OutHistory[idx] = y2;
+			m_OutHistory[idx] = y1;
 			m_OutHistory[idx + 1]= y2;
 		}
 
@@ -441,19 +441,19 @@ public:
 	{
 		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
 
-		f32_t omega = k_Pi * freqRatio;
+		f32_t omega0 = k_Pi * freqRatio;
 
-		f32_t cosOmega = std::cos(omega);
-		f32_t sinOmega = std::sin(omega);
-		f32_t cos2Omega = std::cos(2.0f * omega);
-		f32_t sin2Omega = std::sin(2.0f * omega);
+		f32_t cosw0 = std::cos(omega0);
+		f32_t sinw0 = std::sin(omega0);
+		f32_t cos2w0 = std::cos(2.0f * omega0);
+		f32_t sin2w0 = std::sin(2.0f * omega0);
 
-		f32_t numReal = m_B0 + m_B1 * cosOmega + m_B2 * cos2Omega;
-		f32_t numImag = m_B1 * sinOmega + m_B2 * sin2Omega;
+		f32_t numReal = m_B0 + m_B1 * cosw0 + m_B2 * cos2w0;
+		f32_t numImag = m_B1 * sinw0 + m_B2 * sin2w0;
 		f32_t numMag2 = numReal * numReal + numImag * numImag;
 
-		f32_t denReal = 1.0f + m_A1 * cosOmega + m_A2 * cos2Omega;
-		f32_t denImag = m_A1 * sinOmega + m_A2 * sin2Omega;
+		f32_t denReal = 1.0f + m_A1 * cosw0 + m_A2 * cos2w0;
+		f32_t denImag = m_A1 * sinw0 + m_A2 * sin2w0;
 		f32_t denMag2 = denReal * denReal + denImag * denImag;
 
 		return std::sqrt(numMag2 / denMag2);
@@ -464,13 +464,13 @@ private:
 	{
 		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
 
-		f32_t cutoffRatio = m_CutoffRatio->Get(frameIndex);
-		f32_t q = m_Q->Get(frameIndex);
+		f32_t cutoffRatio = std::clamp(m_CutoffRatio->Get(frameIndex), 0.001f, 0.999f);
+		f32_t q = std::max(m_Q->Get(frameIndex), 0.001f);
 
-		f32_t omega0 = 2.0f * k_Pi * std::clamp(cutoffRatio, 0.001f, 0.999f) * 0.5f;
+		f32_t omega0 = k_Pi * cutoffRatio;
 
 		f32_t cosw0 = std::cos(omega0);
-		f32_t alpha = std::sin(omega0) / (2.0f * std::max(q, 0.001f));
+		f32_t alpha = std::sin(omega0) / (2.0f * q);
 
 		f32_t a0inv = 1.0f / (1.0f + alpha);
 

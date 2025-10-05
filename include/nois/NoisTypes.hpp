@@ -64,7 +64,7 @@ template<typename T>
 using RefFromThis_t = std::enable_shared_from_this<T>;
 
 template<typename T, typename... Args>
-Ref_t<T> MakeRef(Args &&...args)
+inline Ref_t<T> MakeRef(Args &&...args)
 {
 	return std::make_shared<T>(std::forward<Args>(args)...);
 }
@@ -73,9 +73,15 @@ template<typename T>
 using Own_t = std::unique_ptr<T>;
 
 template<typename T, typename... Args>
-Own_t<T> MakeOwn(Args &&...args)
+inline Own_t<T> MakeOwn(Args &&...args)
 {
 	return std::make_unique<T>(std::forward<Args>(args)...);
+}
+
+template<typename T, typename B>
+inline Ref_t<T> PtrCast(Ref_t<B> ptr)
+{	
+	return std::static_pointer_cast<T>(ptr);
 }
 
 }

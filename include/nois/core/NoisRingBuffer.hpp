@@ -116,6 +116,11 @@ public:
 		}
 	}
 
+	inline void GetNewest(T *samples, count_t numChannels) const
+	{
+		GetChronological(m_LogicalNumFrames, samples, numChannels);
+	}
+
 	inline void GetOldest(T *samples, count_t numChannels) const
 	{
 		if (m_FrameCount < m_LogicalNumFrames)

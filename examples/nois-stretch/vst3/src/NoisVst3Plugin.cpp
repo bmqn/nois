@@ -6,20 +6,6 @@
 
 #include <algorithm>
 
-nois::f32_t ComputeRMS(const nois::FloatBuffer& buffer, size_t channelIndex)
-{
-	nois::f32_t sumSquares = 0.0f;
-	nois::count_t numFrames = buffer.GetNumFrames();
-
-	for (nois::count_t frameIndex = 0; frameIndex < numFrames; ++frameIndex)
-	{
-		nois::f32_t s = buffer(frameIndex, channelIndex);
-		sumSquares += s * s;
-	}
-
-	return std::sqrt(sumSquares / static_cast<nois::f32_t>(numFrames));
-}
-
 nois::Stream::Result NoisVstSource::Consume(nois::FloatBuffer& buffer, nois::f32_t sampleRate)
 {
 	buffer.Copy(mBuffer);
@@ -39,21 +25,32 @@ nois::FloatBuffer& NoisVstSource::GetBuffer()
 
 NoisPlugin::NoisPlugin()
 	: mSource(nullptr)
-	, mTimeStretcher(nullptr)
 	, mAuxSource(nullptr)
-	, mAuxFilterBank(nullptr)
+	, mTimeStretcher(nullptr)
+	, mModulatorFilterBank(nullptr)
+	, mCarrierFilterBank(nullptr)
 	, mSampleRate(0.0)
 {
 	mSource = nois::MakeRef<NoisVstSource>();
-	mTimeStretcher = nois::CreateTimeStretcher(mSource);
-
 	mAuxSource = nois::MakeRef<NoisVstSource>();
-	mAuxFilterBank = nois::CreateFilterBank(mAuxSource, 16, 0.1f, 0.9f);
+
+	// mTimeStretcher = nois::CreateTimeStretcher(mSource);
+	mModulatorFilterBank = nois::CreateFilterBank(mAuxSource, 64, 0.001f, 0.999f);
+	mCarrierFilterBank = nois::CreateFilterBank(mSource, 64, 0.001f, 0.999f);
+	mTimeStretcher = nois::CreateTimeStretcher(mCarrierFilterBank);
 
 	mTimeStretcher->SetStretchActive(mStretchActive);
 	mTimeStretcher->SetStretchFactor(mStretchFactor);
 	mTimeStretcher->SetGrainPhaseInc(mGrainPhaseInc);
 	mTimeStretcher->SetGrainLockActive(mGrainPhaseLockActive);
+
+	for (int i = 0; i < 64; ++i)
+	{
+		mBandEnvelopes.emplace_back(44100.0f / 1024.0f, 2.0f, 12.0f);
+		mCarrierBandGains.emplace_back(nois::CreateBlockParameter(1.0f));
+	}
+
+	mCarrierFilterBank->SetBandGains(mCarrierBandGains);
 
 	mParameterLookup[decltype(mStretchActive)::kPid] = &mStretchActive;
 	mParameterLookup[decltype(mStretchFactor)::kPid] = &mStretchFactor;
@@ -111,9 +108,23 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 
 	NOIS_PROFILE_MARK();
 
-	if (data.inputParameterChanges)
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Prepare parameters");
+
+		for (auto it = mParameterLookup.begin();
+			it != mParameterLookup.end();
+			++it)
+		{
+			std::visit([&](auto &&parameter)
+			{
+				parameter->Prepare(data.numSamples);
+			}, it->second);
+		}
+	}
+
+	if (data.inputParameterChanges)
+	{
+		NOIS_PROFILE_SCOPE_NAMED("Process parameter changes");
 
 		int numParamsChanged = data.inputParameterChanges->getParameterCount();
 		for (int i = 0; i < numParamsChanged; i++)
@@ -133,9 +144,7 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 
 			std::visit([&](auto &&parameter)
 			{
-				using T = std::decay_t<decltype(parameter)>;
-
-				parameter->PrepareForWrite(data.numSamples);
+				using T = std::remove_pointer_t<std::decay_t<decltype(parameter)>>;
 
 				nois::f32_t lastValuePlain = parameter->GetLastValue();
 
@@ -150,7 +159,7 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 					{
 						nois::f32_t valuePlain = parameter->ToPlain(valueNormalized);
 
-						if (numPoints == 1 || std::remove_pointer_t<T>::kNumSteps > 0)
+						if (numPoints == 1 || T::kNumSteps > 0)
 						{
 							for (;
 								currentSampleOffset < data.numSamples;
@@ -229,25 +238,27 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 		}
 	}
 
-	// mAuxFilterBank->PrepareToConsume(auxSinkBuffer.GetNumFrames(), auxSinkBuffer.GetNumChannels(), mSampleRate);
-	// mAuxFilterBank->Consume(auxSinkBuffer, mSampleRate);
+	{
+		nois::ScopedNoDenorms noDenorms;
 
-	// float principalAuxFrequency = 0.0f;
-	// float principalAuxBandRms = 0.0f;
+		NOIS_PROFILE_SCOPE_NAMED("Modulator filter bank");
 
-	// auto auxBandRmses = mAuxFilterBank->GetBandRmses();
+		mModulatorFilterBank->PrepareToConsume(auxSinkBuffer.GetNumFrames(), auxSinkBuffer.GetNumChannels(), mSampleRate);
+		mModulatorFilterBank->Consume(auxSinkBuffer, mSampleRate);
+	}
 
-	// for (int i = 0; i < mAuxFilterBank->GetNumBands(); ++i)
-	// {
-	// 	float auxFrequency = mAuxFilterBank->GetBandFrequency(i, mSampleRate);
-	// 	float auxBandRms = auxBandRmses[i]->Get();
-
-	// 	if (auxBandRms > principalAuxBandRms)
-	// 	{
-	// 		principalAuxFrequency = auxFrequency;
-	// 		principalAuxBandRms = auxBandRms;
-	// 	}
-	// }
+	for (int i = 0; i < mModulatorFilterBank->GetNumBands(); ++i)
+	{
+		auto carrierBandGain = nois::PtrCast<nois::FloatConstantBlockParameter>(mCarrierBandGains[i]);
+		float rms = mModulatorFilterBank->GetBandRms(i);
+		// Envelope
+		float envRms = mBandEnvelopes[i].process(rms);
+		float envDb = 20.0f * log10f(std::max(envRms, 1e-6f));
+		// Floor
+		float compDb = std::max(envDb, -90.0f);
+		float compGain = std::pow(10.0f, compDb / 20.0f);
+		carrierBandGain->Set(compGain);
+	}
 
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Read from source");
@@ -263,60 +274,23 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 		}
 	}
 
+	// {
+	// 	nois::ScopedNoDenorms noDenorms;
+
+	// 	NOIS_PROFILE_SCOPE_NAMED("Carrier filter bank");
+
+	// 	mCarrierFilterBank->PrepareToConsume(sinkBuffer.GetNumFrames(), sinkBuffer.GetNumChannels(), mSampleRate);
+	// 	mCarrierFilterBank->Consume(sinkBuffer, mSampleRate);
+	// }
+
 	{
 		nois::ScopedNoDenorms noDenorms;
 
-		NOIS_PROFILE_SCOPE_NAMED("Consume");
+		NOIS_PROFILE_SCOPE_NAMED("Time stretch");
 
 		mTimeStretcher->PrepareToConsume(sinkBuffer.GetNumFrames(), sinkBuffer.GetNumChannels(), mSampleRate);
 		mTimeStretcher->Consume(sinkBuffer, mSampleRate);
 	}
-
-	// static nois::Ref_t<nois::FloatConstantParameter> cutoffRatio = nullptr;
-	// if (!cutoffRatio)
-	// {
-	// 	cutoffRatio = nois::CreateParameter(0.0f);
-	// }
-	// static nois::Ref_t<nois::BandpassFilter> bandpass = nullptr;
-	// if (!bandpass)
-	// {
-	// 	bandpass = nois::CreateBandpassFilter(mTimeStretcher);
-	// 	bandpass->SetCutoffRatio(cutoffRatio);
-	// 	bandpass->SetQ(nois::CreateParameter(0.01f));
-	// }
-	// float cutoffFrequency = 1.0f;
-	// if (principalAuxFrequency > 0.0f)
-	// {
-	// 	cutoffFrequency = principalAuxFrequency;
-	// }
-	// cutoffRatio->Set(0.5f * cutoffFrequency / float(mSampleRate));
-	// bandpass->PrepareToConsume(sinkBuffer.GetNumFrames(), sinkBuffer.GetNumChannels(), mSampleRate);
-	// bandpass->Consume(sinkBuffer, mSampleRate);
-
-	// static nois::FloatConstantBlockParameterList bandGains;
-	// if (bandGains.empty())
-	// {
-	// 	bandGains.resize(auxBandRmses.size(), nois::CreateBlockParameter(1.0f));
-	// 	nois::FloatBlockParameterList bandGainsCopy;
-	// 	bandGainsCopy.reserve(bandGains.size());
-	// 	for (auto& bandGain : bandGains)
-	// 	{
-	// 		bandGainsCopy.emplace_back(bandGain);
-	// 	}
-	// 	mAuxFilterBank->SetBandGains(bandGainsCopy);
-	// }
-	// for (int i = 0; i < bandGains.size(); ++i)
-	// {
-	// 	bandGains[i]->Set(auxBandRmses[i]->Get());
-	// }
-	// auxSourceBuffer.Copy(sourceBuffer);
-	// mAuxFilterBank->PrepareToConsume(auxSinkBuffer.GetNumFrames(), auxSinkBuffer.GetNumChannels(), mSampleRate);
-	// mAuxFilterBank->Consume(auxSinkBuffer, mSampleRate);
-	// sinkBuffer.Copy(auxSinkBuffer);
-	// for (int i = 0; i < bandGains.size(); ++i)
-	// {
-	// 	bandGains[i]->Set(1.0f);
-	// }
 	
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Write to sink");
