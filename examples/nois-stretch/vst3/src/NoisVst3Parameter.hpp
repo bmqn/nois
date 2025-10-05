@@ -58,15 +58,17 @@ struct GrainPhaseLockActive
 template<typename Parameter>
 inline nois::f32_t ApplyStep(nois::f32_t valuePlain)
 {
-	if (Parameter::kNumSteps <= 0)
+	nois::s32_t numSteps = Parameter::kNumSteps;
+
+	if (numSteps > 0)
 	{
-		return valuePlain;
+		nois::f32_t step = (Parameter::kMaxValue - Parameter::kMinValue) / nois::f32_t(numSteps);
+		nois::s32_t steps = nois::s32_t(std::round((valuePlain - Parameter::kMinValue) / step));
+
+		return Parameter::kMinValue + steps * step;
 	}
 
-	nois::f32_t step = (Parameter::kMaxValue - Parameter::kMinValue) / nois::f32_t(Parameter::kNumSteps);
-	nois::s32_t steps = nois::s32_t(std::round((valuePlain - Parameter::kMinValue) / step));
-
-	return Parameter::kMinValue + steps * step;
+	return valuePlain;
 }
 
 template<typename Parameter>
