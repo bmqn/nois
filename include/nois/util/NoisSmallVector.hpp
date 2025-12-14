@@ -19,7 +19,7 @@ public:
 	{
 		if (n >= N)
 		{
-			MoveToFallback();
+			MoveToFallback(n);
 		}
 		std::fill(begin(), end(), value);
 	}
@@ -65,7 +65,7 @@ public:
 		{
 			if (m_Fallback.empty())
 			{
-				MoveToFallback();
+				MoveToFallback(N);
 			}
 			m_Fallback.push_back(value);
 			++m_Size;
@@ -84,7 +84,7 @@ public:
 		{
 			if (m_Fallback.empty())
 			{
-				MoveToFallback();
+				MoveToFallback(N);
 			}
 			m_Fallback.emplace_back(std::forward<Args>(args)...);
 			++m_Size;
@@ -165,14 +165,17 @@ public:
 	template<bool Const>
 	class Iterator
 	{
+	private:
+		using vector = std::conditional_t<Const, const SmallVector*, SmallVector*>;
+
 	public:
 		using iterator_category = std::random_access_iterator_tag;
 		using value_type = T;
 		using difference_type = std::ptrdiff_t;
-		using pointer = typename std::conditional<Const, const T*, T*>::type;
-		using reference = typename std::conditional<Const, const T&, T&>::type;
+		using pointer = typename std::conditional_t<Const, const T*, T*>;
+		using reference = typename std::conditional_t<Const, const T&, T&>;
 
-		Iterator(SmallVector *smallVector, size_type index)
+		Iterator(vector smallVector, size_type index)
 			: m_SmallVector(smallVector)
 			, m_Index(index)
 		{
@@ -260,7 +263,7 @@ public:
 		}
 
 	private:
-		SmallVector* m_SmallVector;
+		vector m_SmallVector;
 		size_type m_Index;
 	};
 
@@ -288,7 +291,7 @@ public:
 	}
 
 private:
-	inline void MoveToFallback(size_type n = N, const T &value = T{})
+	inline void MoveToFallback(size_type n, const T &value = T{})
 	{
 		m_Fallback.resize(n, value);
 		std::copy_n(m_Data.begin(), m_Size, m_Fallback.begin());

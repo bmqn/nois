@@ -88,7 +88,6 @@ public:
 				f32_t stretchFactor = m_StretchFactor->Get(frameIndex);
 				f32_t grainSize = m_GrainSize->Get(frameIndex);
 				f32_t grainBlend = m_GrainBlend->Get(frameIndex);
-				f32_t grainGain = m_GrainGain->Get(frameIndex);
 				f32_t grainPhaseInc = m_GrainPhaseInc->Get(frameIndex);
 
 				stretchFactor = std::max(stretchFactor, 1.0f);
@@ -101,7 +100,6 @@ public:
 					stretchFactor,
 					grainSize,
 					grainBlend,
-					grainGain,
 					grainPhaseInc);
 			}
 		}
@@ -134,9 +132,6 @@ public:
 			numFrames,
 			sampleRate);
 		m_GrainBlend->Prepare(
-			numFrames,
-			sampleRate);
-		m_GrainGain->Prepare(
 			numFrames,
 			sampleRate);
 		m_GrainPhaseInc->Prepare(
@@ -214,16 +209,6 @@ public:
 		m_GrainBlend = grainBlend;
 	}
 
-	Ref_t<FloatParameter> GetGrainGain()
-	{
-		return m_GrainGain;
-	}
-
-	void SetGrainGain(Ref_t<FloatParameter> grainGain)
-	{
-		m_GrainGain = grainGain;
-	}
-
 	Ref_t<FloatParameter> GetGrainPhaseInc()
 	{
 		return m_GrainPhaseInc;
@@ -251,7 +236,6 @@ private:
 		f32_t stretchFactor,
 		f32_t grainSize,
 		f32_t grainBlend,
-		f32_t grainGain,
 		f32_t grainPhaseInc)
 	{
 		count_t numChannels = buffer.GetNumChannels();
@@ -366,8 +350,6 @@ private:
 				m_Grains[c][!m_GrainPlayings[c]] = newGrainOffset;
 				m_GrainPlayings[c] = 1 - m_GrainPlayings[c];
 			}
-
-			sample *= grainGain;
 		}
 	}
 
@@ -413,7 +395,6 @@ private:
 	Ref_t<FloatBlockParameter> m_StretchTimeMs = CreateBlockParameter(10000.0f);
 	Ref_t<FloatParameter> m_GrainSize = CreateParameter(2500.0f);
 	Ref_t<FloatParameter> m_GrainBlend = CreateParameter(0.4f);
-	Ref_t<FloatParameter> m_GrainGain = CreateParameter(1.0f);
 	Ref_t<FloatParameter> m_GrainPhaseInc = CreateParameter(1.0f);
 	Ref_t<FloatParameter> m_GrainLockActive = CreateParameter(0.0f);
 
@@ -453,7 +434,6 @@ NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchTimeMs, FloatBlockParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchFactor, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainSize, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainBlend, FloatParameter)
-NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainGain, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainPhaseInc, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainLockActive, FloatParameter)
 

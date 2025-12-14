@@ -335,6 +335,8 @@ public:
 		FloatBuffer &buffer,
 		f32_t sampleRate) override
 	{
+		NOIS_PROFILE_SCOPE_NAMED("BiquadBandpassFilter - Consume");
+
 		Stream::Result result = Stream::Success;
 
 		if (Stream::Result streamResult =

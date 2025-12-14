@@ -2,6 +2,9 @@
 
 #include "nois/effect/NoisFilter.hpp"
 
+#include <chrono>
+#include <future>
+
 namespace nois {
 
 class FilterBankImpl : public FilterBank
@@ -27,7 +30,7 @@ public:
 				std::pow(maxCutoffRatio / minCutoffRatio, f32_t(i) / f32_t(numBands - 1));
 			m_BandCutoffRatios.emplace_back(cutoffRatio);
 
-			f32_t q = 1.0f;
+			f32_t q = 0.5f;
 			m_BandQs.emplace_back(q);
 
 			f32_t rms = 0.0f;
@@ -37,6 +40,9 @@ public:
 			filter->SetCutoffRatio(MakeRef<FloatConstantParameter>(cutoffRatio));
 			filter->SetQ(MakeRef<FloatConstantParameter>(q));
 			m_Filters.emplace_back(filter);
+			m_FilterJobs.emplace_back();
+
+			m_ScratchBuffers.emplace_back();
 		}
 	}
 
@@ -44,6 +50,8 @@ public:
 		FloatBuffer &buffer,
 		f32_t sampleRate) override
 	{
+		NOIS_PROFILE_SCOPE_NAMED("FilterBank - Consume");
+
 		Stream::Result result = Stream::Success;
 
 		// Consume the stream into the stream buffer
@@ -60,37 +68,56 @@ public:
 		// Zero the result buffer
 		m_ResultBuffer.Zero();
 
+		// Run filters in parallel
 		for (count_t i = 0; i < m_Filters.size(); ++i)
 		{
-			// Consume filter into the scratch buffer
-			m_Filters[i]->Consume(m_ScratchBuffer, sampleRate);
-
-			// Apply band gains, if one is specified for this band
+			// Get band gains, if one is specified for this band
+			float bandGain = 1.0f;
 			if (i < m_BandGains.size())
 			{
-				m_ScratchBuffer.Multiply(m_BandGains[i]->Get());
+				bandGain = m_BandGains[i]->Get();
 			}
 
-			count_t numFrames = m_ScratchBuffer.GetNumFrames();
-			count_t numChannels = m_ScratchBuffer.GetNumChannels();
-
-			// Determine energy of filter
-			f32_t energy = 0.0f;
-			for (count_t f = 0; f < numFrames; ++f)
+			m_FilterJobs[i] = std::async(std::launch::async,
+			[
+				&filter = m_Filters[i],
+				bandGain,
+				&bandRms = m_BandRmses[i],
+				&scratchBuffer = m_ScratchBuffers[i],
+				sampleRate
+			]()
 			{
-				for (count_t c = 0; c < numChannels; ++c)
+				// Consume filter into the scratch buffer
+				filter->Consume(scratchBuffer, sampleRate);
+
+				// Apply band gain
+				scratchBuffer.Multiply(bandGain);
+
+				count_t numFrames = scratchBuffer.GetNumFrames();
+				count_t numChannels = scratchBuffer.GetNumChannels();
+				count_t numSamples = numFrames * numChannels;
+
+				// Determine energy of filter
+				f32_t energy = 0.0f;
+				for (count_t f = 0; f < numFrames; ++f)
 				{
-					f32_t s = m_ScratchBuffer(f, c);
-					energy += s * s;
+					for (count_t c = 0; c < numChannels; ++c)
+					{
+						f32_t s = scratchBuffer(f, c);
+						energy += s * s;
+					}
 				}
-			}
 
-			// Update the rms for this band
-			count_t numSamples = numFrames * numChannels;
-			m_BandRmses[i] = std::sqrt(energy / f32_t(numSamples));
+				// Update the rms for this band
+				bandRms = std::sqrt(energy / f32_t(numSamples));
+			});
+		}
 
-			// Accumulate filter into result buffer
-			m_ResultBuffer.Add(m_ScratchBuffer);
+		// Wait for jobs to complete
+		for (count_t i = 0; i < m_Filters.size(); ++i)
+		{
+			m_FilterJobs[i].wait();
+			m_ResultBuffer.Add(m_ScratchBuffers[i]);
 		}
 
 		// Copy the result buffer to the output buffer
@@ -113,19 +140,19 @@ public:
 			numFrames,
 			numChannels);
 
-		for (auto &filter : m_Filters)
+		for (count_t i = 0; i < m_Filters.size(); ++i)
 		{
-			filter->PrepareToConsume(
+			m_Filters[i]->PrepareToConsume(
 				numFrames,
 				numChannels,
 				sampleRate);
+
+			m_ScratchBuffers[i].Resize(
+				numFrames,
+				numChannels);
 		}
 
 		m_ResultBuffer.Resize(
-			numFrames,
-			numChannels);
-
-		m_ScratchBuffer.Resize(
 			numFrames,
 			numChannels);
 	}
@@ -167,13 +194,17 @@ private:
 	Ref_t<Stream> m_Stream;
 	Ref_t<FloatBufferStream> m_StreamBufferStream;
 	FloatBuffer m_SteamBuffer;
+
 	std::vector<Ref_t<BandpassFilter>> m_Filters;
+	std::vector<std::future<void>> m_FilterJobs;
+
 	FloatBlockParameterList m_BandGains;
 	std::vector<f32_t> m_BandCutoffRatios;
 	std::vector<f32_t> m_BandQs;
 	std::vector<f32_t> m_BandRmses;
+
 	FloatBuffer m_ResultBuffer;
-	FloatBuffer m_ScratchBuffer;
+	std::vector<FloatBuffer> m_ScratchBuffers;
 };
 
 Ref_t<FilterBank> CreateFilterBank(

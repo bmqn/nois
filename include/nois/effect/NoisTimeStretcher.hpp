@@ -24,7 +24,6 @@ public:
 	NOIS_INTERFACE_PARAM(StretchFactor, FloatParameter)
 	NOIS_INTERFACE_PARAM(GrainSize, FloatParameter)
 	NOIS_INTERFACE_PARAM(GrainBlend, FloatParameter)
-	NOIS_INTERFACE_PARAM(GrainGain, FloatParameter)
 	NOIS_INTERFACE_PARAM(GrainPhaseInc, FloatParameter)
 	NOIS_INTERFACE_PARAM(GrainLockActive, FloatParameter)
 

@@ -2,6 +2,7 @@
 
 #include "nois/NoisTypes.hpp"
 #include "nois/parameter/NoisParameter.hpp"
+#include "nois/util/NoisSmallVector.hpp"
 
 namespace nois {
 
@@ -64,7 +65,7 @@ public:
 			return;
 		}
 
-		std::vector<T> newData(size, T{ 0 });
+		nois::SmallVector<T, k_CacheOptimisedNumFrames> newData(size, T{ 0 });
 
 		if (m_Size > 0)
 		{
@@ -217,7 +218,7 @@ private:
 
 	count_t m_Size;
 
-	std::vector<T> m_Data;
+	nois::SmallVector<T, k_CacheOptimisedNumFrames> m_Data;
 };
 
 }

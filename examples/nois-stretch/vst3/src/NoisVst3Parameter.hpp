@@ -72,13 +72,13 @@ inline nois::f32_t ApplyStep(nois::f32_t valuePlain)
 }
 
 template<typename Parameter>
-inline nois::f32_t  ToPlain(nois::f32_t valueNormalized)
+inline nois::f32_t ToPlain(nois::f32_t valueNormalized)
 {
 	return ApplyStep<Parameter>(valueNormalized * (Parameter::kMaxValue - Parameter::kMinValue) + Parameter::kMinValue);
 }
 
 template<typename Parameter>
-inline nois::f32_t  ToNormalized(nois::f32_t valuePlain)
+inline nois::f32_t ToNormalized(nois::f32_t valuePlain)
 {
 	return (ApplyStep<Parameter>(valuePlain) - Parameter::kMinValue) / (Parameter::kMaxValue - Parameter::kMinValue);
 }

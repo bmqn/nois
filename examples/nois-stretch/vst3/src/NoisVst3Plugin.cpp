@@ -25,32 +25,17 @@ nois::FloatBuffer& NoisVstSource::GetBuffer()
 
 NoisPlugin::NoisPlugin()
 	: mSource(nullptr)
-	, mAuxSource(nullptr)
 	, mTimeStretcher(nullptr)
-	, mModulatorFilterBank(nullptr)
-	, mCarrierFilterBank(nullptr)
 	, mSampleRate(0.0)
 {
 	mSource = nois::MakeRef<NoisVstSource>();
-	mAuxSource = nois::MakeRef<NoisVstSource>();
 
-	// mTimeStretcher = nois::CreateTimeStretcher(mSource);
-	mModulatorFilterBank = nois::CreateFilterBank(mAuxSource, 64, 0.001f, 0.999f);
-	mCarrierFilterBank = nois::CreateFilterBank(mSource, 64, 0.001f, 0.999f);
-	mTimeStretcher = nois::CreateTimeStretcher(mCarrierFilterBank);
+	mTimeStretcher = nois::CreateTimeStretcher(mSource);
 
 	mTimeStretcher->SetStretchActive(mStretchActive);
 	mTimeStretcher->SetStretchFactor(mStretchFactor);
 	mTimeStretcher->SetGrainPhaseInc(mGrainPhaseInc);
 	mTimeStretcher->SetGrainLockActive(mGrainPhaseLockActive);
-
-	for (int i = 0; i < 64; ++i)
-	{
-		mBandEnvelopes.emplace_back(44100.0f / 1024.0f, 2.0f, 12.0f);
-		mCarrierBandGains.emplace_back(nois::CreateBlockParameter(1.0f));
-	}
-
-	mCarrierFilterBank->SetBandGains(mCarrierBandGains);
 
 	mParameterLookup[decltype(mStretchActive)::kPid] = &mStretchActive;
 	mParameterLookup[decltype(mStretchFactor)::kPid] = &mStretchFactor;
@@ -76,8 +61,6 @@ tresult PLUGIN_API NoisPlugin::initialize(FUnknown* context)
 
 	addAudioInput(STR16("Input"), Vst::SpeakerArr:: kStereo);
 	addAudioOutput(STR16("Output"), Vst::SpeakerArr::kStereo);
-
-	addAudioInput(STR16("Aux Input"), Vst::SpeakerArr::kMono, Vst::BusTypes::kAux);
 
 	return kResultOk;
 }
@@ -159,7 +142,7 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 					{
 						nois::f32_t valuePlain = parameter->ToPlain(valueNormalized);
 
-						if (numPoints == 1 || T::kNumSteps > 0)
+						if (numPoints == 1)
 						{
 							for (;
 								currentSampleOffset < data.numSamples;
@@ -211,54 +194,11 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 	nois::FloatBuffer& sourceBuffer = mSource->GetBuffer();
 	nois::FloatBuffer sinkBuffer;
 
-	nois::FloatBuffer& auxSourceBuffer = mAuxSource->GetBuffer();
-	nois::FloatBuffer auxSinkBuffer;
-
 	auto& inSource = data.inputs[0];
-	auto& inAuxSource = data.inputs[1];
 	auto& outSink = data.outputs[0];
 
 	sourceBuffer.Resize(data.numSamples, inSource.numChannels);
 	sinkBuffer.Resize(data.numSamples, outSink.numChannels);
-
-	auxSourceBuffer.Resize(data.numSamples, inAuxSource.numChannels);
-	auxSinkBuffer.Resize(data.numSamples, inAuxSource.numChannels);
-
-	{
-		NOIS_PROFILE_SCOPE_NAMED("Read from aux source");
-
-		for (int channel = 0; channel < inAuxSource.numChannels; ++channel)
-		{
-			float* inSamplesStart  = inAuxSource.channelBuffers32[channel];
-
-			for (int sample = 0; sample < data.numSamples; ++sample)
-			{
-				auxSourceBuffer(sample, channel) = inSamplesStart[sample];
-			}
-		}
-	}
-
-	{
-		nois::ScopedNoDenorms noDenorms;
-
-		NOIS_PROFILE_SCOPE_NAMED("Modulator filter bank");
-
-		mModulatorFilterBank->PrepareToConsume(auxSinkBuffer.GetNumFrames(), auxSinkBuffer.GetNumChannels(), mSampleRate);
-		mModulatorFilterBank->Consume(auxSinkBuffer, mSampleRate);
-	}
-
-	for (int i = 0; i < mModulatorFilterBank->GetNumBands(); ++i)
-	{
-		auto carrierBandGain = nois::PtrCast<nois::FloatConstantBlockParameter>(mCarrierBandGains[i]);
-		float rms = mModulatorFilterBank->GetBandRms(i);
-		// Envelope
-		float envRms = mBandEnvelopes[i].process(rms);
-		float envDb = 20.0f * log10f(std::max(envRms, 1e-6f));
-		// Floor
-		float compDb = std::max(envDb, -90.0f);
-		float compGain = std::pow(10.0f, compDb / 20.0f);
-		carrierBandGain->Set(compGain);
-	}
 
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Read from source");
@@ -273,15 +213,6 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 			}
 		}
 	}
-
-	// {
-	// 	nois::ScopedNoDenorms noDenorms;
-
-	// 	NOIS_PROFILE_SCOPE_NAMED("Carrier filter bank");
-
-	// 	mCarrierFilterBank->PrepareToConsume(sinkBuffer.GetNumFrames(), sinkBuffer.GetNumChannels(), mSampleRate);
-	// 	mCarrierFilterBank->Consume(sinkBuffer, mSampleRate);
-	// }
 
 	{
 		nois::ScopedNoDenorms noDenorms;
