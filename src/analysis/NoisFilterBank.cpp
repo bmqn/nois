@@ -21,7 +21,7 @@ public:
 		minCutoffRatio = std::max(minCutoffRatio, 0.001f);
 		maxCutoffRatio = std::min(maxCutoffRatio, 0.999f);
 
-		m_StreamBufferStream = MakeRef<FloatBufferStream>(&m_SteamBuffer);
+		m_StreamBufferStream = MakeRef<BufferStream>(&m_SteamBuffer);
 
 		for (count_t i = 0; i < numBands; i++)
 		{
@@ -192,7 +192,7 @@ public:
 
 private:
 	Ref_t<Stream> m_Stream;
-	Ref_t<FloatBufferStream> m_StreamBufferStream;
+	Ref_t<BufferStream> m_StreamBufferStream;
 	FloatBuffer m_SteamBuffer;
 
 	std::vector<Ref_t<BandpassFilter>> m_Filters;

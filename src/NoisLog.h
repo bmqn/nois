@@ -6,12 +6,12 @@
 //-------------------------------------------------------------------------------------------------
 //	Utility
 //-------------------------------------------------------------------------------------------------
-#define _STRINGIFY(x) #x
-#define STRINGIFY(x) _STRINGIFY(x)
+#define _NZ_STRINGIFY(x) #x
+#define NZ_STRINGIFY(x) _STRINGIFY(x)
 
-#define _EXPAND(x) x
+#define _NZ_EXPAND(x) x
 
-#define _VARGS(_9, _8, _7, _6, _5, _4, _3, _2, _1, N, ...) N
+#define _NZ_VARGS(_9, _8, _7, _6, _5, _4, _3, _2, _1, N, ...) N
 
 #if defined(__cplusplus)
 
@@ -58,7 +58,7 @@ inline void debug_break() {}
 //-------------------------------------------------------------------------------------------------
 #if NOIS_ENABLE_LOGGING
 
-#define _LOG1(format)                                                                             \
+#define _NZ_LOG1(format)                                                                          \
 do                                                                                                \
 {                                                                                                 \
 	fprintf(stdout, "[Info]");                                                                    \
@@ -67,7 +67,7 @@ do                                                                              
 	fprintf(stdout, "\n");                                                                        \
 } while(0)
 
-#define _LOG2(format, ...)                                                                        \
+#define _NZ_LOG2(format, ...)                                                                     \
 do                                                                                                \
 {                                                                                                 \
 	fprintf(stdout, "[Info]");                                                                    \
@@ -76,18 +76,18 @@ do                                                                              
 	fprintf(stdout, "\n");                                                                        \
 } while(0)
 
-#define _LOG_CHOOSER(...) _EXPAND(                                                                \
-_VARGS(__VA_ARGS__,                                                                               \
-_LOG2, _LOG2, _LOG2,                                                                              \
-_LOG2, _LOG2, _LOG2,                                                                              \
-_LOG2, _LOG2, _LOG1)                                                                              \
+#define _NZ_LOG_CHOOSER(...) _NZ_EXPAND(                                                          \
+_NZ_VARGS(__VA_ARGS__,                                                                            \
+_NZ_LOG2, _NZ_LOG2, _NZ_LOG2,                                                                     \
+_NZ_LOG2, _NZ_LOG2, _NZ_LOG2,                                                                     \
+_NZ_LOG2, _NZ_LOG2, _NZ_LOG1)                                                                     \
 )
 
-#define LOG(...) _EXPAND(_LOG_CHOOSER(__VA_ARGS__)(__VA_ARGS__))
+#define NZ_LOG(...) _NZ_EXPAND(_NZ_LOG_CHOOSER(__VA_ARGS__)(__VA_ARGS__))
 
 #else
 
-#define LOG(...)
+#define NZ_LOG(...)
 
 #endif // NOIS_ENABLE_LOGGING
 
@@ -96,7 +96,7 @@ _LOG2, _LOG2, _LOG1)                                                            
 //-------------------------------------------------------------------------------------------------
 #if NOIS_ENABLE_ASSERTIONS
 
-#define _ASSERT1(condition)                                                                       \
+#define _NZ_ASSERT1(condition)                                                                    \
 do                                                                                                \
 {                                                                                                 \
 	if (!(condition))                                                                             \
@@ -108,7 +108,7 @@ do                                                                              
 	}                                                                                             \
 } while(0)
 
-#define _ASSERT2(condition, format)                                                               \
+#define _NZ_ASSERT2(condition, format)                                                            \
 do                                                                                                \
 {                                                                                                 \
 	if (!(condition))                                                                             \
@@ -121,7 +121,7 @@ do                                                                              
 	}                                                                                             \
 } while (0)
 
-#define _ASSERT3(condition, format, ...)                                                          \
+#define _NZ_ASSERT3(condition, format, ...)                                                       \
 do                                                                                                \
 {                                                                                                 \
 	if (!(condition))                                                                             \
@@ -134,18 +134,18 @@ do                                                                              
 	}                                                                                             \
 } while (0)
 
-#define _ASSERT_CHOOSER(...) _EXPAND(                                                             \
-_VARGS(__VA_ARGS__,                                                                               \
-_ASSERT3, _ASSERT3, _ASSERT3,                                                                     \
-_ASSERT3, _ASSERT3, _ASSERT3,                                                                     \
-_ASSERT3, _ASSERT2, _ASSERT1)                                                                     \
+#define _NZ_ASSERT_CHOOSER(...) _NZ_EXPAND(                                                       \
+_NZ_VARGS(__VA_ARGS__,                                                                            \
+_NZ_ASSERT3, _NZ_ASSERT3, _NZ_ASSERT3,                                                            \
+_NZ_ASSERT3, _NZ_ASSERT3, _NZ_ASSERT3,                                                            \
+_NZ_ASSERT3, _NZ_ASSERT2, _NZ_ASSERT1)                                                            \
 )
 
-#define ASSERT(...) _EXPAND(_ASSERT_CHOOSER(__VA_ARGS__)(__VA_ARGS__))
+#define NZ_ASSERT(...) _NZ_EXPAND(_NZ_ASSERT_CHOOSER(__VA_ARGS__)(__VA_ARGS__))
 
 #else
 
-#define ASSERT(condition, ...)
+#define NZ_ASSERT(condition, ...)
 
 #endif  // NOIS_ENABLE_ASSERTIONS
 

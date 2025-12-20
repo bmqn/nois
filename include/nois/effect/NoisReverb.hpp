@@ -6,14 +6,14 @@
 
 namespace nois {
 
-class SignalDelayer : public ProcessStream
+class Reverb : public ProcessStream
 {
 public:
-	static Ref_t<SignalDelayer> Create();
+	static Ref_t<Reverb> Create();
 
 public:
-	NOIS_INTERFACE(SignalDelayer)
-	NOIS_INTERFACE_PARAM(DelayMs, FloatBlockParameter)
+	NOIS_INTERFACE(Reverb)
+	NOIS_INTERFACE_PARAM(Wet, FloatParameter)
 };
 
 }

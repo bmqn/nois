@@ -167,8 +167,8 @@ public:
 		, m_ReleaseMs(MakeRef<FloatConstantParameter>(10.0f))
 		, m_Smoothing(MakeRef<FloatConstantParameter>(0.8f))
 	{
-		m_LowFilter = CreateFilter(m_Stream, Filter::k_N2ButterWorthLow);
-		m_HighFilter = CreateFilter(m_Stream, Filter::k_N2ButterWorthHigh);
+		m_LowFilter = Filter::Create(m_Stream, Filter::k_N2ButterworthLow);
+		m_HighFilter = Filter::Create(m_Stream, Filter::k_N2ButterworthHigh);
 		m_BandFilter = CreateBandpassFilter(m_Stream, BandpassFilter::k_Biquad);
 
 		m_LowTransientShaper = MakeRef<TransientShaperImpl>(m_LowFilter);

@@ -6,25 +6,26 @@
 
 namespace nois {
 
-class Filter : public Stream
+class Filter : public ProcessStream
 {
 public:
 	enum Kind
 	{
-		k_N2ButterWorthLow,
-		k_N2ButterWorthHigh
+		k_N2ButterworthLow,
+		k_N2ButterworthHigh,
+		k_LR4Low,
+		k_LR4High,
 	};
 
-public:
-	virtual ~Filter() {}
+	static Ref_t<Filter> Create(Kind kind);
 
-	virtual Ref_t<FloatParameter> GetCutoffRatio() = 0;
-	virtual void SetCutoffRatio(Ref_t<FloatParameter> cutoffRatio) = 0;
+	NOIS_INTERFACE(Filter)
+	NOIS_INTERFACE_PARAM(CutoffRatio, FloatBlockParameter)
 
-	virtual f32_t GetResponseMagnitude(f32_t freqRatio) const = 0;
+	f32_t GetResponseMagnitude(f32_t ratio) const;
 };
 
-class BandpassFilter : public Stream
+class BandpassFilter : public ProcessStream
 {
 public:
 	enum Kind
@@ -33,22 +34,30 @@ public:
 		k_WindowedSinc
 	};
 
-public:
-	virtual ~BandpassFilter() {}
+	static Ref_t<BandpassFilter> Create(Kind kind);
 
-	virtual Ref_t<FloatParameter> GetCutoffRatio() = 0;
-	virtual void SetCutoffRatio(Ref_t<FloatParameter> cutoffRatio) = 0;
+	NOIS_INTERFACE(BandpassFilter)
+	NOIS_INTERFACE_PARAM(CutoffRatio, FloatBlockParameter)
+	NOIS_INTERFACE_PARAM(Q, FloatBlockParameter)
 
-	virtual Ref_t<FloatParameter> GetQ() = 0;
-	virtual void SetQ(Ref_t<FloatParameter> q) = 0;
-
-	virtual f32_t GetResponseMagnitude(f32_t freqRatio) const = 0;
+	f32_t GetResponseMagnitude(f32_t ratio) const;
 };
 
-Ref_t<Filter> CreateFilter(Ref_t<Stream> stream,
-	Filter::Kind kind = Filter::k_N2ButterWorthLow);
+class AllpassFilter : public ProcessStream
+{
+public:
+	enum Kind
+	{
+		k_RBJBiquad
+	};
 
-Ref_t<BandpassFilter> CreateBandpassFilter(Ref_t<Stream> stream,
-	BandpassFilter::Kind kind = BandpassFilter::k_Biquad);
+	static Ref_t<AllpassFilter> Create(Kind kind);
+
+	NOIS_INTERFACE(AllpassFilter)
+	NOIS_INTERFACE_PARAM(CutoffRatio, FloatBlockParameter)
+	NOIS_INTERFACE_PARAM(Q, FloatBlockParameter)
+
+	f32_t GetResponseMagnitude(f32_t ratio) const;
+};
 
 }

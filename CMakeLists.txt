@@ -78,8 +78,11 @@ set(NOIS_HSPSRC
 	"${NOIS_HSP}/nois/effect/NoisDistorter.hpp"
 	"${NOIS_HSP}/nois/effect/NoisFilter.hpp"
 	"${NOIS_HSP}/nois/effect/NoisGainer.hpp"
+	"${NOIS_HSP}/nois/effect/NoisReverb.hpp"
 	"${NOIS_HSP}/nois/effect/NoisSignalDelayer.hpp"
 	"${NOIS_HSP}/nois/effect/NoisTimeStretcher.hpp"
+
+	"${NOIS_HSP}/nois/math/NoisMatrix.hpp"
 
 	"${NOIS_HSP}/nois/midi/NoisMidiBuffer.hpp"
 	"${NOIS_HSP}/nois/midi/NoisMidiStream.hpp"
@@ -113,6 +116,7 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/effect/NoisDistorter.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisFilter.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisGainer.cpp"
+	"${NOIS_SRC_DIR}/effect/NoisReverb.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisSignalDelayer.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisTimeStretcher.cpp"
 

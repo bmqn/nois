@@ -18,6 +18,7 @@
 #include "effect/NoisDistorter.hpp"
 #include "effect/NoisFilter.hpp"
 #include "effect/NoisGainer.hpp"
+#include "effect/NoisReverb.hpp"
 #include "effect/NoisSignalDelayer.hpp"
 #include "effect/NoisTimeStretcher.hpp"
 

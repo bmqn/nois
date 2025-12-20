@@ -40,12 +40,19 @@
 #define NOIS_PROFILE_SCOPE_NAMED(_name) do {} while (false)
 #endif // NOIS_ENABLE_PROFILING
 
-#define NOIS_INTERFACE_GETTER(_name, _type) \
-	Ref_t<_type> Get##_name() const;
-
-#define NOIS_INTERFACE_SETTER(_name, _type) \
-	void Set##_name(Ref_t<_type> value);
+#define NOIS_INTERFACE(_name) \
+	public: \
+	class Impl; \
+	_name(Own_t<Impl>); \
+	_name(const _name&) = delete; \
+	_name(_name&&) noexcept = delete; \
+	_name& operator=(const _name&) = delete; \
+	_name& operator=(_name&&) noexcept = delete; \
+	Stream::Result Process(const FloatBufferView&, FloatBuffer&) override final; \
+	void Prepare(count_t, count_t, f32_t) override final; \
+	private: \
+	Own_t<Impl> m_Impl;
 
 #define NOIS_INTERFACE_PARAM(_name, _type) \
-	NOIS_INTERFACE_GETTER(_name, _type) \
-	NOIS_INTERFACE_SETTER(_name, _type)
+	public: \
+	void Set##_name(Ref_t<_type> value);

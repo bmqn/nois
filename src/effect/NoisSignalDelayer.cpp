@@ -4,104 +4,85 @@
 
 namespace nois {
 
-class SignalDelayerImpl : public SignalDelayer
+class SignalDelayer::Impl
 {
 public:
-	SignalDelayerImpl(Ref_t<Stream> stream)
-		: m_Stream(stream)
-		, m_DelayMs(MakeRef<FloatConstantParameter>(0.0f))
+	SignalDelayer::Impl()
+		: m_DelayMs(0.0f)
 	{
 	}
 
-	virtual Stream::Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate) override
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer)
 	{
-		Stream::Result result = Stream::Success;
-
-		if (Stream::Result streamResult =
-			m_Stream->Consume(
-				buffer,
-				sampleRate);
-			streamResult != Stream::Success)
-		{
-			result = streamResult;
-		}
-
-		count_t numFrames = buffer.GetNumFrames();
-		count_t numChannels = buffer.GetNumChannels();
-
 		// Scratch storage for samples
 		std::array<f32_t, k_MaxChannels> samples;
 
-		for (count_t f = 0; f < numFrames; ++f)
+		for (count_t f = 0; f < m_NumFrames; ++f)
 		{
-			// Add the latest samples to our cache
+			// Grab latest samples
+			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
-				for (count_t c = 0; c < numChannels; ++c)
-				{
-					samples[c] = buffer(f, c);
-				}
-
-				m_CacheBuffer.Add(samples.data(), numChannels);
+				samples[c] = inBuffer(f, c);
 			}
 
-			// Grab the oldest samples
-			for (count_t c = 0; c < numChannels; ++c)
+			// Add the latest samples to our cache
+			m_CacheBuffer.Add(samples.data(), m_NumChannels);
+
+			// Grab the oldest samples from our cache
+			m_CacheBuffer.GetOldest(samples.data(), m_NumChannels);
+
+			// Write the oldest samples
+			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
-				m_CacheBuffer.GetOldest(samples.data(), numChannels);
-				buffer(f, c) = samples[c];
+				outBuffer(f, c) = samples[c];
 			}
 		}
 
-		return result;
+		return Stream::Success;
 	}
 
-	virtual void PrepareToConsume(
+	void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		f32_t sampleRate) override
+		f32_t sampleRate)
 	{
-		m_Stream->PrepareToConsume(
-			numFrames,
-			numChannels,
-			sampleRate);
-
 		if (m_SampleRate != sampleRate ||
-			m_DelayMs->Changed(0))
+			m_DelayMs.Changed())
 		{
-			const f32_t delayMs = m_DelayMs->Get(0);
-
+			const f32_t delayMs = m_DelayMs.Get();
 			count_t numCacheFrames = static_cast<count_t>((delayMs * sampleRate) / 1000.0f);
 			m_CacheBuffer.Resize(numCacheFrames, numChannels);
-	
-			m_SampleRate = sampleRate;
 		}
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+		m_SampleRate = sampleRate;
 	}
 
-	virtual Ref_t<FloatParameter> GetDelayMs() override
+	void SetDelayMs(Ref_t<FloatBlockParameter> delayMs)
 	{
-		return m_DelayMs;
-	}
-
-	virtual void SetDelayMs(Ref_t<FloatParameter> delayMs) override
-	{
-		m_DelayMs = delayMs;
+		m_DelayMs.Use(delayMs);
 	}
 
 private:
-	Ref_t<Stream> m_Stream;
-	// TODO: make me a block-based parameter
-	Ref_t<FloatParameter> m_DelayMs;
+	SlotBlockParameter<f32_t> m_DelayMs;
 
+	// TODO: replace with non-interleaved since buffers are not interleaved
 	FloatInterleavedRingBuffer m_CacheBuffer;
 
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
 	s32_t m_SampleRate = 0.0f;
 };
 
-Ref_t<SignalDelayer> CreateSignalDelayer(Ref_t<Stream> stream)
+NOIS_INTERFACE_IMPL(SignalDelayer)
+NOIS_INTERFACE_PARAM_IMPL(SignalDelayer, DelayMs, FloatBlockParameter)
+
+Ref_t<SignalDelayer> SignalDelayer::Create()
 {
-	return MakeRef<SignalDelayerImpl>(stream);
+	return MakeRef<SignalDelayer>(MakeOwn<SignalDelayer::Impl>());
 }
 
 }

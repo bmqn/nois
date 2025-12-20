@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
+#include "nois/math/NoisMatrix.hpp"
 #include "nois/parameter/NoisParameter.hpp"
 #include "nois/util/NoisSmallVector.hpp"
 
@@ -8,55 +9,104 @@ namespace nois {
 
 template<typename>
 class Buffer;
+template<typename>
+class BufferView;
 
 using FloatBuffer = Buffer<f32_t>;
+using FloatBufferView = BufferView<f32_t>;
 
 template<typename T>
 class Buffer
 {
 public:
 	Buffer()
-		: m_NumFrames(0)
+		: m_Size(0)
+		, m_NumFrames(0)
 		, m_NumChannels(0)
-		, m_Size(0)
 		, m_Data(0, T{ 0 })
 	{
 	}
 
 	Buffer(count_t numFrames, count_t numChannels)
-		: m_NumFrames(numFrames)
+		: m_Size(numFrames * numChannels)
+		, m_NumFrames(numFrames)
 		, m_NumChannels(numChannels)
-		, m_Size(numFrames * numChannels)
 		, m_Data(numFrames * numChannels, T{ 0 })
 	{
 	}
 
-	inline bool IsEmpty() const
+	Buffer(const T* data, count_t numFrames, count_t numChannels)
+		: m_Size(numFrames * numChannels)
+		, m_NumFrames(numFrames)
+		, m_NumChannels(numChannels)
+		, m_Data(numFrames * numChannels, T{ 0 })
+	{
+		Copy(data, numFrames * numChannels);
+	}
+
+	bool IsEmpty() const
 	{
 		return m_Size == 0;
 	}
 
-	inline count_t GetSize() const
+	count_t GetSize() const
 	{
 		return m_Size;
 	}
 
-	inline count_t GetBytes() const
+	count_t GetBytes() const
 	{
 		return m_Size * sizeof(T);
 	}
 
-	inline void Zero()
+	count_t GetNumFrames() const
+	{
+		return m_NumFrames;
+	}
+
+	count_t GetNumChannels() const
+	{
+		return m_NumChannels;
+	}
+
+	void Zero()
 	{
 		Fill(T{ 0 });
 	}
 
-	inline void Fill(T sample)
+	void Fill(T sample)
 	{
-		std::fill(m_Data.begin(), m_Data.begin() + m_Size, sample);
+		if (count_t fillSize = m_Size)
+		{
+			std::fill_n(m_Data.data(), fillSize, sample);
+		}
 	}
 
-	inline void Resize(count_t numFrames, count_t numChannels)
+	void Copy(const T* data, count_t size)
+	{
+		if (count_t copySize = std::min(m_Size, size))
+		{
+			std::copy_n(data, copySize, m_Data.data());
+		}
+	}
+
+	void Copy(const Buffer<T>& buffer)
+	{
+		if (count_t copySize = std::min(m_Size, buffer.GetSize()))
+		{
+			std::copy_n(static_cast<const T*>(buffer), copySize, m_Data.data());
+		}
+	}
+
+	void Copy(const BufferView<T>& buffer)
+	{
+		if (count_t copySize = std::min(m_Size, buffer.GetSize()))
+		{
+			std::copy_n(static_cast<const T*>(buffer), copySize, m_Data.data());
+		}
+	}
+
+	void Resize(count_t numFrames, count_t numChannels)
 	{
 		count_t size = numFrames * numChannels;
 
@@ -65,52 +115,101 @@ public:
 			return;
 		}
 
-		nois::SmallVector<T, k_CacheOptimisedNumFrames> newData(size, T{ 0 });
+		SmallVector newData(size, T{ 0 });
 
 		if (m_Size > 0)
 		{
-			std::copy_n(m_Data.begin(), std::min(m_Size, size), newData.begin());
+			std::copy_n(m_Data.data(), std::min(m_Size, size), newData.data());
 		}
 
+		m_Size = size;
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
-
-		m_Size = size;
-
 		m_Data = std::move(newData);
 	}
 
-	inline void Copy(const T *data, count_t size)
+	void Extend(count_t numCopies, count_t channelCount = 0)
 	{
-		std::copy_n(data, std::min(m_Size, size), m_Data.begin());
-	}
-
-	inline void Copy(const Buffer<T> &buffer)
-	{
-		std::copy_n(buffer.m_Data.begin(), std::min(m_Size, buffer.m_Size), m_Data.begin());
-	}
-
-	inline void Add(const Buffer<T> &buffer)
-	{
-		// TODO: vectorize
-
-		for (count_t i = 0; i < std::min(m_Size, buffer.m_Size); ++i)
+		if (numCopies <= 1)
 		{
-			m_Data[i] += buffer.m_Data[i];
+			return;
+		}
+
+		count_t oldNumChannels = channelCount == 0 ? m_NumChannels : std::min(m_NumChannels, channelCount);
+		count_t newNumChannels = numCopies * oldNumChannels;
+		count_t numChannelsStride = oldNumChannels;
+
+		Resize(m_NumFrames, newNumChannels);
+
+		for (count_t c = oldNumChannels; c < newNumChannels; c += numChannelsStride)
+		{
+			for (count_t s = 0; s < numChannelsStride; ++s)
+			{
+				const T* srcData = &m_Data[s * m_NumFrames];
+				T* dstData = &m_Data[(c + s) * m_NumFrames];
+				std::copy_n(srcData, m_NumFrames, dstData);
+			}
 		}
 	}
 
-	inline void Subtract(const Buffer<T> &buffer)
+	Buffer<T> Take(count_t c, count_t numChannels = 1) const
+	{
+		return Buffer<T>(
+			&m_Data[c * m_NumFrames],
+			m_NumFrames,
+			std::min(m_NumChannels - c, numChannels)
+		);
+	}
+
+	BufferView<T> View(count_t c, count_t numChannels = 1)
+	{
+		return BufferView<T>(
+			&m_Data[c * m_NumFrames],
+			m_NumFrames,
+			std::min(m_NumChannels - c, numChannels)
+		);
+	}
+
+	BufferView<const T> View(count_t c, count_t numChannels = 1) const
+	{
+		return BufferView<const T>(
+			&m_Data[c * m_NumFrames],
+			m_NumFrames,
+			std::min(m_NumChannels - c, numChannels)
+		);
+	}
+
+	void Add(const Buffer<T>& buffer)
 	{
 		// TODO: vectorize
 
-		for (count_t i = 0; i < std::min(m_Size, buffer.m_Size); ++i)
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
 		{
-			m_Data[i] -= buffer.m_Data[i];
+			m_Data[i] += buffer[i];
 		}
 	}
 
-	inline void Multiply(T value)
+	void Add(const BufferView<T>& buffer)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] += buffer[i];
+		}
+	}
+
+	void Subtract(const Buffer<T>& buffer)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] -= buffer[i];
+		}
+	}
+
+	void Multiply(T value)
 	{
 		// TODO: vectorize
 
@@ -120,105 +219,307 @@ public:
 		}
 	}
 
-	inline void Multiply(Parameter<T> &parameter)
+	void Multiply(Parameter<T>& parameter)
 	{
 		// TODO: vectorize
 		// TODO: how can we validate size of parameters?
 
-		for (count_t i = 0; i < m_NumFrames; ++i)
+		for (count_t f = 0; f < m_NumFrames; ++f)
 		{
-			T value = parameter.Get(i);
-
-			for (count_t j = 0; j < m_NumChannels; ++j)
+			T value = parameter.Get(f);
+			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
-				GetSample(i, j) *= value;
+				(*this)(f, c) *= value;
 			}
 		}
 	}
 
-	inline T &GetSample(count_t frameIndex, count_t channelIndex)
+	void Multiply(const math::Mat<T>& mat)
 	{
-		return m_Data[frameIndex * m_NumChannels + channelIndex];
+		for (count_t f = 0; f < m_NumFrames; ++f)
+		{
+			count_t m = std::min(m_NumChannels, mat.GetM());
+			math::Mat<T> samples(m, 1);
+			for (count_t i = 0; i < m; ++i)
+			{
+				samples(i, 0) = (*this)(f, i);
+			}
+			math::Mat<T> newSamples = mat.Multiply(samples);
+			for (count_t i = 0; i < m; ++i)
+			{
+				(*this)(f, i) = newSamples(i, 0);
+			}
+		}
 	}
 
-	inline const T &GetSample(count_t frameIndex, count_t channelIndex) const
+	T* Data()
 	{
-		return m_Data[frameIndex * m_NumChannels + channelIndex];
+		return m_Data.data();
 	}
 
-	inline StereoSample<T> GetMonoSample(count_t frameIndex) const
+	const T* Data() const
 	{
-		const T *data = &m_Data[frameIndex * m_NumChannels];
-
-		MonoSample<T> monoSample;
-		monoSample.s = data[0];
-
-		return monoSample;
+		return m_Data.data();
 	}
 
-	inline void SetStereoSample(count_t frameIndex, MonoSample<T> monoSample)
+	operator BufferView<T>()
 	{
-		T *data = &m_Data[frameIndex * m_NumChannels];
-
-		data[0] = monoSample.s;
+		return View(0, m_NumChannels);
 	}
 
-	inline StereoSample<T> GetStereoSample(count_t frameIndex) const
+	T& operator()(count_t f, count_t c)
 	{
-		const T *data = &m_Data[frameIndex * m_NumChannels];
-
-		StereoSample<T> stereoSample;
-		stereoSample.s1 = data[0];
-		stereoSample.s2 = data[1];
-
-		return stereoSample;
+		return m_Data[f + c * m_NumFrames];
 	}
 
-	inline void SetStereoSample(count_t frameIndex, StereoSample<T> stereoSample)
+	const T& operator()(count_t f, count_t c) const
 	{
-		T *data = &m_Data[frameIndex * m_NumChannels];
-
-		data[0] = stereoSample.s1;
-		data[1] = stereoSample.s2;
+		return m_Data[f + c * m_NumFrames];
 	}
 
-	inline T &operator()(count_t frameIndex, count_t channelIndex)
+	operator T*()
 	{
-		return GetSample(frameIndex, channelIndex);
+		return m_Data.data();
 	}
 
-	inline const T &operator()(count_t frameIndex, count_t channelIndex) const
+	operator const T*() const
 	{
-		return GetSample(frameIndex, channelIndex);
+		return m_Data.data();
 	}
 
-	inline count_t GetNumFrames() const
+	T& operator[](count_t i)
+	{
+		return m_Data[i];
+	}
+
+	const T& operator[](count_t i) const
+	{
+		return m_Data[i];
+	}
+
+private:
+	count_t m_Size;
+	count_t m_NumFrames;
+	count_t m_NumChannels;
+	SmallVector<T> m_Data;
+};
+
+template<typename T>
+class BufferView
+{
+public:
+	BufferView(T* data, count_t numFrames, count_t numChannels)
+		: m_Size(numFrames* numChannels)
+		, m_NumFrames(numFrames)
+		, m_NumChannels(numChannels)
+		, m_Data(data)
+	{
+	}
+
+	bool IsEmpty() const
+	{
+		return m_Size == 0;
+	}
+
+	count_t GetSize() const
+	{
+		return m_Size;
+	}
+
+	count_t GetBytes() const
+	{
+		return m_Size * sizeof(T);
+	}
+
+	count_t GetNumFrames() const
 	{
 		return m_NumFrames;
 	}
 
-	inline count_t GetNumChannels() const
+	count_t GetNumChannels() const
 	{
 		return m_NumChannels;
 	}
 
-	inline T *GetData()
+	void Zero()
 	{
-		return m_Data.data();
+		Fill(T{ 0 });
 	}
 
-	inline const T *GetData() const
+	void Fill(T sample)
 	{
-		return m_Data.data();
+		std::fill_n(m_Data, m_Size, sample);
+	}
+
+	void Copy(const T* data, count_t size)
+	{
+		if (count_t copySize = std::min(m_Size, size))
+		{
+			std::copy_n(data, copySize, m_Data);
+		}
+	}
+
+	void Copy(const Buffer<T>& buffer)
+	{
+		if (count_t copySize = std::min(m_Size, buffer.GetSize()))
+		{
+			std::copy_n(static_cast<const T*>(buffer), copySize, m_Data);
+		}
+	}
+
+	void Copy(const BufferView<T>& buffer)
+	{
+		if (count_t copySize = std::min(m_Size, buffer.GetSize()))
+		{
+			std::copy_n(static_cast<const T*>(buffer), copySize, m_Data);
+		}
+	}
+
+	Buffer<T> Take(count_t c, count_t numChannels = 1) const
+	{
+		return Buffer<T>(
+			&m_Data[c * m_NumFrames],
+			m_NumFrames,
+			std::min(m_NumChannels - c, numChannels)
+		);
+	}
+
+	BufferView<T> View(count_t c, count_t numChannels = 1)
+	{
+		return BufferView<T>(
+			&m_Data[c * m_NumFrames],
+			m_NumFrames,
+			std::min(m_NumChannels - c, numChannels)
+		);
+	}
+
+	BufferView<const T> View(count_t c, count_t numChannels = 1) const
+	{
+		return BufferView<const T>(
+			&m_Data[c * m_NumFrames],
+			m_NumFrames,
+			std::min(m_NumChannels - c, numChannels)
+		);
+	}
+
+	void Add(const Buffer<T>& buffer)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] += buffer[i];
+		}
+	}
+
+	void Add(const BufferView<T>& buffer)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] += buffer[i];
+		}
+	}
+
+	void Subtract(const BufferView<T>& buffer)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] -= buffer[i];
+		}
+	}
+
+	void Multiply(T value)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < m_Size; ++i)
+		{
+			m_Data[i] *= value;
+		}
+	}
+
+	void Multiply(Parameter<T>& parameter)
+	{
+		// TODO: vectorize
+		// TODO: how can we validate size of parameters?
+
+		for (count_t f = 0; f < m_NumFrames; ++f)
+		{
+			T value = parameter.Get(f);
+			for (count_t c = 0; c < m_NumChannels; ++c)
+			{
+				(*this)(f, c) *= value;
+			}
+		}
+	}
+
+	void Multiply(const math::Mat<T>& mat)
+	{
+		for (count_t f = 0; f < m_NumFrames; ++f)
+		{
+			count_t m = std::min(m_NumChannels, mat.GetM());
+			math::Mat<T> samples(m, 1);
+			for (count_t i = 0; i < m; ++i)
+			{
+				samples(i, 0) = (*this)(f, i);
+			}
+			math::Mat<T> newSamples = mat.Multiply(samples);
+			for (count_t i = 0; i < m; ++i)
+			{
+				(*this)(f, i) = newSamples(i, 0);
+			}
+		}
+	}
+
+	T* Data()
+	{
+		return m_Data;
+	}
+
+	const T* Data() const
+	{
+		return m_Data;
+	}
+
+	T& operator()(count_t f, count_t c)
+	{
+		return m_Data[f + c * m_NumFrames];
+	}
+
+	const T& operator()(count_t f, count_t c) const
+	{
+		return m_Data[f + c * m_NumFrames];
+	}
+
+	operator T*()
+	{
+		return m_Data;
+	}
+
+	operator const T*() const
+	{
+		return m_Data;
+	}
+
+	T& operator[](count_t i)
+	{
+		return m_Data[i];
+	}
+
+	const T& operator[](count_t i) const
+	{
+		return m_Data[i];
 	}
 
 private:
+	count_t m_Size;
 	count_t m_NumFrames;
 	count_t m_NumChannels;
-
-	count_t m_Size;
-
-	nois::SmallVector<T, k_CacheOptimisedNumFrames> m_Data;
+	T* m_Data;
 };
 
 }

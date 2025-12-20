@@ -1,46 +1,26 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
+#include "nois/parameter/NoisParameter.hpp"
 #include "nois/core/NoisStream.hpp"
 
 namespace nois {
 
-template<typename T>
-class Distorter : public Stream
+class Distorter : public ProcessStream
 {
 public:
-	virtual ~Distorter() {}
-
-	T &GetDistorter();
-};
-
-class FolderDistorter : public Distorter<FolderDistorter>
-{
-public:
-	enum FolderFunc
+	enum Kind
 	{
-		k_FolderFuncBasic,
-		k_FolderFuncRizzler
+		k_Tanh,
 	};
 
-public:
-	virtual ~FolderDistorter() {}
+	static Ref_t<Distorter> Create(Kind kind);
 
-	virtual f32_t GetPreGainDb() = 0;
-	virtual void SetPreGainDb(f32_t preGainDb) = 0;
-
-	virtual f32_t GetThresholdGainDb() = 0;
-	virtual void SetThresholdGainDb(f32_t thresholdGainDb) = 0;
-
-	virtual count_t GetNumFolds() = 0;
-	virtual void SetNumFolds(count_t numFolds) = 0;
-
-	virtual FolderFunc GetFolderFunc() = 0;
-	virtual void SetFolderFunc(FolderFunc folderFunc) = 0;
+	NOIS_INTERFACE(Distorter)
+	NOIS_INTERFACE_PARAM(DriveDb, FloatParameter)
+	NOIS_INTERFACE_PARAM(MakeupDb, FloatParameter)
+	NOIS_INTERFACE_PARAM(Bias, FloatParameter)
+	NOIS_INTERFACE_PARAM(Wet, FloatParameter)
 };
-
-Ref_t<Distorter<FolderDistorter>> CreateFolderDistorter(
-	Ref_t<Stream> stream,
-	FolderDistorter::FolderFunc folderFunc = FolderDistorter::FolderFunc::k_FolderFuncBasic);
 
 }

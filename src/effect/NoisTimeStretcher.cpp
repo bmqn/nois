@@ -119,28 +119,6 @@ public:
 			numChannels,
 			sampleRate);
 
-		m_StretchActive->Prepare(
-			numFrames,
-			sampleRate);
-		m_StretchFactor->Prepare(
-			numFrames,
-			sampleRate);
-		m_StretchTimeMs->Prepare(
-			numFrames,
-			sampleRate);
-		m_GrainSize->Prepare(
-			numFrames,
-			sampleRate);
-		m_GrainBlend->Prepare(
-			numFrames,
-			sampleRate);
-		m_GrainPhaseInc->Prepare(
-			numFrames,
-			sampleRate);
-		m_GrainLockActive->Prepare(
-			numFrames,
-			sampleRate);
-
 		if (m_SampleRate != sampleRate ||
 			m_NumChannels != numChannels ||
 			m_StretchTimeMs->Changed())
@@ -409,26 +387,12 @@ private:
 	f32_t m_SampleRate = 0.0f;
 };
 
-TimeStretcher::TimeStretcher(Ref_t<Stream> stream)
-	: m_Impl(MakeOwn<Impl>(stream))
+Ref_t<TimeStretcher> TimeStretcher::Create(Ref_t<Stream> stream)
 {
+	return MakeRef<TimeStretcher>(MakeOwn<Impl>(stream));
 }
 
-Stream::Result TimeStretcher::Consume(FloatBuffer& buffer, f32_t sampleRate)
-{
-	return m_Impl->Consume(
-		buffer,
-		sampleRate);
-}
-
-void TimeStretcher::PrepareToConsume(count_t numFrames, count_t numChannels, f32_t sampleRate)
-{
-	m_Impl->PrepareToConsume(
-		numFrames,
-		numChannels,
-		sampleRate);
-}
-
+NOIS_INTERFACE_IMPL(TimeStretcher)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchActive, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchTimeMs, FloatBlockParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchFactor, FloatParameter)
@@ -436,11 +400,6 @@ NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainSize, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainBlend, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainPhaseInc, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainLockActive, FloatParameter)
-
-Ref_t<TimeStretcher> CreateTimeStretcher(Ref_t<Stream> stream)
-{
-	return MakeRef<TimeStretcher>(stream);
-}
 
 }
 

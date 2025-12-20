@@ -2,6 +2,7 @@
 
 #include "nois/NoisTypes.hpp"
 #include "nois/core/NoisBuffer.hpp"
+#include "nois/util/NoisSmallVector.hpp"
 
 namespace nois {
 

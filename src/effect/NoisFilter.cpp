@@ -1,511 +1,359 @@
 ﻿#include "nois/effect/NoisFilter.hpp"
 
+#include "nois/util/NoisSmallVector.hpp"
+
 namespace nois {
 
-class N2ButterworthFilterLowImpl : public Filter
+class Filter::Impl
 {
 public:
-	N2ButterworthFilterLowImpl(Ref_t<Stream> stream)
-		: m_Stream(stream)
-		, m_CutoffRatio(MakeRef<FloatConstantParameter>(1.0f))
-	{
-	}
+	NOIS_INTERFACE_IMPL_MULTI()
+	NOIS_INTERFACE_IMPL_MULTI_PARAM(CutoffRatio, FloatBlockParameter)
 
-	virtual Stream::Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate) override
-	{
-		Stream::Result result = Stream::Success;
-
-		if (Stream::Result streamResult =
-			m_Stream->Consume(
-				buffer,
-				sampleRate);
-			streamResult != Stream::Success)
-		{
-			result = streamResult;
-		}
-
-		for (count_t c = 0; c < buffer.GetNumChannels(); ++c)
-		{
-			size_t idx = c * 2;
-
-			// Read history
-			f32_t x1 = m_InHistory[idx];
-			f32_t x2 = m_InHistory[idx + 1];
-			f32_t y1 = m_OutHistory[idx];
-			f32_t y2 = m_OutHistory[idx + 1];
-
-			for (count_t f = 0; f < buffer.GetNumFrames(); ++f)
-			{
-				if (m_CutoffRatio->Changed(f))
-				{
-					CalculateCoefficients(f);
-				}
-
-				f32_t &input = buffer(f, c);
-				f32_t output = 0.0f;
-
-				output += m_B0 * input + m_B1 * x1 + m_B2 * x2;
-				output -= m_A1 * y1 + m_A2 * y2;
-
-				// Shift histories
-				x2 = x1;
-				x1 = input;
-				y2 = y1;
-				y1 = output;
-
-				input = output;
-			}
-
-			// Write history
-			m_InHistory[idx] = x1;
-			m_InHistory[idx + 1] = x2;
-			m_OutHistory[idx] = y1;
-			m_OutHistory[idx + 1]= y2;
-		}
-
-		return result;
-	}
-
-	virtual void PrepareToConsume(
-		count_t numFrames,
-		count_t numChannels,
-		f32_t sampleRate) override
-	{
-		m_Stream->PrepareToConsume(
-			numFrames,
-			numChannels,
-			sampleRate);
-
-		m_CutoffRatio->Prepare(
-			numFrames,
-			sampleRate);
-
-		if (m_NumChannels != numChannels)
-		{
-			// Store two history samples
-			m_InHistory.resize(numChannels * 2, 0.0f);
-			m_OutHistory.resize(numChannels * 2, 0.0f);
-		
-			m_NumChannels = numChannels;
-		}
-	}
-
-	virtual Ref_t<FloatParameter> GetCutoffRatio() override
-	{
-		return m_CutoffRatio;
-	}
-
-	virtual void SetCutoffRatio(Ref_t<FloatParameter> cutoffRatio) override
-	{
-		m_CutoffRatio = cutoffRatio;
-	}
-
-	virtual f32_t GetResponseMagnitude(f32_t freqRatio) const override
-	{
-		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
-
-		f32_t omega0 = k_Pi * freqRatio;
-
-		f32_t cosw0 = std::cos(omega0);
-		f32_t sinw0 = std::sin(omega0);
-		f32_t cos2w0 = std::cos(2.0f * omega0);
-		f32_t sin2w0 = std::sin(2.0f * omega0);
-
-		f32_t numReal = m_B0 + m_B1 * cosw0 + m_B2 * cos2w0;
-		f32_t numImag = m_B1 * sinw0 + m_B2 * sin2w0;
-		f32_t numMag2 = numReal * numReal + numImag * numImag;
-
-		f32_t denReal = 1.0f + m_A1 * cosw0 + m_A2 * cos2w0;
-		f32_t denImag = m_A1 * sinw0 + m_A2 * sin2w0;
-		f32_t denMag2 = denReal * denReal + denImag * denImag;
-
-		return std::sqrt(numMag2 / denMag2);
-	}
-
-private:
-	void CalculateCoefficients(count_t frameIndex)
-	{
-		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
-		constexpr f32_t k_Sqrt2 = static_cast<f32_t>(std::numbers::sqrt2);
-
-		f32_t cutoffRatio = std::clamp(m_CutoffRatio->Get(frameIndex), 0.001f, 0.999f) * 0.5f;
-		f32_t q = 1.0f / k_Sqrt2;
-
-		f32_t omega0 = k_Pi * cutoffRatio;
-
-		float cosw0 = std::cos(omega0);
-		float sinw0 = std::sin(omega0);
-		float alpha = sinw0 / (2.0f * q);
-
-		float a0 = 1.0f + alpha;
-		m_B0 = (1.0f - cosw0) / 2.0f / a0;
-		m_B1 = (1.0f - cosw0) / a0;
-		m_B2 = (1.0f - cosw0) / 2.0f / a0;
-		m_A1 = -2.0f * cosw0 / a0;
-		m_A2 = (1.0f - alpha) / a0;
-	}
-
-private:
-	Ref_t<Stream> m_Stream;
-
-	Ref_t<FloatParameter> m_CutoffRatio;
-
-	f32_t m_A1 = 0.0f, m_A2 = 0.0f;
-	f32_t m_B0 = 0.0f, m_B1 = 0.0f, m_B2 = 0.0f;
-
-	count_t m_NumChannels = 0;
-
-	std::vector<f32_t> m_InHistory;
-	std::vector<f32_t> m_OutHistory;
+	virtual f32_t GetResponseMagnitude(f32_t ratio) const = 0;
 };
 
-class N2ButterworthFilterHighImpl : public Filter
+class BandpassFilter::Impl
 {
 public:
-	N2ButterworthFilterHighImpl(Ref_t<Stream> stream)
-		: m_Stream(stream)
-		, m_CutoffRatio(MakeRef<FloatConstantParameter>(1.0f))
-	{
-	}
+	NOIS_INTERFACE_IMPL_MULTI()
+	NOIS_INTERFACE_IMPL_MULTI_PARAM(CutoffRatio, FloatBlockParameter)
+	NOIS_INTERFACE_IMPL_MULTI_PARAM(Q, FloatBlockParameter)
 
-	virtual Stream::Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate) override
-	{
-		Stream::Result result = Stream::Success;
-
-		if (Stream::Result streamResult =
-			m_Stream->Consume(
-				buffer,
-				sampleRate);
-			streamResult != Stream::Success)
-		{
-			result = streamResult;
-		}
-
-		for (count_t c = 0; c < buffer.GetNumChannels(); ++c)
-		{
-			size_t idx = c * 2;
-
-			// Read history
-			f32_t x1 = m_InHistory[idx];
-			f32_t x2 = m_InHistory[idx + 1];
-			f32_t y1 = m_OutHistory[idx];
-			f32_t y2 = m_OutHistory[idx + 1];
-
-			for (count_t f = 0; f < buffer.GetNumFrames(); ++f)
-			{
-				if (m_CutoffRatio->Changed(f))
-				{
-					CalculateCoefficients(f);
-				}
-
-				f32_t &input = buffer(f, c);
-				f32_t output = 0.0f;
-
-				output += m_B0 * input + m_B1 * x1 + m_B2 * x2;
-				output -= m_A1 * y1 + m_A2 * y2;
-
-				// Shift histories
-				x2 = x1;
-				x1 = input;
-				y2 = y1;
-				y1 = output;
-
-				input = output;
-			}
-
-			// Write history
-			m_InHistory[idx] = x1;
-			m_InHistory[idx + 1] = x2;
-			m_OutHistory[idx] = y1;
-			m_OutHistory[idx + 1]= y2;
-		}
-
-		return result;
-	}
-
-	virtual void PrepareToConsume(
-		count_t numFrames,
-		count_t numChannels,
-		f32_t sampleRate) override
-	{
-		m_Stream->PrepareToConsume(
-			numFrames,
-			numChannels,
-			sampleRate);
-
-		m_CutoffRatio->Prepare(
-			numFrames,
-			sampleRate);
-
-		if (m_NumChannels != numChannels)
-		{
-			// Store two history samples
-			m_InHistory.resize(numChannels * 2, 0.0f);
-			m_OutHistory.resize(numChannels * 2, 0.0f);
-		
-			m_NumChannels = numChannels;
-		}
-	}
-
-	virtual Ref_t<FloatParameter> GetCutoffRatio() override
-	{
-		return m_CutoffRatio;
-	}
-
-	virtual void SetCutoffRatio(Ref_t<FloatParameter> cutoffRatio) override
-	{
-		m_CutoffRatio = cutoffRatio;
-	}
-
-	virtual f32_t GetResponseMagnitude(f32_t freqRatio) const override
-	{
-		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
-
-		f32_t omega0 = k_Pi * freqRatio;
-
-		f32_t cosw0 = std::cos(omega0);
-		f32_t sinw0 = std::sin(omega0);
-		f32_t cos2w0 = std::cos(2.0f * omega0);
-		f32_t sin2w0 = std::sin(2.0f * omega0);
-
-		f32_t numReal = m_B0 + m_B1 * cosw0 + m_B2 * cos2w0;
-		f32_t numImag = m_B1 * sinw0 + m_B2 * sin2w0;
-		f32_t numMag2 = numReal * numReal + numImag * numImag;
-
-		f32_t denReal = 1.0f + m_A1 * cosw0 + m_A2 * cos2w0;
-		f32_t denImag = m_A1 * sinw0 + m_A2 * sin2w0;
-		f32_t denMag2 = denReal * denReal + denImag * denImag;
-
-		return std::sqrt(numMag2 / denMag2);
-	}
-
-private:
-	void CalculateCoefficients(count_t frameIndex)
-	{
-		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
-		constexpr f32_t k_Sqrt2 = static_cast<f32_t>(std::numbers::sqrt2);
-
-		f32_t cutoffRatio = std::clamp(m_CutoffRatio->Get(frameIndex), 0.001f, 0.999f) * 0.5f;
-		f32_t q = 1.0f / k_Sqrt2;
-
-		f32_t omega0 = k_Pi * cutoffRatio;
-
-		float cosw0 = std::cos(omega0);
-		float sinw0 = std::sin(omega0);
-		float alpha = sinw0 / (2.0f * q);
-
-		float a0 = 1.0f + alpha;
-		m_B0 = (1.0f + cosw0) / 2.0f / a0;
-		m_B1 = -(1.0f + cosw0) / a0;
-		m_B2 = (1.0f + cosw0) / 2.0f / a0;
-		m_A1 = -2.0f * cosw0 / a0;
-		m_A2 = (1.0f - alpha) / a0;
-	}
-
-private:
-	Ref_t<Stream> m_Stream;
-
-	Ref_t<FloatParameter> m_CutoffRatio;
-
-	f32_t m_A1 = 0.0f, m_A2 = 0.0f;
-	f32_t m_B0 = 0.0f, m_B1 = 0.0f, m_B2 = 0.0f;
-
-	count_t m_NumChannels = 0;
-
-	std::vector<f32_t> m_InHistory;
-	std::vector<f32_t> m_OutHistory;
+	virtual f32_t GetResponseMagnitude(f32_t ratio) const = 0;
 };
 
-class BiquadBandpassFilterImpl : public BandpassFilter
+
+class AllpassFilter::Impl
 {
 public:
+	NOIS_INTERFACE_IMPL_MULTI()
+	NOIS_INTERFACE_IMPL_MULTI_PARAM(CutoffRatio, FloatBlockParameter)
+	NOIS_INTERFACE_IMPL_MULTI_PARAM(Q, FloatBlockParameter)
 
-	BiquadBandpassFilterImpl(Ref_t<Stream> stream)
-		: m_Stream(stream)
-		, m_CutoffRatio(MakeRef<FloatConstantParameter>(1.0f))
-		, m_Q(MakeRef<FloatConstantParameter>(1.0f))
-	{
-	}
-
-	virtual Stream::Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate) override
-	{
-		NOIS_PROFILE_SCOPE_NAMED("BiquadBandpassFilter - Consume");
-
-		Stream::Result result = Stream::Success;
-
-		if (Stream::Result streamResult =
-			m_Stream->Consume(
-				buffer,
-				sampleRate);
-			streamResult != Stream::Success)
-		{
-			result = streamResult;
-		}
-
-		for (count_t c = 0; c < buffer.GetNumChannels(); ++c)
-		{
-			size_t idx = c * 2;
-
-			// Read history
-			f32_t x1 = m_InHistory[idx];
-			f32_t x2 = m_InHistory[idx + 1];
-			f32_t y1 = m_OutHistory[idx];
-			f32_t y2 = m_OutHistory[idx + 1];
-
-			for (count_t f = 0; f < buffer.GetNumFrames(); ++f)
-			{
-				if (m_CutoffRatio->Changed(f) ||
-					m_Q->Changed(f))
-				{
-					CalculateCoefficients(f);
-				}
-
-				f32_t &input = buffer(f, c);
-				f32_t output = 0.0f;
-
-				output += m_B0 * input + m_B1 * x1 + m_B2 * x2;
-				output -= m_A1 * y1 + m_A2 * y2;
-
-				// Shift histories
-				x2 = x1;
-				x1 = input;
-				y2 = y1;
-				y1 = output;
-
-				input = output;
-			}
-
-			// Write history
-			m_InHistory[idx] = x1;
-			m_InHistory[idx + 1] = x2;
-			m_OutHistory[idx] = y1;
-			m_OutHistory[idx + 1]= y2;
-		}
-
-		return result;
-	}
-
-	virtual void PrepareToConsume(
-		count_t numFrames,
-		count_t numChannels,
-		f32_t sampleRate) override
-	{
-		m_Stream->PrepareToConsume(
-			numFrames,
-			numChannels,
-			sampleRate);
-
-		m_CutoffRatio->Prepare(
-			numFrames,
-			sampleRate);
-
-		m_Q->Prepare(
-			numFrames,
-			sampleRate);
-
-		if (m_NumChannels != numChannels)
-		{
-			// Store two history samples
-			m_InHistory.resize(numChannels * 2, 0.0f);
-			m_OutHistory.resize(numChannels * 2, 0.0f);
-		
-			m_NumChannels = numChannels;
-		}
-	}
-
-	virtual Ref_t<FloatParameter> GetCutoffRatio() override
-	{
-		return m_CutoffRatio;
-	}
-
-	virtual void SetCutoffRatio(Ref_t<FloatParameter> cutoffRatio) override
-	{
-		m_CutoffRatio = cutoffRatio;
-	}
-
-	virtual Ref_t<FloatParameter> GetQ() override
-	{
-		return m_Q;
-	}
-
-	virtual void SetQ(Ref_t<FloatParameter> q) override
-	{
-		m_Q = q;
-	}
-
-	virtual f32_t GetResponseMagnitude(f32_t freqRatio) const override
-	{
-		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
-
-		f32_t omega0 = k_Pi * freqRatio;
-
-		f32_t cosw0 = std::cos(omega0);
-		f32_t sinw0 = std::sin(omega0);
-		f32_t cos2w0 = std::cos(2.0f * omega0);
-		f32_t sin2w0 = std::sin(2.0f * omega0);
-
-		f32_t numReal = m_B0 + m_B1 * cosw0 + m_B2 * cos2w0;
-		f32_t numImag = m_B1 * sinw0 + m_B2 * sin2w0;
-		f32_t numMag2 = numReal * numReal + numImag * numImag;
-
-		f32_t denReal = 1.0f + m_A1 * cosw0 + m_A2 * cos2w0;
-		f32_t denImag = m_A1 * sinw0 + m_A2 * sin2w0;
-		f32_t denMag2 = denReal * denReal + denImag * denImag;
-
-		return std::sqrt(numMag2 / denMag2);
-	}
-
-private:
-	inline void CalculateCoefficients(count_t frameIndex)
-	{
-		constexpr f32_t k_Pi = static_cast<f32_t>(std::numbers::pi);
-
-		f32_t cutoffRatio = std::clamp(m_CutoffRatio->Get(frameIndex), 0.001f, 0.999f);
-		f32_t q = std::max(m_Q->Get(frameIndex), 0.001f);
-
-		f32_t omega0 = k_Pi * cutoffRatio;
-
-		f32_t cosw0 = std::cos(omega0);
-		f32_t alpha = std::sin(omega0) / (2.0f * q);
-
-		f32_t a0inv = 1.0f / (1.0f + alpha);
-
-		m_B0 = alpha * a0inv;
-		m_B1 = 0.0f;
-		m_B2 = -alpha * a0inv;
-		m_A1 = -2.0f * cosw0 * a0inv;
-		m_A2 = (1.0f - alpha) * a0inv;
-	}
-
-private:
-	Ref_t<Stream> m_Stream;
-
-	Ref_t<FloatParameter> m_CutoffRatio;
-	Ref_t<FloatParameter> m_Q;
-
-	f32_t m_A1 = 0.0f, m_A2 = 0.0f;
-	f32_t m_B0 = 0.0f, m_B1 = 0.0f, m_B2 = 0.0f;
-
-	count_t m_NumChannels = 0;
-
-	std::vector<f32_t> m_InHistory;
-	std::vector<f32_t> m_OutHistory;
+	virtual f32_t GetResponseMagnitude(f32_t ratio) const = 0;
 };
 
-Ref_t<Filter> CreateFilter(Ref_t<Stream> stream, Filter::Kind kind)
+class N2ButterworthFilterLowImpl : public Filter::Impl
+{
+public:
+	N2ButterworthFilterLowImpl()
+	{
+		m_Biquad.MakeButterworthLow(m_CutoffRatio.Default());
+	}
+
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterLowImpl - Consume");
+
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			m_Biquad.Process(inBuffer.View(c), outBuffer.View(c), m_NumFrames, c);
+		}
+
+		return Stream::Success;
+	}
+
+	void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterLowImpl - Prepare");
+
+		if (m_CutoffRatio.Changed())
+		{
+			m_Biquad.MakeButterworthLow(m_CutoffRatio.Get());
+		}
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+	}
+
+	void SetCutoffRatio(Ref_t<FloatBlockParameter> cutoffRatio) override final
+	{
+		m_CutoffRatio.Use(cutoffRatio);
+	}
+
+	f32_t GetResponseMagnitude(f32_t freqRatio) const override final
+	{
+		return m_Biquad.GetMagnitude(freqRatio);
+	}
+
+private:
+	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	Biquad<f32_t> m_Biquad;
+
+};
+
+class N2ButterworthFilterHighImpl : public Filter::Impl
+{
+public:
+	N2ButterworthFilterHighImpl()
+	{
+		m_Biquad.MakeButterworthHigh(m_CutoffRatio.Default());
+	}
+
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterHighImpl - Consume");
+
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			m_Biquad.Process(inBuffer.View(c), outBuffer.View(c), m_NumFrames, c);
+		}
+
+		return Stream::Success;
+	}
+
+	void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterHighImpl - Prepare");
+
+		if (m_CutoffRatio.Changed())
+		{
+			m_Biquad.MakeButterworthHigh(m_CutoffRatio.Get());
+		}
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+	}
+
+	void SetCutoffRatio(Ref_t<FloatBlockParameter> cutoffRatio) override final
+	{
+		m_CutoffRatio.Use(cutoffRatio);
+	}
+
+	f32_t GetResponseMagnitude(f32_t freqRatio) const override final
+	{
+		return m_Biquad.GetMagnitude(freqRatio);
+	}
+
+private:
+	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	Biquad<f32_t> m_Biquad;
+};
+
+class LR4FilterLowImpl : public Filter::Impl
+{
+public:
+	LR4FilterLowImpl()
+	{
+		m_Biquad1.MakeButterworthLow(m_CutoffRatio.Default());
+		m_Biquad2.MakeButterworthLow(m_CutoffRatio.Default());
+	}
+
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("LR4FilterLowImpl - Consume");
+
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			auto inBufferView = inBuffer.View(c);
+			auto outBufferView = outBuffer.View(c);
+			m_Biquad1.Process(inBufferView, outBufferView, m_NumFrames, c);
+			m_Biquad2.Process(outBufferView, outBufferView, m_NumFrames, c);
+		}
+
+		return Stream::Success;
+	}
+
+	void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("LR4FilterLowImpl - Prepare");
+
+		if (m_CutoffRatio.Changed())
+		{
+			f32_t cutoffRatio = m_CutoffRatio.Get();
+			m_Biquad1.MakeButterworthLow(cutoffRatio);
+			m_Biquad2.MakeButterworthLow(cutoffRatio);
+		}
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+	}
+
+	void SetCutoffRatio(Ref_t<FloatBlockParameter> cutoffRatio) override final
+	{
+		m_CutoffRatio.Use(cutoffRatio);
+	}
+
+	f32_t GetResponseMagnitude(f32_t freqRatio) const override final
+	{
+		return m_Biquad1.GetMagnitude(freqRatio) * m_Biquad2.GetMagnitude(freqRatio);
+	}
+
+private:
+	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	Biquad<f32_t> m_Biquad1;
+	Biquad<f32_t> m_Biquad2;
+};
+
+class LR4FilterHighImpl : public Filter::Impl
+{
+public:
+	LR4FilterHighImpl()
+	{
+		m_Biquad1.MakeButterworthHigh(m_CutoffRatio.Default());
+		m_Biquad2.MakeButterworthHigh(m_CutoffRatio.Default());
+	}
+
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Consume");
+
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			auto inBufferView = inBuffer.View(c);
+			auto outBufferView = outBuffer.View(c);
+			m_Biquad1.Process(inBufferView, outBufferView, m_NumFrames, c);
+			m_Biquad2.Process(outBufferView, outBufferView, m_NumFrames, c);
+		}
+
+		return Stream::Success;
+	}
+
+	void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Prepare");
+
+		if (m_CutoffRatio.Changed())
+		{
+			f32_t cutoffRatio = m_CutoffRatio.Get();
+			m_Biquad1.MakeButterworthHigh(cutoffRatio);
+			m_Biquad2.MakeButterworthHigh(cutoffRatio);
+		}
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+	}
+
+	void SetCutoffRatio(Ref_t<FloatBlockParameter> cutoffRatio) override final
+	{
+		m_CutoffRatio.Use(cutoffRatio);
+	}
+
+	f32_t GetResponseMagnitude(f32_t freqRatio) const override final
+	{
+		return m_Biquad1.GetMagnitude(freqRatio) * m_Biquad2.GetMagnitude(freqRatio);
+	}
+
+private:
+	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	Biquad<f32_t> m_Biquad1;
+	Biquad<f32_t> m_Biquad2;
+};
+
+class RBJBiquadAllpassFilterImpl : public AllpassFilter::Impl
+{
+public:
+	RBJBiquadAllpassFilterImpl()
+	{
+		m_Biquad.MakeAllpass(m_CutoffRatio.Default(), m_Q.Default());
+	}
+
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Consume");
+
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			m_Biquad.Process(inBuffer.View(c), outBuffer.View(c), m_NumFrames, c);
+		}
+
+		return Stream::Success;
+	}
+
+	void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Prepare");
+
+		if (m_CutoffRatio.Changed() ||
+			m_Q.Changed())
+		{
+			m_Biquad.MakeAllpass(m_CutoffRatio.Get(), m_Q.Get());
+		}
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+	}
+
+	void SetCutoffRatio(Ref_t<FloatBlockParameter> cutoffRatio) override final
+	{
+		m_CutoffRatio.Use(cutoffRatio);
+	}
+
+	void SetQ(Ref_t<FloatBlockParameter> q) override final
+	{
+		m_Q.Use(q);
+	}
+
+	f32_t GetResponseMagnitude(f32_t freqRatio) const override final
+	{
+		return m_Biquad.GetMagnitude(freqRatio);
+	}
+
+private:
+	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
+	SlotBlockParameter<f32_t> m_Q = 1.0f / std::numbers::sqrt2;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	Biquad<f32_t> m_Biquad;
+};
+
+NOIS_INTERFACE_IMPL(Filter)
+NOIS_INTERFACE_PARAM_IMPL(Filter, CutoffRatio, FloatBlockParameter)
+
+NOIS_INTERFACE_IMPL(BandpassFilter)
+NOIS_INTERFACE_PARAM_IMPL(BandpassFilter, CutoffRatio, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(BandpassFilter, Q, FloatBlockParameter)
+
+NOIS_INTERFACE_IMPL(AllpassFilter)
+NOIS_INTERFACE_PARAM_IMPL(AllpassFilter, CutoffRatio, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(AllpassFilter, Q, FloatBlockParameter)
+
+Ref_t<Filter> Filter::Create(Kind kind)
 {
 	switch (kind)
 	{
-		case nois::Filter::k_N2ButterWorthLow:
-			return MakeRef<N2ButterworthFilterLowImpl>(stream);
-		case nois::Filter::k_N2ButterWorthHigh:
-			return MakeRef<N2ButterworthFilterHighImpl>(stream);
+		case nois::Filter::k_N2ButterworthLow:
+			return MakeRef<Filter>(MakeOwn<N2ButterworthFilterLowImpl>());
+		case nois::Filter::k_N2ButterworthHigh:
+			return MakeRef<Filter>(MakeOwn<N2ButterworthFilterHighImpl>());
+		case nois::Filter::k_LR4Low:
+			return MakeRef<Filter>(MakeOwn<LR4FilterLowImpl>());
+		case nois::Filter::k_LR4High:
+			return MakeRef<Filter>(MakeOwn<LR4FilterHighImpl>());
 		default:
 			break;
 	}
@@ -513,12 +361,23 @@ Ref_t<Filter> CreateFilter(Ref_t<Stream> stream, Filter::Kind kind)
 	return nullptr;
 }
 
-Ref_t<BandpassFilter> CreateBandpassFilter(Ref_t<Stream> stream, BandpassFilter::Kind kind)
+Ref_t<BandpassFilter> BandpassFilter::Create(Kind kind)
 {
 	switch (kind)
 	{
-	case nois::BandpassFilter::k_Biquad:
-		return MakeRef<BiquadBandpassFilterImpl>(stream);
+	default:
+		break;
+	}
+
+	return nullptr;
+}
+
+Ref_t<AllpassFilter> AllpassFilter::Create(Kind kind)
+{
+	switch (kind)
+	{
+	case nois::AllpassFilter::k_RBJBiquad:
+		return MakeRef<AllpassFilter>(MakeOwn<RBJBiquadAllpassFilterImpl>());
 	default:
 		break;
 	}

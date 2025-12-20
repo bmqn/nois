@@ -21,43 +21,6 @@ using s64_t = int64_t;
 using u64_t = uint64_t;
 
 template<typename T>
-struct MonoSample
-{
-	T s;
-
-	MonoSample<T> &operator+=(const MonoSample<T>& rhs)
-	{
-		s += rhs.s;
-		return *this;
-	}
-};
-
-template<typename T>
-struct StereoSample
-{
-	union
-	{
-		T left;
-		T s1;
-	};
-	union
-	{
-		T right;
-		T s2;
-	};
-
-	StereoSample<T> &operator+=(const StereoSample<T>& rhs)
-	{
-		s1 += rhs.s1;
-		s2 += rhs.s2;
-		return *this;
-	}
-};
-
-using FloatMonoSample = MonoSample<f32_t>;
-using FloatStereoSample = StereoSample<f32_t>;
-
-template<typename T>
 using Ref_t = std::shared_ptr<T>;
 
 template<typename T>

@@ -29,8 +29,7 @@ NoisPlugin::NoisPlugin()
 	, mSampleRate(0.0)
 {
 	mSource = nois::MakeRef<NoisVstSource>();
-
-	mTimeStretcher = nois::CreateTimeStretcher(mSource);
+	mTimeStretcher = nois::TimeStretcher::Create(mSource);
 
 	mTimeStretcher->SetStretchActive(mStretchActive);
 	mTimeStretcher->SetStretchFactor(mStretchFactor);

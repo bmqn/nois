@@ -1,140 +1,116 @@
 #include "nois/effect/NoisDistorter.hpp"
 
+#include "nois/util/NoisSmallVector.hpp"
+
 namespace nois {
 
-class FolderDistorterImpl : public FolderDistorter
+class Distorter::Impl
 {
 public:
-	FolderDistorterImpl(Ref_t<Stream> stream, FolderFunc folderFunc)
-		: m_Stream(stream)
-		, m_FolderFunc(folderFunc)
-	{
-	}
-
-	virtual Stream::Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate) override
-	{
-		Stream::Result result = Stream::Success;
-
-		if (Stream::Result streamResult =
-			m_Stream->Consume(
-				buffer,
-				sampleRate);
-			streamResult != Stream::Success)
-		{
-			result = streamResult;
-		}
-
-		for (count_t i = 0; i < buffer.GetNumFrames(); ++i)
-		{
-			for (count_t j = 0; j < buffer.GetNumChannels(); ++j)
-			{
-				buffer(i, j) = ConsumeChannel(j, buffer(i, j));
-			}
-		}
-
-		return result;
-	}
-
-	virtual void PrepareToConsume(
-		count_t numFrames,
-		count_t numChannels,
-		f32_t sampleRate) override
-	{
-		m_Stream->PrepareToConsume(
-			numFrames,
-			numChannels,
-			sampleRate);
-	}
-
-	virtual f32_t GetPreGainDb() override
-	{
-		return ToDb(m_PreGain);
-	}
-
-	virtual void SetPreGainDb(f32_t preGainDb) override
-	{
-		m_PreGain = FromDb(preGainDb);
-	}
-
-	virtual f32_t GetThresholdGainDb() override
-	{
-		return ToDb(m_ThresholdGain);
-	}
-
-	virtual void SetThresholdGainDb(f32_t thresholdGainDb) override
-	{
-		m_ThresholdGain = FromDb(thresholdGainDb);
-	}
-
-	virtual count_t GetNumFolds() override
-	{
-		return m_NumFolds;
-	}
-
-	virtual void SetNumFolds(count_t numFolds) override
-	{
-		m_NumFolds = numFolds;
-	}
-
-	virtual FolderFunc GetFolderFunc() override
-	{
-		return m_FolderFunc;
-	}
-
-	virtual void SetFolderFunc(FolderFunc folderFunc) override
-	{
-		m_FolderFunc = folderFunc;
-	}
-
-private:
-	f32_t ConsumeChannel(count_t frameIndex, f32_t input)
-	{
-		f32_t output = input;
-
-		if (m_FolderFunc == k_FolderFuncRizzler)
-		{
-			f32_t a = std::asin(input);
-			f32_t b = std::sin((1.3f / m_ThresholdGain) * input);
-			f32_t c = std::cos((1.3f / m_ThresholdGain) * input);
-			output = std::atan(m_PreGain * a * b * b * c);
-		}
-		else
-		{
-			output *= m_PreGain;
-
-			count_t i = 0;
-			while (i < m_NumFolds && std::abs(output) > m_ThresholdGain)
-			{
-				output += 2.0f * ((output >= 0.0f ? m_ThresholdGain : -m_ThresholdGain) - output);
-				++i;
-			}
-		}
-
-		return output;
-	}
-
-private:
-	Ref_t<Stream> m_Stream;
-
-	f32_t m_PreGain = 1.0f;
-	f32_t m_ThresholdGain = 1.0f;
-	count_t m_NumFolds = 1;
-	FolderFunc m_FolderFunc = k_FolderFuncBasic;
+	NOIS_INTERFACE_IMPL_MULTI()
+	NOIS_INTERFACE_IMPL_MULTI_PARAM(DriveDb, FloatParameter)
+	NOIS_INTERFACE_IMPL_MULTI_PARAM(MakeupDb, FloatParameter)
+	NOIS_INTERFACE_IMPL_MULTI_PARAM(Bias, FloatParameter)
+	NOIS_INTERFACE_IMPL_MULTI_PARAM(Wet, FloatParameter)
 };
 
-template<>
-FolderDistorter &Distorter<FolderDistorter>::GetDistorter()
+class TanhDistorterImpl : public Distorter::Impl
 {
-	return *reinterpret_cast<FolderDistorter*>(this);
-}
+public:
+	TanhDistorterImpl()
+	{
+	}
 
-Ref_t<Distorter<FolderDistorter>> CreateFolderDistorter(
-	Ref_t<Stream> stream,
-	FolderDistorter::FolderFunc folderFunc)
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("TanhDistorterImpl - Consume");
+
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			for (count_t f = 0; f < m_NumFrames; ++f)
+			{
+				f32_t x = inBuffer(f, c);
+				f32_t& y = outBuffer(f, c);
+
+				f32_t drive = FromDb(m_DriveDb.Get(f));
+				f32_t makeup = FromDb(m_MakeupDb.Get(f));
+				f32_t bias = m_Bias.Get(f);
+				f32_t wet = m_Wet.Get(f);
+
+				if (wet == 0.0f)
+				{
+					y = x;
+				}
+				else
+				{
+					f32_t z = makeup * std::tanh(drive * (x + bias));
+					y = x * (1.0f - wet) + z * wet;
+				}
+			}
+		}
+
+		return Stream::Success;
+	}
+
+	void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate) override final
+	{
+		NOIS_PROFILE_SCOPE_NAMED("TanhDistorterImpl - Prepare");
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+	}
+
+	void SetDriveDb(Ref_t<FloatParameter> driveDb) override final
+	{
+		m_DriveDb.Use(driveDb);
+	}
+
+	void SetMakeupDb(Ref_t<FloatParameter> makeupDb) override final
+	{
+		m_MakeupDb.Use(makeupDb);
+	}
+
+	void SetBias(Ref_t<FloatParameter> bias) override final
+	{
+		m_Bias.Use(bias);
+	}
+
+	void SetWet(Ref_t<FloatParameter> wet) override final
+	{
+		m_Wet.Use(wet);
+	}
+
+private:
+	SlotParameter<f32_t> m_DriveDb = 0.0f;
+	SlotParameter<f32_t> m_MakeupDb = 0.0f;
+	SlotParameter<f32_t> m_Bias = 0.0f;
+	SlotParameter<f32_t> m_Wet = 0.0f;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+};
+
+NOIS_INTERFACE_IMPL(Distorter)
+NOIS_INTERFACE_PARAM_IMPL(Distorter, DriveDb, FloatParameter)
+NOIS_INTERFACE_PARAM_IMPL(Distorter, MakeupDb, FloatParameter)
+NOIS_INTERFACE_PARAM_IMPL(Distorter, Bias, FloatParameter)
+NOIS_INTERFACE_PARAM_IMPL(Distorter, Wet, FloatParameter)
+
+Ref_t<Distorter> Distorter::Create(Kind kind)
 {
-	return MakeRef<FolderDistorterImpl>(stream, folderFunc);
+	switch (kind)
+	{
+	case nois::Distorter::k_Tanh:
+		return MakeRef<Distorter>(MakeOwn<TanhDistorterImpl>());
+	default:
+		break;
+	}
+
+	return nullptr;
 }
 
 }

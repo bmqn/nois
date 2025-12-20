@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nois/NoisConfig.hpp"
 #include "nois/NoisTypes.hpp"
 
 #include <algorithm>
@@ -8,7 +9,7 @@
 
 namespace nois {
 
-template<typename T, std::size_t N>
+template<typename T, std::size_t N = k_CacheOptimisedNumFrames>
 class SmallVector
 {
 public:
@@ -17,17 +18,25 @@ public:
 	SmallVector(size_type n = 0, const T &value = T{})
 		: m_Size(n)
 	{
-		if (n >= N)
+		if (n > N)
 		{
-			MoveToFallback(n);
+			MoveToFallback(n, value);
 		}
-		std::fill(begin(), end(), value);
+		else
+		{
+			std::fill(begin(), end(), value);
+		}
 	}
 
 	SmallVector(const SmallVector &other) = default;
 	SmallVector(SmallVector &&other) = default;
 	SmallVector &operator=(const SmallVector &other) = default;
 	SmallVector &operator=(SmallVector &&other) = default;
+
+	inline bool empty() const
+	{
+		return m_Size == 0;
+	}
 
 	inline size_type size() const
 	{
@@ -36,13 +45,21 @@ public:
 
 	inline void resize(size_type n, const T &value = T{})
 	{
+		if (m_Size == n)
+		{
+			return;
+		}
+
 		if (n <= N)
 		{
+			if (!m_Fallback.empty())
+			{
+				MoveFromFallback();
+			}
 			if (n > m_Size)
 			{
 				std::fill_n(m_Data.begin() + m_Size, n - m_Size, value);
 			}
-			m_Size = n;
 		}
 		else
 		{
@@ -50,58 +67,62 @@ public:
 			{
 				MoveToFallback(n, value);
 			}
-			m_Size = n;
 		}
+		m_Size = n;
 	}
 
 	inline void push_back(T value)
 	{
-		if (m_Size <= N)
+		if (m_Size < N)
 		{
 			m_Data[m_Size] = value;
-			++m_Size;
 		}
 		else
 		{
 			if (m_Fallback.empty())
 			{
-				MoveToFallback(N);
+				MoveToFallback();
 			}
 			m_Fallback.push_back(value);
-			++m_Size;
 		}
+		++m_Size;
 	}
 
 	template<typename ...Args>
 	inline void emplace_back(Args &&...args)
 	{
-		if (m_Size <= N)
+		if (m_Size < N)
 		{
 			new (&m_Data[m_Size]) T(std::forward<Args>(args)...);
-			++m_Size;
 		}
 		else
 		{
 			if (m_Fallback.empty())
 			{
-				MoveToFallback(N);
+				MoveToFallback();
 			}
 			m_Fallback.emplace_back(std::forward<Args>(args)...);
-			++m_Size;
 		}
+		++m_Size;
 	}
 
 	inline void pop_back()
 	{
-		if (m_Size <= N)
-		{
-			--m_Size;
-		}
-		else
+		if (m_Size > N)
 		{
 			m_Fallback.pop_back();
-			--m_Size;
 		}
+		--m_Size;
+	}
+
+	inline T front() const
+	{
+		return (*this)[0];
+	}
+
+	inline T& front()
+	{
+		return (*this)[0];
 	}
 
 	inline T back() const
@@ -138,7 +159,7 @@ public:
 		}
 	}
 
-	inline T &data()
+	inline T *data()
 	{
 		if (m_Size <= N)
 		{
@@ -150,7 +171,7 @@ public:
 		}
 	}
 
-	inline const T &data() const
+	inline const T *data() const
 	{
 		if (m_Size <= N)
 		{
@@ -291,10 +312,16 @@ public:
 	}
 
 private:
-	inline void MoveToFallback(size_type n, const T &value = T{})
+	inline void MoveToFallback(size_type n = N, const T &value = T{})
 	{
 		m_Fallback.resize(n, value);
-		std::copy_n(m_Data.begin(), m_Size, m_Fallback.begin());
+		std::copy_n(m_Data.begin(), N, m_Fallback.begin());
+	}
+
+	inline void MoveFromFallback()
+	{
+		std::copy_n(m_Fallback.begin(), N, m_Data.begin());
+		m_Fallback.clear();
 	}
 
 private:

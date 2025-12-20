@@ -5,10 +5,21 @@
 
 namespace nois {
 
-// TODO: create a chained stream type here
+class StreamGraph;
+class Stream;
+class ProcessStream;
+class SourceStream;
+
+class StreamGraph
+{
+public:
+
+};
 
 class Stream
 {
+	friend class StreamGraph;
+
 public:
 	enum Result
 	{
@@ -17,17 +28,7 @@ public:
 		Failure
 	};
 
-public:
-	virtual ~Stream()
-	{
-	}
-
-	virtual Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate)
-	= 0;
-
-	virtual void PrepareToConsume(
+	virtual void Prepare(
 		count_t numFrames,
 		count_t numChannels,
 		f32_t sampleRate)
@@ -35,56 +36,35 @@ public:
 	}
 };
 
-// TODO: implement sample-based streams for effects like filters
-
-class SampleStream
+class ProcessStream : public Stream
 {
-public:
-	enum Result
-	{
-		Success,
-		Starved,
-		Failure
-	};
+	friend class StreamGraph;
 
-public:
-	virtual ~SampleStream()
-	{
-	}
-
-	virtual Result Consume(
-		f32_t sample,
-		f32_t sampleRate)
+	virtual Result Process(
+		const FloatBufferView &inBuffer,
+		FloatBuffer &outBuffer)
 	= 0;
-
-	virtual void PrepareToConsume(
-		count_t numChannels,
-		f32_t sampleRate)
-	{
-	}
 };
 
-template<typename T>
-class BufferStream : public Stream
+class SourceStream : public Stream
 {
+	friend class StreamGraph;
+
 public:
-	BufferStream(Buffer<T> *buffer)
+	SourceStream(FloatBuffer *buffer)
 		: m_Buffer(buffer)
 	{
 	}
 
-	virtual Stream::Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate) override
+	virtual Result Process(
+		FloatBuffer &outBuffer)
 	{
-		buffer.Copy(*m_Buffer);
-		return Stream::Result::Success;
+		outBuffer.Copy(*m_Buffer);
+		return Stream::Success;
 	}
 
 private:
-	Buffer<T> *m_Buffer;
+	FloatBuffer *m_Buffer;
 };
-
-using FloatBufferStream = BufferStream<f32_t>;
 
 }

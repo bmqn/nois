@@ -47,3 +47,6 @@ endif()
 
 # nois-stretch-vst3
 add_subdirectory("${NOIS_ROOT_DIR}/examples/nois-stretch/vst3")
+
+# nois-distort-vst3
+add_subdirectory("${NOIS_ROOT_DIR}/examples/nois-distort/vst3")
