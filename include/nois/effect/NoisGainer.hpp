@@ -6,15 +6,13 @@
 
 namespace nois {
 
-class Gainer : public Stream
+class Gainer : public ProcessStream
 {
 public:
-	virtual ~Gainer() = default;
+	static Ref_t<Gainer> Create();
 
-	virtual Ref_t<FloatParameter> GetGain() const = 0;
-	virtual void SetGain(Ref_t<FloatParameter> gain) = 0;
+	NOIS_INTERFACE(Gainer)
+	NOIS_INTERFACE_PARAM(GainDb, FloatParameter)
 };
-
-Ref_t<Gainer> CreateGainer(Ref_t<Stream> stream);
 
 }

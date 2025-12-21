@@ -150,33 +150,55 @@ public:
 	SlotParameter(T value)
 		: m_Default(value)
 		, m_Used(nullptr)
+		, m_Tranformer()
 		, m_Dirty(false)
-		, m_Reslotted(false)
+		, m_Dirtied(false)
 	{
 	}
 
 	T Get(count_t f) const override final
 	{
-		return m_Used ? m_Used->Get(f) : m_Default;
+		if (m_Used)
+		{
+			T value = m_Used->Get(f);
+			return m_Tranformer ? m_Tranformer(value, f) : value;
+		}
+
+		return m_Default;
 	}
 
 	bool Changed(count_t f) const override final
 	{
-		return m_Dirty || (m_Used ? m_Used->Changed(f) : false);
-	}
-
-	void Use(Ref_t<BlockParameter<T>> parameter)
-	{
-		if (m_Used != parameter)
+		if (m_Dirty)
 		{
-			m_Used = parameter;
-			m_Reslotted = true;
+			return true;
 		}
+
+		if (m_Used)
+		{
+			bool changed = m_Used->Changed(f);
+			return changed;
+		}
+
+		return false;
 	}
 
 	void Use(Ref_t<Parameter<T>> parameter)
 	{
-		m_Used = parameter;
+		if (m_Used != parameter)
+		{
+			m_Used = parameter;
+			m_Dirtied = true;
+		}
+	}
+
+	void Transform(TransformerFunc_t<T> tranformer)
+	{
+		if (m_Tranformer != nullptr)
+		{
+			m_Tranformer = tranformer;
+			m_Dirtied = true;
+		}
 	}
 
 	T Default() const
@@ -187,15 +209,16 @@ public:
 private:
 	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
-		m_Dirty = m_Reslotted;
-		m_Reslotted = false;
+		m_Dirty = m_Dirtied;
+		m_Dirtied = false;
 	}
 
 private:
 	T m_Default;
 	Ref_t<Parameter<T>> m_Used;
+	TransformerFunc_t<T> m_Tranformer;
 	bool m_Dirty;
-	bool m_Reslotted;
+	bool m_Dirtied;
 };
 
 template<typename T>

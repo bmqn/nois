@@ -64,6 +64,83 @@ constexpr inline Vst::ParameterInfo MakeParameterInfo()
 }
 
 template<typename Param>
+class NoisVstParameter : public Vst::Parameter
+{
+public:
+	NoisVstParameter()
+		: Vst::Parameter(util::MakeParameterInfo<Param>())
+	{
+		setPrecision(2);
+	}
+
+	Vst::ParamValue applyStep(Vst::ParamValue valuePlain) const
+	{
+		return util::ApplyStep<Param>(valuePlain);
+	}
+
+	Vst::ParamValue toPlain(Vst::ParamValue valueNormalized) const SMTG_OVERRIDE
+	{
+		return util::ToPlain<Param>(valueNormalized);
+	}
+
+	Vst::ParamValue toNormalized(Vst::ParamValue valuePlain) const SMTG_OVERRIDE
+	{
+		return util::ToNormalized<Param>(valuePlain);
+	}
+
+	void toString(Vst::ParamValue valueNormalized, Vst::String128 string) const SMTG_OVERRIDE
+	{
+		UString wrapper(string, USTRINGSIZE(Vst::String128));
+
+		if (Param::kNumSteps == 1)
+		{
+			wrapper.assign(toPlain(valueNormalized) > 0.0f ? kOnStr : kOffStr);
+		}
+		else
+		{
+			wrapper.printFloat(toPlain(valueNormalized), precision);
+		}
+	}
+
+	bool fromString(const Vst::TChar* string, Vst::ParamValue& valueNormalized) const SMTG_OVERRIDE
+	{
+		UString wrapper(const_cast<Vst::TChar*>(string), USTRINGSIZE(Vst::String128));
+
+		Vst::ParamValue value = 0.0;
+
+		if (Param::kNumSteps == 1 && std::memcmp(wrapper, kOffStr, sizeof(kOffStr)) == 0)
+		{
+			value = 0.0;
+		}
+		else if (Param::kNumSteps == 1 && std::memcmp(wrapper, kOnStr, sizeof(kOnStr)) == 0)
+		{
+			value = 1.0;
+		}
+		else if (wrapper.scanFloat(value))
+		{
+			if (value < Param::kMinValue)
+			{
+				value = Param::kMinValue;
+			}
+			else if (value > Param::kMaxValue)
+			{
+				value = Param::kMaxValue;
+			}
+
+			valueNormalized = toNormalized(value);
+
+			return true;
+		}
+
+		return false;
+	}
+
+private:
+	static constexpr Vst::TChar kOffStr[] = { 'O','f','f','\0' };
+	static constexpr Vst::TChar kOnStr[] = { 'O','n','\0' };
+};
+
+template<typename Param>
 class NoisVstProcessorParameterImpl : public NoisVstProcessorParameter
 {
 public:
@@ -167,76 +244,22 @@ class NoisVstControllerParameterImpl : public NoisVstControllerParameter
 {
 public:
 	NoisVstControllerParameterImpl()
-		: NoisVstControllerParameter(util::MakeParameterInfo<Param>())
+		: mParameter(new NoisVstParameter<Param>())
 	{
-		setPrecision(2);
 	}
 
-	Vst::ParamValue applyStep(Vst::ParamValue valuePlain) const
+	Vst::ParamID GetPid() const override final
 	{
-		return util::ApplyStep<Param>(valuePlain);
+		return Param::kPid;
 	}
 
-	Vst::ParamValue toPlain(Vst::ParamValue valueNormalized) const SMTG_OVERRIDE
+	operator Vst::Parameter*() override final
 	{
-		return util::ToPlain<Param>(valueNormalized);
-	}
-
-	Vst::ParamValue toNormalized(Vst::ParamValue valuePlain) const SMTG_OVERRIDE
-	{
-		return util::ToNormalized<Param>(valuePlain);
-	}
-
-	void toString(Vst::ParamValue valueNormalized, Vst::String128 string) const SMTG_OVERRIDE
-	{
-		UString wrapper(string, USTRINGSIZE(Vst::String128));
-
-		if (Param::kNumSteps == 1)
-		{
-			wrapper.assign(toPlain(valueNormalized) > 0.0f ? kOnStr : kOffStr);
-		}
-		else
-		{
-			wrapper.printFloat(toPlain(valueNormalized), precision);
-		}
-	}
-
-	bool fromString(const Vst::TChar* string, Vst::ParamValue& valueNormalized) const SMTG_OVERRIDE
-	{
-		UString wrapper(const_cast<Vst::TChar*>(string), USTRINGSIZE(Vst::String128));
-
-		Vst::ParamValue value = 0.0;
-
-		if (Param::kNumSteps == 1 && std::memcmp(wrapper, kOffStr, sizeof(kOffStr)) == 0)
-		{
-			value = 0.0;
-		}
-		else if (Param::kNumSteps == 1 && std::memcmp(wrapper, kOnStr, sizeof(kOnStr)) == 0)
-		{
-			value = 1.0;
-		}
-		else if (wrapper.scanFloat(value))
-		{
-			if (value < Param::kMinValue)
-			{
-				value = Param::kMinValue;
-			}
-			else if (value > Param::kMaxValue)
-			{
-				value = Param::kMaxValue;
-			}
-		
-			valueNormalized = toNormalized(value);
-
-			return true;
-		}
-
-		return false;
+		return mParameter;
 	}
 
 private:
-	static constexpr Vst::TChar kOffStr[] = {'O','f','f','\0'};
-	static constexpr Vst::TChar kOnStr[] = {'O','n','\0'};
+	Vst::Parameter* mParameter;
 };
 
 namespace parameter
@@ -316,16 +339,16 @@ nois::Own_t<NoisVstProcessorParameter> CreateProcessor(Vst::ParamID pid, nois::F
 	return nullptr;
 }
 
-NoisVstControllerParameter* CreateController(Vst::ParamID pid)
+nois::Own_t<NoisVstControllerParameter> CreateController(Vst::ParamID pid)
 {
 	switch (pid)
 	{
 		case kSubFreq:
-			return new NoisVstControllerParameterImpl<SubFreq>();
+			return nois::MakeOwn<NoisVstControllerParameterImpl<SubFreq>>();
 		case kDrive:
-			return new NoisVstControllerParameterImpl<Drive>();
+			return nois::MakeOwn<NoisVstControllerParameterImpl<Drive>>();
 		case kWet:
-			return new NoisVstControllerParameterImpl<Wet>();
+			return nois::MakeOwn<NoisVstControllerParameterImpl<Wet>>();
 		default:
 			break;
 	}

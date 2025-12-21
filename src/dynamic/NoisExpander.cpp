@@ -2,151 +2,117 @@
 
 namespace nois {
 
-class ExpanderImpl : public Expander
+class Expander::Impl
 {
 public:
-	ExpanderImpl(Ref_t<Stream> stream)
-		: m_Stream(stream)
-		, m_ThresholdDb(MakeRef<FloatConstantParameter>(-12.0f))
-		, m_Ratio(MakeRef<FloatConstantParameter>(1.25f))
-		, m_AttackMs(MakeRef<FloatConstantParameter>(10.0f))
-		, m_ReleaseMs(MakeRef<FloatConstantParameter>(10.0f))
-		, m_Smoothing(MakeRef<FloatConstantParameter>(0.8f))
+	Impl()
 	{
 	}
 
-	virtual Stream::Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate) override
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer)
 	{
-		Stream::Result result = Stream::Success;
+		NOIS_PROFILE_SCOPE();
 
-		if (Stream::Result streamResult =
-			m_Stream->Consume(
-				buffer,
-				sampleRate);
-			streamResult != Stream::Success)
+		f32_t thresholdDb = m_ThresholdDb.Get();
+		f32_t ratio = m_Ratio.Get();
+		f32_t attackTau = 1000.0f / m_AttackMs.Get();
+		f32_t releaseTau = 1000.0f / m_ReleaseMs.Get();
+		f32_t smoothing = m_Smoothing.Get();
+
+		f32_t inverseSampleRate = 1.0f / m_SampleRate;
+		f32_t attackFactor = 1.0f - std::exp(-1.0f * attackTau * inverseSampleRate);
+		f32_t releaseFactor = 1.0f - std::exp(-1.0f * releaseTau * inverseSampleRate);
+
+		for (count_t f = 0; f < m_NumFrames; f += m_NumChannels)
 		{
-			result = streamResult;
-		}
+			f32_t signal = 0.0f;
 
-		for (count_t i = 0; i < buffer.GetNumFrames(); i += buffer.GetNumChannels())
-		{
-			constexpr float k_DcOffset = 0.005f;
-
-			f32_t attackTau = 1000.0f / m_AttackMs->Get(i);
-			f32_t releaseTau = 1000.0f / m_ReleaseMs->Get(i);
-
-			f32_t inverseSampleRate = 1.0f / sampleRate;
-
-			float attackFactor = 1.0f - std::exp(-1.0f * attackTau * inverseSampleRate);
-			float releaseFactor = 1.0f - std::exp(-1.0f * releaseTau * inverseSampleRate);
-
-			float signal = 0.0f;
-
-			for (count_t j = 0; j < buffer.GetNumChannels(); ++j)
+			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
-				signal = std::max(signal, std::abs(buffer(i, j)));
+				signal = std::max(signal, std::abs(inBuffer(f, c)));
 			}
 
-			signal += k_DcOffset;
-
-			float signalDb = ToDb(signal);
-			float envMultiplier = (signalDb > m_EnvelopeDb) ? attackFactor : releaseFactor;
+			f32_t signalDb = ToDb(signal);
+			f32_t envMultiplier = (signalDb > m_EnvelopeDb) ? attackFactor : releaseFactor;
 			m_EnvelopeDb += (signalDb - m_EnvelopeDb) * envMultiplier;
 			m_EnvelopeDb = std::clamp(m_EnvelopeDb, -36.0f, 24.0f);
+			f32_t underDb = m_EnvelopeDb - thresholdDb;
+			f32_t targetGain = FromDb(underDb * ratio);
+			m_Gain += (targetGain - m_Gain) * (1.0f - smoothing);
 
-			float underDb = m_EnvelopeDb - m_ThresholdDb->Get(i);
-			float targetGain = FromDb(underDb * m_Ratio->Get(i));
-
-			m_Gain += (targetGain - m_Gain) * m_Smoothing->Get(i);
-
-			for (count_t j = 0; j < buffer.GetNumChannels(); ++j)
+			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
-				buffer(i, j) *= m_Gain;
+				outBuffer(f, c) *= m_Gain;
 			}
 		}
 
-		return result;
+		return Stream::Success;
 	}
 
-	virtual void PrepareToConsume(
+	void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		f32_t sampleRate) override
+		f32_t sampleRate)
 	{
-		m_Stream->PrepareToConsume(
-			numFrames,
-			numChannels,
-			sampleRate);
+		NOIS_PROFILE_SCOPE();
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+		m_SampleRate = sampleRate;
 	}
 
-	virtual Ref_t<FloatParameter> GetRatio() const override
+	void SetRatio(Ref_t<FloatBlockParameter> ratio)
 	{
-		return m_Ratio;
+		m_Ratio.Use(ratio);
 	}
 
-	virtual void SetRatio(Ref_t<FloatParameter> ratio) override
+	void SetThresholdDb(Ref_t<FloatBlockParameter> thesholdDb)
 	{
-		m_Ratio = ratio;
+		m_ThresholdDb.Use(thesholdDb);
 	}
 
-	virtual Ref_t<FloatParameter> GetThresholdDb() const override
+	void SetAttackMs(Ref_t<FloatBlockParameter> attackMs)
 	{
-		return m_ThresholdDb;
+		m_AttackMs.Use(attackMs);
 	}
 
-	virtual void SetThresholdDb(Ref_t<FloatParameter> thesholdDb) override
+	void SetReleaseMs(Ref_t<FloatBlockParameter> releaseMs)
 	{
-		m_ThresholdDb = thesholdDb;
+		m_ReleaseMs.Use(releaseMs);
 	}
 
-	virtual Ref_t<FloatParameter> GetAttackMs() const override
+	void SetSmoothing(Ref_t<FloatBlockParameter> smoothing)
 	{
-		return m_AttackMs;
-	}
-
-	virtual void SetAttackMs(Ref_t<FloatParameter> attackMs) override
-	{
-		m_AttackMs = attackMs;
-	}
-
-	virtual Ref_t<FloatParameter> GetReleaseMs() const override
-	{
-		return m_ReleaseMs;
-	}
-
-	virtual void SetReleaseMs(Ref_t<FloatParameter> releaseMs) override
-	{
-		m_ReleaseMs = releaseMs;
-	}
-
-	virtual Ref_t<FloatParameter> GetSmoothing() const override
-	{
-		return m_Smoothing;
-	}
-
-	virtual void SetSmoothing(Ref_t<FloatParameter> smoothing) override
-	{
-		m_Smoothing = smoothing;
+		m_Smoothing.Use(smoothing);
 	}
 
 private:
-	Ref_t<Stream> m_Stream;
+	FloatSlotBlockParameter m_ThresholdDb = 0.0f;
+	FloatSlotBlockParameter m_Ratio = 1.0f;
+	FloatSlotBlockParameter m_AttackMs = 5.0f;
+	FloatSlotBlockParameter m_ReleaseMs = 50.0f;
+	FloatSlotBlockParameter m_Smoothing = 0.0f;
 
-	Ref_t<FloatParameter> m_ThresholdDb;
-	Ref_t<FloatParameter> m_Ratio;
-	Ref_t<FloatParameter> m_AttackMs;
-	Ref_t<FloatParameter> m_ReleaseMs;
-	Ref_t<FloatParameter> m_Smoothing;
+	f32_t m_EnvelopeDb = 0.0f;
+	f32_t m_Gain = 1.0f;
 
-	float m_EnvelopeDb = 0.0f;
-	float m_Gain = 1.0f;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	f32_t m_SampleRate = 0.0f;
 };
 
-Ref_t<Expander> CreateExpander(Ref_t<Stream> stream)
+NOIS_INTERFACE_IMPL(Expander)
+NOIS_INTERFACE_PARAM_IMPL(Expander, Ratio, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(Expander, ThresholdDb, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(Expander, AttackMs, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(Expander, ReleaseMs, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(Expander, Smoothing, FloatBlockParameter)
+
+Ref_t<Expander> Expander::Create()
 {
-	return MakeRef<ExpanderImpl>(stream);
+	return MakeRef<Expander>(MakeOwn<Expander::Impl>());
 }
 
 }

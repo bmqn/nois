@@ -9,7 +9,7 @@ namespace nois {
 class TimeStretcher : public ProcessStream
 {
 public:
-	static Ref_t<TimeStretcher> Create(Ref_t<Stream> stream);
+	static Ref_t<TimeStretcher> Create();
 
 	NOIS_INTERFACE(TimeStretcher)
 	NOIS_INTERFACE_PARAM(StretchActive, FloatParameter)

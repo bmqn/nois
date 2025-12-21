@@ -69,7 +69,7 @@ public:
 	tresult PLUGIN_API terminate() SMTG_OVERRIDE;
 
 private:
-	NoisVstControllerParameter* mSubFreq;
-	NoisVstControllerParameter* mDrive;
-	NoisVstControllerParameter* mWet;
+	nois::Own_t<NoisVstControllerParameter> mSubFreq;
+	nois::Own_t<NoisVstControllerParameter> mDrive;
+	nois::Own_t<NoisVstControllerParameter> mWet;
 };

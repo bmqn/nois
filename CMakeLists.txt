@@ -66,7 +66,6 @@ set(NOIS_HSPSRC
 	"${NOIS_HSP}/nois/NoisUtil.hpp"
 
 	"${NOIS_HSP}/nois/analysis/NoisFilterBank.hpp"
-	"${NOIS_HSP}/nois/analysis/NoisPitchDetector.hpp"
 
 	"${NOIS_HSP}/nois/core/NoisBuffer.hpp"
 	"${NOIS_HSP}/nois/core/NoisRingBuffer.hpp"
@@ -108,7 +107,6 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/NoisMacros.hpp"
 
 	"${NOIS_SRC_DIR}/analysis/NoisFilterBank.cpp"
-	"${NOIS_SRC_DIR}/analysis/NoisPitchDetector.cpp"
 
 	"${NOIS_SRC_DIR}/dynamic/NoisExpander.cpp"
 	"${NOIS_SRC_DIR}/dynamic/NoisTransientShaper.cpp"

@@ -2,57 +2,47 @@
 
 namespace nois {
 
-class GainerImpl : public Gainer
+class Gainer::Impl
 {
 public:
-	
-	GainerImpl(Ref_t<Stream> stream)
-		: m_Stream(stream)
-		, m_Gain(MakeRef<FloatConstantParameter>(1.0f))
+	Impl()
+		: m_Gain(1.0f)
 	{
 	}
 
-	virtual Stream::Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate) override
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer)
 	{
-		m_Stream->Consume(buffer, sampleRate);
-
-		buffer.Multiply(*m_Gain);
+		outBuffer.Copy(inBuffer);
+		outBuffer.Multiply(m_Gain);
 
 		return Stream::Success;
 	}
 
-	virtual void PrepareToConsume(
+	void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		f32_t sampleRate) override
+		f32_t sampleRate)
 	{
-		m_Stream->PrepareToConsume(
-			numFrames,
-			numChannels,
-			sampleRate);
 	}
 
-	virtual Ref_t<FloatParameter> GetGain() const override
+	void SetGainDb(Ref_t<FloatParameter> gainDb)
 	{
-		return m_Gain;
-	}
-
-	virtual void SetGain(Ref_t<FloatParameter> gain) override
-	{
-		m_Gain = gain;
+		m_Gain.Use(gainDb);
+		m_Gain.Transform([](f32_t x, count_t) { return FromDb(x); });
 	}
 
 private:
-	Ref_t<Stream> m_Stream;
-
-	Ref_t<FloatParameter> m_Gain;
+	FloatSlotParameter m_Gain;
 };
 
-Ref_t<Gainer> CreateGainer(Ref_t<Stream> stream)
+NOIS_INTERFACE_IMPL(Gainer)
+NOIS_INTERFACE_PARAM_IMPL(Gainer, GainDb, FloatParameter)
+
+Ref_t<Gainer> Gainer::Create()
 {
-	return MakeRef<GainerImpl>(stream);
+	return MakeRef<Gainer>(MakeOwn<Gainer::Impl>());
 }
 
 }

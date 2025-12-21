@@ -2,17 +2,6 @@
 
 #include "nois/NoisMacros.hpp"
 
-#define NOIS_INTERFACE_PARAM_IMPL(_class, _name, _type) \
-	void _class::Set##_name(Ref_t<_type> value) \
-	{ \
-		m_Impl->Set##_name(value); \
-	}
-
-#define NOIS_IMPL_PARAM(_name, _type) \
-	Ref_t<_type> m_##_name; \
-	Ref_t<_type> Get##_name() const { return m_##_name; } \
-	void Set##_name(Ref_t<_type> value) { m_##_name = value; }
-
 #define NOIS_INTERFACE_IMPL_MULTI() \
 	public: \
 	Impl() = default; \
@@ -35,4 +24,10 @@
 	void _class::Prepare(count_t numFrames, count_t numChannels, f32_t sampleRate) \
 	{ \
 		m_Impl->Prepare(numFrames, numChannels, sampleRate); \
+	}
+
+#define NOIS_INTERFACE_PARAM_IMPL(_class, _name, _type) \
+	void _class::Set##_name(Ref_t<_type> value) \
+	{ \
+		m_Impl->Set##_name(value); \
 	}

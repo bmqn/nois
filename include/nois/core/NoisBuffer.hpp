@@ -219,7 +219,7 @@ public:
 		}
 	}
 
-	void Multiply(Parameter<T>& parameter)
+	void Multiply(const Parameter<T>& parameter)
 	{
 		// TODO: vectorize
 		// TODO: how can we validate size of parameters?
@@ -442,7 +442,7 @@ public:
 		}
 	}
 
-	void Multiply(Parameter<T>& parameter)
+	void Multiply(const Parameter<T>& parameter)
 	{
 		// TODO: vectorize
 		// TODO: how can we validate size of parameters?

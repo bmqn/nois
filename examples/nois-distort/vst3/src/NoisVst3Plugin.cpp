@@ -217,13 +217,12 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Read from source");
 
-		for (int channel = 0; channel < inSource.numChannels; ++channel)
+		for (int c = 0; c < inSource.numChannels; ++c)
 		{
-			float* inSamplesStart  = inSource.channelBuffers32[channel];
-
-			for (int sample = 0; sample < data.numSamples; ++sample)
+			const float* samples = inSource.channelBuffers32[c];
+			for (int f = 0; f < data.numSamples; ++f)
 			{
-				sourceBuffer(sample, channel) = inSamplesStart[sample];
+				sourceBuffer(f, c) = samples[f];
 			}
 		}
 	}
@@ -261,19 +260,15 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Write to sink");
 
-		for (int channel = 0; channel < outSink.numChannels; ++channel)
+		for (int c = 0; c < outSink.numChannels; ++c)
 		{
-			float* outSamplesStart = outSink.channelBuffers32[channel];
-
-			for (int sample = 0; sample < data.numSamples; ++sample)
+			float* samples = outSink.channelBuffers32[c];
+			for (int f = 0; f < data.numSamples; ++f)
 			{
 				nois::f32_t wet = mWet->GetLastPlain();
-				
-				nois::f32_t x = sourceBuffer(sample, channel);
-				nois::f32_t z = hpBuffer(sample, channel) + distBuffer(sample, channel);
-
-				outSamplesStart[sample] = x * (1.0f - wet) + z * wet;
-
+				nois::f32_t x = sourceBuffer(f, c);
+				nois::f32_t z = hpBuffer(f, c) + distBuffer(f, c);
+				samples[f] = x * (1.0f - wet) + z * wet;
 			}
 		}
 	}
@@ -304,9 +299,9 @@ tresult PLUGIN_API NoisController::initialize(FUnknown* context)
 		return result;
 	}
 
-	parameters.addParameter(mSubFreq);
-	parameters.addParameter(mDrive);
-	parameters.addParameter(mWet);
+	parameters.addParameter(*mSubFreq);
+	parameters.addParameter(*mDrive);
+	parameters.addParameter(*mWet);
 
 	return result;
 }

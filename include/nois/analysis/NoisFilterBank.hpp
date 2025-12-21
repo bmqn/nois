@@ -6,28 +6,17 @@
 
 namespace nois {
 
-class FilterBank : public Stream
+class FilterBank : public ProcessStream
 {
 public:
-	virtual ~FilterBank() = default;
+	static Ref_t<FilterBank> Create(
+		count_t numBands,
+		f32_t minCutoffRatio,
+		f32_t maxCutoffRatio);
 
-	virtual count_t GetNumBands() const = 0;
+	NOIS_INTERFACE(FilterBank)
 
-	virtual f32_t GetBandFrequency(
-		count_t bandIndex,
-		f32_t sampleRate) const = 0;
-
-	virtual f32_t GetBandRms(
-		count_t bandIndex) const = 0;
-
-	virtual void SetBandGains(
-		FloatBlockParameterList bandGains) = 0;
+	f32_t GetRms(count_t b) const;
 };
-
-Ref_t<FilterBank> CreateFilterBank(
-	Ref_t<Stream> stream,
-	count_t numBands,
-	f32_t minCutoffRatio,
-	f32_t maxCutoffRatio);
 
 }

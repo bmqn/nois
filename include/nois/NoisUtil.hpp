@@ -111,6 +111,24 @@ struct Biquad
 		b2 = ((1.0 + cosw0) * 0.5) / a0;
 	}
 
+	void MakeBandpass(T cutoffRatio, T q)
+	{
+		cutoffRatio = std::clamp(cutoffRatio, T(0.001), T(0.999));
+		q = std::max(q, T(0.001));
+
+		T omega0 = std::numbers::pi * cutoffRatio;
+		T sinw0 = std::sin(omega0);
+		T cosw0 = std::cos(omega0);
+		T alpha = sinw0 / (2.0 * q);
+
+		T a0 = 1.0 + alpha;
+		b0 = alpha / a0;
+		b1 = 0.0;
+		b2 = -alpha / a0;
+		a1 = -2.0 * cosw0 / a0;
+		a2 = (1.0 - alpha) / a0;
+	}
+
 	void MakeAllpass(T cutoffRatio, T q = 1.0 / std::numbers::sqrt2)
 	{
 		cutoffRatio = std::clamp(cutoffRatio, T(0.001), T(0.999));

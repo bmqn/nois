@@ -26,16 +26,12 @@ public:
 	virtual operator nois::Ref_t<nois::FloatBlockParameter>() = 0;
 };
 
-class NoisVstControllerParameter : public Vst::Parameter
+class NoisVstControllerParameter
 {
 public:
-	NoisVstControllerParameter(const Vst::ParameterInfo& info)
-		: Vst::Parameter(info)
-	{
-	}
+	virtual Vst::ParamID GetPid() const = 0;
 
-	// TODO: use this api instead of exposing inheritence in header
-	// virtual operator Vst::Parameter*() = 0;
+	virtual operator Vst::Parameter*() = 0;
 };
 
 namespace parameter
@@ -49,6 +45,6 @@ enum
 };
 
 nois::Own_t<NoisVstProcessorParameter> CreateProcessor(Vst::ParamID pid, nois::FloatParameterRegistry& registry);
-NoisVstControllerParameter* CreateController(Vst::ParamID pid);
+nois::Own_t<NoisVstControllerParameter> CreateController(Vst::ParamID pid);
 
 }

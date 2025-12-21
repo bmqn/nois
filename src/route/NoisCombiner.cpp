@@ -2,6 +2,8 @@
 
 namespace nois {
 
+#if 0
+
 class CombinerStreamImpl;
 
 class CombinerImpl : public Combiner, public RefFromThis_t<CombinerImpl>
@@ -165,5 +167,7 @@ Ref_t<Combiner> CreateCombiner()
 
 	return combiner;
 }
+
+#endif
 
 }

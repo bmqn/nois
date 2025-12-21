@@ -7,217 +7,157 @@
 
 namespace nois {
 
-class FilterBankImpl : public FilterBank
+class FilterBank::Impl
 {
 public:
-	FilterBankImpl(
-		Ref_t<Stream> stream,
+	Impl(
 		count_t numBands,
 		f32_t minCutoffRatio,
 		f32_t maxCutoffRatio)
-		: m_Stream(stream)
-		, m_StreamBufferStream(nullptr)
+		: m_NumBands(numBands)
 	{
-		minCutoffRatio = std::max(minCutoffRatio, 0.001f);
-		maxCutoffRatio = std::min(maxCutoffRatio, 0.999f);
+		minCutoffRatio =
+			std::clamp(minCutoffRatio, 0.001f, 0.999f);
+		maxCutoffRatio =
+			std::clamp(maxCutoffRatio, 0.001f, 0.999f);
 
-		m_StreamBufferStream = MakeRef<BufferStream>(&m_SteamBuffer);
+		f32_t totalOctaves =
+			std::log2(maxCutoffRatio / minCutoffRatio);
+		f32_t bandsPerOctave =
+			f32_t(numBands - 1) / totalOctaves;
 
 		for (count_t i = 0; i < numBands; i++)
 		{
+			f32_t t = f32_t(i) / f32_t(numBands - 1);
+
+			Biquad<f32_t> filter;
 			f32_t cutoffRatio =
 				minCutoffRatio *
-				std::pow(maxCutoffRatio / minCutoffRatio, f32_t(i) / f32_t(numBands - 1));
-			m_BandCutoffRatios.emplace_back(cutoffRatio);
+				std::pow(maxCutoffRatio / minCutoffRatio, t);
+			f32_t q =
+				std::numbers::sqrt2 *
+				bandsPerOctave;
+			filter.MakeBandpass(cutoffRatio, q);
 
-			f32_t q = 0.5f;
-			m_BandQs.emplace_back(q);
-
-			f32_t rms = 0.0f;
-			m_BandRmses.emplace_back(rms);
-
-			auto filter = CreateBandpassFilter(m_StreamBufferStream, BandpassFilter::k_Biquad);
-			filter->SetCutoffRatio(MakeRef<FloatConstantParameter>(cutoffRatio));
-			filter->SetQ(MakeRef<FloatConstantParameter>(q));
 			m_Filters.emplace_back(filter);
+			m_FilterBuffers.emplace_back();
 			m_FilterJobs.emplace_back();
 
-			m_ScratchBuffers.emplace_back();
+			m_BandRmses.emplace_back();
 		}
 	}
 
-	virtual Stream::Result Consume(
-		FloatBuffer &buffer,
-		f32_t sampleRate) override
+	Stream::Result Process(
+		const FloatBufferView& inBuffer,
+		FloatBuffer& outBuffer)
 	{
-		NOIS_PROFILE_SCOPE_NAMED("FilterBank - Consume");
+		NOIS_PROFILE_SCOPE();
 
-		Stream::Result result = Stream::Success;
-
-		// Consume the stream into the stream buffer
-		// The filters consume from the stream buffer
-		if (Stream::Result streamResult =
-			m_Stream->Consume(
-				m_SteamBuffer,
-				sampleRate);
-			streamResult != Stream::Success)
+		for (count_t i = 0; i < m_NumBands; ++i)
 		{
-			result = streamResult;
-		}
-
-		// Zero the result buffer
-		m_ResultBuffer.Zero();
-
-		// Run filters in parallel
-		for (count_t i = 0; i < m_Filters.size(); ++i)
-		{
-			// Get band gains, if one is specified for this band
-			float bandGain = 1.0f;
-			if (i < m_BandGains.size())
-			{
-				bandGain = m_BandGains[i]->Get();
-			}
-
+			// Run filters in parallel
 			m_FilterJobs[i] = std::async(std::launch::async,
 			[
+				&inBuffer,
 				&filter = m_Filters[i],
-				bandGain,
+				&filterBuffer = m_FilterBuffers[i],
 				&bandRms = m_BandRmses[i],
-				&scratchBuffer = m_ScratchBuffers[i],
-				sampleRate
+				this
 			]()
 			{
-				// Consume filter into the scratch buffer
-				filter->Consume(scratchBuffer, sampleRate);
-
-				// Apply band gain
-				scratchBuffer.Multiply(bandGain);
-
-				count_t numFrames = scratchBuffer.GetNumFrames();
-				count_t numChannels = scratchBuffer.GetNumChannels();
-				count_t numSamples = numFrames * numChannels;
+				// Process filter into the scratch buffer
+				for (count_t c = 0; c < m_NumChannels; ++c)
+				{
+					filter.Process(inBuffer.View(c), filterBuffer.View(c), m_NumFrames, c);
+				}
 
 				// Determine energy of filter
 				f32_t energy = 0.0f;
-				for (count_t f = 0; f < numFrames; ++f)
+				for (count_t c = 0; c < m_NumChannels; ++c)
 				{
-					for (count_t c = 0; c < numChannels; ++c)
+					for (count_t f = 0; f < m_NumFrames; ++f)
 					{
-						f32_t s = scratchBuffer(f, c);
+						f32_t s = filterBuffer(f, c);
 						energy += s * s;
 					}
 				}
 
 				// Update the rms for this band
-				bandRms = std::sqrt(energy / f32_t(numSamples));
+				bandRms = std::sqrt(energy / f32_t(m_NumFrames * m_NumChannels));
 			});
 		}
 
 		// Wait for jobs to complete
-		for (count_t i = 0; i < m_Filters.size(); ++i)
+		for (count_t i = 0; i < m_NumBands; ++i)
 		{
 			m_FilterJobs[i].wait();
-			m_ResultBuffer.Add(m_ScratchBuffers[i]);
+			m_ResultBuffer.Add(m_FilterBuffers[i]);
 		}
 
 		// Copy the result buffer to the output buffer
-		buffer.Copy(m_ResultBuffer);
+		outBuffer.Copy(m_ResultBuffer);
 
-		return result;
+		return Stream::Success;
 	}
 
-	virtual void PrepareToConsume(
+	void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		f32_t sampleRate) override
+		f32_t sampleRate)
 	{
-		m_Stream->PrepareToConsume(
-			numFrames,
-			numChannels,
-			sampleRate);
+		NOIS_PROFILE_SCOPE();
 
-		m_SteamBuffer.Resize(
-			numFrames,
-			numChannels);
-
-		for (count_t i = 0; i < m_Filters.size(); ++i)
+		for (count_t i = 0; i < m_NumBands; ++i)
 		{
-			m_Filters[i]->PrepareToConsume(
-				numFrames,
-				numChannels,
-				sampleRate);
-
-			m_ScratchBuffers[i].Resize(
-				numFrames,
-				numChannels);
+			m_FilterBuffers[i].Resize(numFrames, numChannels);
 		}
 
-		m_ResultBuffer.Resize(
-			numFrames,
-			numChannels);
+		m_ResultBuffer.Resize(numFrames, numChannels);
+		m_ResultBuffer.Zero();
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+		m_SampleRate = sampleRate;
 	}
 
-	virtual count_t GetNumBands() const override
+	f32_t GetRms(count_t b) const
 	{
-		return m_BandCutoffRatios.size();
-	}
-
-	virtual f32_t GetBandFrequency(
-		count_t bandIndex,
-		f32_t sampleRate) const override
-	{
-		if (bandIndex >= m_BandCutoffRatios.size())
-		{
-			return 0.0f;
-		}
-
-		return m_BandCutoffRatios[bandIndex] * (sampleRate * 0.5f);
-	}
-
-	virtual f32_t GetBandRms(
-		count_t bandIndex) const override
-	{
-		if (bandIndex >= m_BandCutoffRatios.size())
-		{
-			return 0.0f;
-		}
-
-		return m_BandRmses[bandIndex];
-	}
-
-	virtual void SetBandGains(FloatBlockParameterList bandGains) override
-	{
-		m_BandGains = bandGains;
+		return m_BandRmses[b];
 	}
 
 private:
-	Ref_t<Stream> m_Stream;
-	Ref_t<BufferStream> m_StreamBufferStream;
-	FloatBuffer m_SteamBuffer;
+	count_t m_NumBands;
 
-	std::vector<Ref_t<BandpassFilter>> m_Filters;
+	std::vector<Biquad<f32_t>> m_Filters;
+	std::vector<FloatBuffer> m_FilterBuffers;
 	std::vector<std::future<void>> m_FilterJobs;
 
-	FloatBlockParameterList m_BandGains;
-	std::vector<f32_t> m_BandCutoffRatios;
-	std::vector<f32_t> m_BandQs;
 	std::vector<f32_t> m_BandRmses;
 
 	FloatBuffer m_ResultBuffer;
-	std::vector<FloatBuffer> m_ScratchBuffers;
+
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	f32_t m_SampleRate = 0.0f;
 };
 
-Ref_t<FilterBank> CreateFilterBank(
-	Ref_t<Stream> stream,
+NOIS_INTERFACE_IMPL(FilterBank)
+
+f32_t FilterBank::GetRms(count_t b) const
+{
+	return m_Impl->GetRms(b);
+}
+
+Ref_t<FilterBank> FilterBank::Create(
 	count_t numBands,
 	f32_t minCutoffRatio,
 	f32_t maxCutoffRatio)
 {
-	return MakeRef<FilterBankImpl>(
-		stream,
-		numBands,
-		minCutoffRatio,
-		maxCutoffRatio);
+	return MakeRef<FilterBank>(
+		MakeOwn<FilterBank::Impl>(
+			numBands,
+			minCutoffRatio,
+			maxCutoffRatio));
 }
 
 }

@@ -6,7 +6,6 @@
 #include "NoisUtil.hpp"
 
 #include "analysis/NoisFilterBank.hpp"
-#include "analysis/NoisPitchDetector.hpp"
 
 #include "core/NoisBuffer.hpp"
 #include "core/NoisRingBuffer.hpp"

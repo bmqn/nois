@@ -2,6 +2,8 @@
 
 namespace nois {
 
+#if 0
+
 class SplitterImpl : public Splitter, public RefFromThis_t<SplitterImpl>
 {
 	friend class SplitterStreamImpl;
@@ -141,5 +143,7 @@ Ref_t<Splitter> CreateSplitter(Ref_t<Stream> stream)
 {
 	return MakeRef<SplitterImpl>(stream);
 }
+
+#endif
 
 };
