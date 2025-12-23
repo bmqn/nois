@@ -177,7 +177,7 @@ public:
 
 		if (m_HighCutoffRatio.Changed())
 		{
-			m_Biquads[1].MakeButterworthLow(m_HighCutoffRatio.Get());
+			m_Biquads[1].MakeButterworthHigh(m_HighCutoffRatio.Get());
 		}
 
 		if (m_BandCutoffRatio.Changed())

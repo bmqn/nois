@@ -43,7 +43,7 @@ constexpr inline nois::f32_t ToProcessor(nois::f32_t valuePlain, nois::count_t n
 }
 
 template<typename Param>
-constexpr inline Vst::ParameterInfo MakeParameterInfo()
+inline Vst::ParameterInfo MakeParameterInfo()
 {
 	Vst::ParameterInfo info;
 	ConstString title(Param::kTitle);

@@ -12,7 +12,7 @@ class Reverb::Impl
 	static constexpr count_t k_SplitChannels = 8;
 
 public:	
-	Reverb::Impl()
+	Impl()
 		: m_Wet(0.0f)
 		, m_NumDelays(k_SplitChannels)
 		, m_DelayBuffer()

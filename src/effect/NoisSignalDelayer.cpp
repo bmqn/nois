@@ -7,7 +7,7 @@ namespace nois {
 class SignalDelayer::Impl
 {
 public:
-	SignalDelayer::Impl()
+	Impl()
 		: m_DelayMs(0.0f)
 	{
 	}
