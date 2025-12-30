@@ -48,7 +48,6 @@ target_compile_options(
 	-Wpedantic
 	-Wno-unused-parameter
 	-Wno-sign-compare
-	-Wno-pragma-pack
 	$<$<CONFIG:Debug>:-g>
 	$<$<CONFIG:Release>:-g>
 	$<$<CONFIG:Release>:-O3>
