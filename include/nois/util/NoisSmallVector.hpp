@@ -29,9 +29,29 @@ public:
 	}
 
 	SmallVector(const SmallVector &other) = default;
-	SmallVector(SmallVector &&other) = default;
+
+	SmallVector(SmallVector &&other)
+		: m_Size(other.m_Size)
+		, m_Data(std::move(other.m_Data))
+		, m_Fallback(std::move(other.m_Fallback))
+	{
+		other.m_Size = 0;
+		other.m_Data = {};
+		other.m_Fallback = {};
+	}
+
 	SmallVector &operator=(const SmallVector &other) = default;
-	SmallVector &operator=(SmallVector &&other) = default;
+
+	SmallVector &operator=(SmallVector &&other)
+	{
+		m_Size = other.m_Size;
+		m_Data = std::move(other.m_Data);
+		m_Fallback = std::move(other.m_Fallback);
+		other.m_Size = 0;
+		other.m_Data = {};
+		other.m_Fallback = {};
+		return *this;
+	}
 
 	inline bool empty() const
 	{
@@ -67,6 +87,7 @@ public:
 			{
 				MoveToFallback(n, value);
 			}
+			m_Fallback.resize(n);
 		}
 		m_Size = n;
 	}
@@ -115,7 +136,7 @@ public:
 		--m_Size;
 	}
 
-	inline T front() const
+	inline const T& front() const
 	{
 		return (*this)[0];
 	}
@@ -125,7 +146,7 @@ public:
 		return (*this)[0];
 	}
 
-	inline T back() const
+	inline const T& back() const
 	{
 		return (*this)[m_Size - 1];
 	}
