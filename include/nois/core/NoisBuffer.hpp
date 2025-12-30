@@ -117,7 +117,7 @@ public:
 
 		SmallVector newData(size, T{ 0 });
 
-		if (m_Size > 0)
+		if (m_Size > 0 && size > 0)
 		{
 			std::copy_n(m_Data.data(), std::min(m_Size, size), newData.data());
 		}
