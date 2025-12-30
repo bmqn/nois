@@ -289,8 +289,8 @@ struct Drive
 	static constexpr const char* kTitle = "Drive";
 	static constexpr const char* kUnits = "dB";
 	static constexpr Vst::ParamID kPid = kDrive;
-	static constexpr nois::f32_t kDefaultValue = 1.0f;
-	static constexpr nois::f32_t kMinValue = 1.0f;
+	static constexpr nois::f32_t kDefaultValue = 0.0f;
+	static constexpr nois::f32_t kMinValue = 0.0f;
 	static constexpr nois::f32_t kMaxValue = 16.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
 
