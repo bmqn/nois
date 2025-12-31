@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25.0)
+cmake_minimum_required(VERSION 3.28.0)
 
 project(nois-distort-vst3 VERSION 1.0.0)
 
@@ -34,10 +34,13 @@ target_compile_options(
 	PRIVATE
 	$<$<CONFIG:Release>:/Ox>
 	$<$<CONFIG:Release>:/GL>
+	$<$<CONFIG:Distribution>:/Ox>
+	$<$<CONFIG:Distribution>:/GL>
 )
 target_link_options(nois-distort-vst3
 	PRIVATE
 	$<$<CONFIG:Release>:/LTCG>
+	$<$<CONFIG:Distribution>:/LTCG>
 )
 else()
 target_compile_options(

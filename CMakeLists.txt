@@ -1,9 +1,13 @@
-cmake_minimum_required(VERSION 3.25.0)
+cmake_minimum_required(VERSION 3.28.0)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(SetupConfigs)
 
+
+#-------------------------------------------------------------------------------------------------
+#	Project
+#--------------------------------------------------------------------------------------------------
 set(NOIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(NOIS_INC_DIR "${NOIS_ROOT_DIR}/include")
 set(NOIS_SRC_DIR "${NOIS_ROOT_DIR}/src")
@@ -11,44 +15,11 @@ set(NOIS_LIB_DIR "${NOIS_ROOT_DIR}/libs")
 
 project(nois VERSION 1.0.0)
 
-option(NOIS_ENABLE_PROFILING "Enable profiling" OFF)
-
 
 #--------------------------------------------------------------------------------------------------
 #	Configuration
 #--------------------------------------------------------------------------------------------------
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED true)
-
-if(MSVC)
-add_compile_options(
-	$<$<CONFIG:Release>:/Ox>
-	$<$<CONFIG:Release>:/GL>
-	/Zc:__cplusplus
-)
-else()
-add_compile_options(
-	$<$<CONFIG:Debug>:-g>
-	$<$<CONFIG:Release>:-g>
-	$<$<CONFIG:Release>:-O3>
-	$<$<CONFIG:Release>:-flto>
-	$<$<CONFIG:Release>:-funroll-loops>
-	$<$<CONFIG:Distribution>:-O3>
-	$<$<CONFIG:Distribution>:-flto>
-	$<$<CONFIG:Distribution>:-funroll-loops>
-)
-endif()
-
-if(MSVC)
-add_link_options(
-	$<$<CONFIG:Release>:/LTCG>
-)
-else()
-add_link_options(
-	$<$<CONFIG:Release>:-flto>
-	$<$<CONFIG:Distribution>:-flto>
-)
-endif()
+option(NOIS_ENABLE_PROFILING "Enable profiling" OFF)
 
 
 #--------------------------------------------------------------------------------------------------
@@ -136,8 +107,31 @@ source_group(
 #--------------------------------------------------------------------------------------------------
 add_library(
 	nois
-	STATIC "${NOIS_SRC}" "${NOIS_HSPSRC}"
+	STATIC
+	"${NOIS_SRC}"
+	"${NOIS_HSPSRC}"
 )
+
+target_compile_features(
+	nois
+	PUBLIC
+		cxx_std_20
+)
+
+target_compile_definitions(
+	nois
+	PUBLIC
+	$<$<CONFIG:Debug>:NOIS_DEBUG=1>
+	$<$<CONFIG:Release>:NOIS_RELEASE=1>
+	$<$<CONFIG:Distribution>:NOIS_DISTRIBUTION=1>
+)
+
+if(NOIS_ENABLE_PROFILING)
+target_compile_definitions(
+	nois
+	PUBLIC NOIS_ENABLE_PROFILING=1
+)
+endif()
 
 target_include_directories(
 	nois
@@ -151,6 +145,13 @@ target_precompile_headers(
 )
 
 if(MSVC)
+target_compile_options(
+	nois
+	PRIVATE
+	$<$<CONFIG:Release>:/Ox>
+	$<$<CONFIG:Release>:/GL>
+	/Zc:__cplusplus
+)
 else()
 target_compile_options(
 	nois
@@ -160,25 +161,33 @@ target_compile_options(
 	-Wpedantic
 	-Wno-unused-parameter
 	-Wno-sign-compare
+	$<$<CONFIG:Debug>:-g>
+	$<$<CONFIG:Release>:-g>
+	$<$<CONFIG:Release>:-O3>
+	$<$<CONFIG:Release>:-flto>
+	$<$<CONFIG:Release>:-funroll-loops>
+	$<$<CONFIG:Distribution>:-O3>
+	$<$<CONFIG:Distribution>:-flto>
+	$<$<CONFIG:Distribution>:-funroll-loops>
 )
 endif()
 
-target_compile_definitions(
+if(MSVC)
+target_link_options(
 	nois
-	PUBLIC
-	$<$<CONFIG:Debug>:NOIS_DEBUG=1>
-	$<$<CONFIG:Release>:NOIS_RELEASE=1>
-	$<$<CONFIG:Distribution>:NOIS_DISTRIBUTION=1>
+	PRIVATE
+	$<$<CONFIG:Release>:/LTCG>
 )
-if (NOIS_ENABLE_PROFILING)
-target_compile_definitions(
+else()
+target_link_options(
 	nois
-	PUBLIC
-	NOIS_ENABLE_PROFILING=1
+	PRIVATE
+	$<$<CONFIG:Release>:-flto>
+	$<$<CONFIG:Distribution>:-flto>
 )
 endif()
 
-if (NOIS_ENABLE_PROFILING)
+if(NOIS_ENABLE_PROFILING)
 target_link_libraries(
 	nois
 	PUBLIC
@@ -195,12 +204,20 @@ set_property(
 #-------------------------------------------------------------------------------------------------
 #	Sub-directories
 #--------------------------------------------------------------------------------------------------
-# examples
-add_subdirectory("${NOIS_ROOT_DIR}/examples")
-
 if(NOIS_ENABLE_PROFILING)
 # tracy
 add_subdirectory("${NOIS_LIB_DIR}/tracy")
+endif()
+
+# examples
+add_subdirectory("${NOIS_ROOT_DIR}/examples")
+
+
+#-------------------------------------------------------------------------------------------------
+#	Sub-directories build
+#--------------------------------------------------------------------------------------------------
+if(NOIS_ENABLE_PROFILING)
+# tracy
 set_property(
 	TARGET TracyClient
 	PROPERTY POSITION_INDEPENDENT_CODE ON
