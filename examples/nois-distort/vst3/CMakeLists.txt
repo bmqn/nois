@@ -15,8 +15,6 @@ smtg_add_vst3plugin(
 	"${NOIS_DISTORT_SRC_DIR}/NoisVst3Plugin.cpp"
 	"${NOIS_DISTORT_SRC_DIR}/NoisVst3Plugin.hpp"
 	"${NOIS_DISTORT_SRC_DIR}/NoisVst3Factory.cpp"
-	"${NOIS_DISTORT_SRC_DIR}/NoisVst3Parameter.cpp"
-	"${NOIS_DISTORT_SRC_DIR}/NoisVst3Parameter.hpp"
 )
 
 smtg_target_configure_version_file(
@@ -25,7 +23,7 @@ smtg_target_configure_version_file(
 
 target_link_libraries(
 	nois-distort-vst3
-	PRIVATE sdk nois
+	PRIVATE sdk nois nois-common-vst3
 )
 
 if(MSVC)
@@ -37,7 +35,8 @@ target_compile_options(
 	$<$<CONFIG:Distribution>:/Ox>
 	$<$<CONFIG:Distribution>:/GL>
 )
-target_link_options(nois-distort-vst3
+target_link_options(
+	nois-distort-vst3
 	PRIVATE
 	$<$<CONFIG:Release>:/LTCG>
 	$<$<CONFIG:Distribution>:/LTCG>

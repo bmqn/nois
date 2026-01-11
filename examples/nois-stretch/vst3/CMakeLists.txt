@@ -15,7 +15,6 @@ smtg_add_vst3plugin(
 	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Plugin.cpp"
 	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Plugin.hpp"
 	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Factory.cpp"
-	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Parameter.hpp"
 )
 
 smtg_target_configure_version_file(
@@ -24,7 +23,7 @@ smtg_target_configure_version_file(
 
 target_link_libraries(
 	nois-stretch-vst3
-	PRIVATE sdk nois
+	PRIVATE sdk nois nois-common-vst3
 )
 
 if(MSVC)
@@ -34,7 +33,8 @@ target_compile_options(
 	$<$<CONFIG:Release>:/Ox>
 	$<$<CONFIG:Release>:/GL>
 )
-target_link_options(nois-stretch-vst3
+target_link_options(
+	nois-stretch-vst3
 	PRIVATE
 	$<$<CONFIG:Release>:/LTCG>
 )

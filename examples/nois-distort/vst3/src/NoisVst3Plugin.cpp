@@ -6,6 +6,76 @@
 
 #include <algorithm>
 
+namespace parameter
+{
+
+enum
+{
+	kSubFreq,
+	kDrive,
+	kWet
+};
+
+
+struct SubFreq
+{
+	static constexpr const char* kTitle = "Sub Frequency";
+	static constexpr const char* kUnits = "Hz";
+	static constexpr Vst::ParamID kPid = kSubFreq;
+	static constexpr nois::f32_t kDefaultValue = 80.0f;
+	static constexpr nois::f32_t kMinValue = 50.0f;
+	static constexpr nois::f32_t kMaxValue = 140.0f;
+	static constexpr nois::s32_t kNumSteps = 0;
+
+	static nois::f32_t ToProcessor(
+		nois::f32_t value,
+		nois::count_t numSamples,
+		nois::f32_t sampleRate)
+	{
+		return value / (sampleRate * 0.5f);
+	}
+};
+
+struct Drive
+{
+	static constexpr const char* kTitle = "Drive";
+	static constexpr const char* kUnits = "dB";
+	static constexpr Vst::ParamID kPid = kDrive;
+	static constexpr nois::f32_t kDefaultValue = 0.0f;
+	static constexpr nois::f32_t kMinValue = 0.0f;
+	static constexpr nois::f32_t kMaxValue = 16.0f;
+	static constexpr nois::s32_t kNumSteps = 0;
+
+	static nois::f32_t ToProcessor(
+		nois::f32_t value,
+		nois::count_t numSamples,
+		nois::f32_t sampleRate)
+	{
+		return value;
+	}
+};
+
+struct Wet
+{
+	static constexpr const char* kTitle = "Wet";
+	static constexpr const char* kUnits = "";
+	static constexpr Vst::ParamID kPid = kWet;
+	static constexpr nois::f32_t kDefaultValue = 1.0f;
+	static constexpr nois::f32_t kMinValue = 0.0f;
+	static constexpr nois::f32_t kMaxValue = 1.0f;
+	static constexpr nois::s32_t kNumSteps = 0;
+
+	static nois::f32_t ToProcessor(
+		nois::f32_t value,
+		nois::count_t numSamples,
+		nois::f32_t sampleRate)
+	{
+		return value;
+	}
+};
+
+}
+
 NoisPlugin::NoisPlugin()
 	: mSourceBuffer()
 	, mSinkBuffer()
@@ -13,6 +83,7 @@ NoisPlugin::NoisPlugin()
 	, mDistBuffer()
 	, mSubFreq(nullptr)
 	, mDrive(nullptr)
+	, mWet(nullptr)
 	, mSource(&mSourceBuffer)
 	, mHpFilter(nullptr)
 	, mLpFilter(nullptr)
@@ -22,9 +93,9 @@ NoisPlugin::NoisPlugin()
 	, mLpDistFilter(nullptr)
 	, mSampleRate(0.0)
 {
-	mSubFreq = parameter::CreateProcessor(parameter::kSubFreq, mRegistry);
-	mDrive = parameter::CreateProcessor(parameter::kDrive, mRegistry);
-	mWet = parameter::CreateProcessor(parameter::kWet, mRegistry);
+	mSubFreq = CreateProcessor<parameter::SubFreq>(mRegistry);
+	mDrive = CreateProcessor<parameter::Drive>(mRegistry);
+	mWet = CreateProcessor<parameter::Wet>(mRegistry);
 
 	auto ap1CutoffRatio =
 		mRegistry.CreateBlockTransformer(*mSubFreq,
@@ -279,10 +350,11 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 NoisController::NoisController()
 	: mSubFreq(nullptr)
 	, mDrive(nullptr)
+	, mWet(nullptr)
 {
-	mSubFreq = parameter::CreateController(parameter::kSubFreq);
-	mDrive = parameter::CreateController(parameter::kDrive);
-	mWet = parameter::CreateController(parameter::kWet);
+	mSubFreq = CreateController<parameter::SubFreq>();
+	mDrive = CreateController<parameter::Drive>();
+	mWet = CreateController<parameter::Wet>();
 }
 
 FUnknown* PLUGIN_API NoisController::createInstance(void*)

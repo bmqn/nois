@@ -12,18 +12,6 @@
 
 using namespace Steinberg;
 
-class NoisVstSource : public nois::Stream
-{
-public:
-	nois::Stream::Result Consume(nois::FloatBuffer& buffer, nois::f32_t sampleRate) override;
-	void PrepareToConsume(nois::count_t numFrames, nois::count_t numChannels, nois::f32_t sampleRate) override;
-
-	nois::FloatBuffer& GetBuffer();
-
-private:
-	nois::FloatBuffer mBuffer;
-};
-
 class NoisPlugin : public Vst::AudioEffect
 {
 public:
@@ -42,22 +30,21 @@ public:
 	tresult PLUGIN_API process(Vst::ProcessData& data) SMTG_OVERRIDE;
 
 private:
-	nois::Ref_t<NoisVstSource> mSource;
+	nois::FloatBuffer mSourceBuffer;
+	nois::FloatBuffer mSinkBuffer;
+
+	nois::Own_t<NoisVstProcessorParameter> mStretchActive;
+	nois::Own_t<NoisVstProcessorParameter> mStretchFactor;
+	nois::Own_t<NoisVstProcessorParameter> mGrainSize;
+	nois::Own_t<NoisVstProcessorParameter> mGrainBlend;
+	nois::Own_t<NoisVstProcessorParameter> mGrainPhaseLockActive;
+
+	nois::FloatParameterRegistry mRegistry;
+
+	nois::SourceStream mSource;
 	nois::Ref_t<nois::TimeStretcher> mTimeStretcher;
 
-	NoisVstProcessorParameter<parameter::StretchActive> mStretchActive;
-	NoisVstProcessorParameter<parameter::StretchFactor> mStretchFactor;
-	NoisVstProcessorParameter<parameter::GrainPhaseInc> mGrainPhaseInc;
-	NoisVstProcessorParameter<parameter::GrainPhaseLockActive> mGrainPhaseLockActive;
-
-	using ParameterPtr = std::variant<
-		NoisVstProcessorParameter<parameter::StretchActive>*,
-		NoisVstProcessorParameter<parameter::StretchFactor>*,
-		NoisVstProcessorParameter<parameter::GrainPhaseInc>*,
-		NoisVstProcessorParameter<parameter::GrainPhaseLockActive>*
-	>;
-
-	std::unordered_map<Vst::ParamID, ParameterPtr> mParameterLookup;
+	std::unordered_map<Vst::ParamID, NoisVstProcessorParameter*> mParameterLookup;
 
 	double mSampleRate;
 };
@@ -68,8 +55,18 @@ public:
 	inline static DECLARE_UID(kUid, 0x9ee7ec38,-0x41254df7, 0x8863c27f, 0x3782767d)
 
 public:
+	NoisController();
+	~NoisController() override = default;
+
 	static FUnknown* PLUGIN_API createInstance(void*);
 
 	tresult PLUGIN_API initialize(FUnknown* context) SMTG_OVERRIDE;
 	tresult PLUGIN_API terminate() SMTG_OVERRIDE;
+
+private:
+	nois::Own_t<NoisVstControllerParameter> mStretchActive;
+	nois::Own_t<NoisVstControllerParameter> mStretchFactor;
+	nois::Own_t<NoisVstControllerParameter> mGrainSize;
+	nois::Own_t<NoisVstControllerParameter> mGrainBlend;
+	nois::Own_t<NoisVstControllerParameter> mGrainPhaseLockActive;
 };

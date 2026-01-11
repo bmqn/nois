@@ -1,9 +1,40 @@
-#include "NoisVst3Parameter.hpp"
+#pragma once
+
+#include <nois/Nois.hpp>
 
 #include <base/source/fstring.h>
+#include <pluginterfaces/vst/vsttypes.h>
 #include <pluginterfaces/base/ustring.h>
+#include <public.sdk/source/vst/vstparameters.h>
 
 using namespace Steinberg;
+
+class NoisVstProcessorParameter
+{
+public:
+	virtual Vst::ParamID GetPid() const = 0;
+
+	virtual Vst::ParamValue ApplyStep(Vst::ParamValue valuePlain) const = 0;
+	virtual Vst::ParamValue ToPlain(Vst::ParamValue valueNormalized) const = 0;
+	virtual Vst::ParamValue ToNormalized(Vst::ParamValue valuePlain) const = 0;
+
+	virtual void Prepare(nois::count_t numFrames, nois::f32_t sampleRate) = 0;
+
+	virtual void WritePlain(nois::count_t frame, nois::f32_t value) = 0;
+	virtual void WritePlain(nois::count_t frame, nois::count_t count, nois::f32_t value) = 0;
+	virtual nois::f32_t GetLastPlain() const = 0;
+
+	virtual operator nois::Ref_t<nois::FloatParameter>() = 0;
+	virtual operator nois::Ref_t<nois::FloatBlockParameter>() = 0;
+};
+
+class NoisVstControllerParameter
+{
+public:
+	virtual Vst::ParamID GetPid() const = 0;
+
+	virtual operator Vst::Parameter*() = 0;
+};
 
 namespace util
 {
@@ -53,7 +84,7 @@ inline Vst::ParameterInfo MakeParameterInfo()
 	title.copyTo(info.title, 0, title.length());
 	title.copyTo(info.shortTitle, 0, title.length());
 	units.copyTo(info.units, 0, units.length());
-	info.stepCount = 0;
+	info.stepCount = Param::kNumSteps;
 	info.defaultNormalizedValue = util::ToNormalized<Param>(Param::kDefaultValue);
 	info.unitId = Vst::kRootUnitId;
 	info.flags = Vst::ParameterInfo::kCanAutomate;
@@ -262,98 +293,14 @@ private:
 	Vst::Parameter* mParameter;
 };
 
-namespace parameter
+template<typename Param>
+nois::Own_t<NoisVstProcessorParameter> CreateProcessor(nois::FloatParameterRegistry& registry)
 {
-
-struct SubFreq
-{
-	static constexpr const char* kTitle = "Sub Frequency";
-	static constexpr const char* kUnits = "Hz";
-	static constexpr Vst::ParamID kPid = kSubFreq;
-	static constexpr nois::f32_t kDefaultValue = 80.0f;
-	static constexpr nois::f32_t kMinValue = 50.0f;
-	static constexpr nois::f32_t kMaxValue = 140.0f;
-	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value / (sampleRate * 0.5f);
-	}
-};
-
-struct Drive
-{
-	static constexpr const char* kTitle = "Drive";
-	static constexpr const char* kUnits = "dB";
-	static constexpr Vst::ParamID kPid = kDrive;
-	static constexpr nois::f32_t kDefaultValue = 0.0f;
-	static constexpr nois::f32_t kMinValue = 0.0f;
-	static constexpr nois::f32_t kMaxValue = 16.0f;
-	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value;
-	}
-};
-
-struct Wet
-{
-	static constexpr const char* kTitle = "Wet";
-	static constexpr const char* kUnits = "";
-	static constexpr Vst::ParamID kPid = kWet;
-	static constexpr nois::f32_t kDefaultValue = 1.0f;
-	static constexpr nois::f32_t kMinValue = 0.0f;
-	static constexpr nois::f32_t kMaxValue = 1.0f;
-	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value;
-	}
-};
-
-nois::Own_t<NoisVstProcessorParameter> CreateProcessor(Vst::ParamID pid, nois::FloatParameterRegistry& registry)
-{
-	switch (pid)
-	{
-		case kSubFreq:
-			return nois::MakeOwn<NoisVstProcessorParameterImpl<SubFreq>>(registry);
-		case kDrive:
-			return nois::MakeOwn<NoisVstProcessorParameterImpl<Drive>>(registry);
-		case kWet:
-			return nois::MakeOwn<NoisVstProcessorParameterImpl<Wet>>(registry);
-		default:
-			break;
-	}
-
-	return nullptr;
+	return nois::MakeOwn<NoisVstProcessorParameterImpl<Param>>(registry);
 }
 
-nois::Own_t<NoisVstControllerParameter> CreateController(Vst::ParamID pid)
+template<typename Param>
+nois::Own_t<NoisVstControllerParameter> CreateController()
 {
-	switch (pid)
-	{
-		case kSubFreq:
-			return nois::MakeOwn<NoisVstControllerParameterImpl<SubFreq>>();
-		case kDrive:
-			return nois::MakeOwn<NoisVstControllerParameterImpl<Drive>>();
-		case kWet:
-			return nois::MakeOwn<NoisVstControllerParameterImpl<Wet>>();
-		default:
-			break;
-	}
-
-	return nullptr;
-}
-
+	return nois::MakeOwn<NoisVstControllerParameterImpl<Param>>();
 }

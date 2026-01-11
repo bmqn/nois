@@ -16,11 +16,14 @@ set(SMTG_ENABLE_VST3_HOSTING_EXAMPLES OFF)
 set(SMTG_ENABLE_VSTGUI_SUPPORT OFF)
 add_subdirectory(${VST3_SDK_PATH})
 
+# nois-common-vst3
+add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/common/vst3")
+
 # nois-stretch-vst3
-add_subdirectory("${NOIS_ROOT_DIR}/examples/nois-stretch/vst3")
+add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-stretch/vst3")
 
 # nois-distort-vst3
-add_subdirectory("${NOIS_ROOT_DIR}/examples/nois-distort/vst3")
+add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-distort/vst3")
 
 
 #-------------------------------------------------------------------------------------------------

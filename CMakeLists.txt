@@ -25,50 +25,40 @@ option(NOIS_ENABLE_PROFILING "Enable profiling" OFF)
 #--------------------------------------------------------------------------------------------------
 #	Sources
 #--------------------------------------------------------------------------------------------------
-set(NOIS_HSP
-	"${NOIS_INC_DIR}"
-)
-
 set(NOIS_HSPSRC
-	"${NOIS_HSP}/nois/Nois.hpp"
-	"${NOIS_HSP}/nois/NoisConfig.hpp"
-	"${NOIS_HSP}/nois/NoisMacros.hpp"
-	"${NOIS_HSP}/nois/NoisTypes.hpp"
-	"${NOIS_HSP}/nois/NoisUtil.hpp"
+	"${NOIS_INC_DIR}/nois/Nois.hpp"
+	"${NOIS_INC_DIR}/nois/NoisConfig.hpp"
+	"${NOIS_INC_DIR}/nois/NoisMacros.hpp"
+	"${NOIS_INC_DIR}/nois/NoisTypes.hpp"
+	"${NOIS_INC_DIR}/nois/NoisUtil.hpp"
 
-	"${NOIS_HSP}/nois/analysis/NoisFilterBank.hpp"
+	"${NOIS_INC_DIR}/nois/analysis/NoisFilterBank.hpp"
 
-	"${NOIS_HSP}/nois/core/NoisBuffer.hpp"
-	"${NOIS_HSP}/nois/core/NoisRingBuffer.hpp"
-	"${NOIS_HSP}/nois/core/NoisStream.hpp"
+	"${NOIS_INC_DIR}/nois/core/NoisBuffer.hpp"
+	"${NOIS_INC_DIR}/nois/core/NoisRingBuffer.hpp"
+	"${NOIS_INC_DIR}/nois/core/NoisStream.hpp"
 
-	"${NOIS_HSP}/nois/dynamic/NoisExpander.hpp"
-	"${NOIS_HSP}/nois/dynamic/NoisTransientShaper.hpp"
+	"${NOIS_INC_DIR}/nois/dynamic/NoisExpander.hpp"
+	"${NOIS_INC_DIR}/nois/dynamic/NoisTransientShaper.hpp"
 
-	"${NOIS_HSP}/nois/effect/NoisDistorter.hpp"
-	"${NOIS_HSP}/nois/effect/NoisFilter.hpp"
-	"${NOIS_HSP}/nois/effect/NoisGainer.hpp"
-	"${NOIS_HSP}/nois/effect/NoisReverb.hpp"
-	"${NOIS_HSP}/nois/effect/NoisSignalDelayer.hpp"
-	"${NOIS_HSP}/nois/effect/NoisTimeStretcher.hpp"
+	"${NOIS_INC_DIR}/nois/effect/NoisDistorter.hpp"
+	"${NOIS_INC_DIR}/nois/effect/NoisFilter.hpp"
+	"${NOIS_INC_DIR}/nois/effect/NoisGainer.hpp"
+	"${NOIS_INC_DIR}/nois/effect/NoisReverb.hpp"
+	"${NOIS_INC_DIR}/nois/effect/NoisSignalDelayer.hpp"
+	"${NOIS_INC_DIR}/nois/effect/NoisTimeStretcher.hpp"
 
-	"${NOIS_HSP}/nois/math/NoisMatrix.hpp"
+	"${NOIS_INC_DIR}/nois/math/NoisMatrix.hpp"
 
-	"${NOIS_HSP}/nois/midi/NoisMidiBuffer.hpp"
-	"${NOIS_HSP}/nois/midi/NoisMidiStream.hpp"
+	"${NOIS_INC_DIR}/nois/midi/NoisMidiBuffer.hpp"
+	"${NOIS_INC_DIR}/nois/midi/NoisMidiStream.hpp"
 
-	"${NOIS_HSP}/nois/parameter/NoisParameter.hpp"
+	"${NOIS_INC_DIR}/nois/parameter/NoisParameter.hpp"
 	
-	"${NOIS_HSP}/nois/route/NoisCombiner.hpp"
-	"${NOIS_HSP}/nois/route/NoisSplitter.hpp"
+	"${NOIS_INC_DIR}/nois/route/NoisCombiner.hpp"
+	"${NOIS_INC_DIR}/nois/route/NoisSplitter.hpp"
 
-	"${NOIS_HSP}/nois/util/NoisSmallVector.hpp"
-)
-
-source_group(
-	TREE ${NOIS_HSP}
-	PREFIX "Include Files"
-	FILES ${NOIS_HSPSRC}
+	"${NOIS_INC_DIR}/nois/util/NoisSmallVector.hpp"
 )
 
 set(NOIS_SRC
@@ -96,6 +86,12 @@ set(NOIS_SRC
 )
 
 source_group(
+	TREE ${NOIS_INC_DIR}
+	PREFIX "Include Files"
+	FILES ${NOIS_HSPSRC}
+)
+
+source_group(
 	TREE ${NOIS_SRC_DIR}
 	PREFIX "Source Files"
 	FILES ${NOIS_SRC}
@@ -108,8 +104,8 @@ source_group(
 add_library(
 	nois
 	STATIC
-	"${NOIS_SRC}"
 	"${NOIS_HSPSRC}"
+	"${NOIS_SRC}"
 )
 
 target_compile_features(
