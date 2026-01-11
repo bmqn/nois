@@ -89,6 +89,13 @@ public:
 					grainBlend,
 					grainPhaseInc);
 			}
+			else
+			{
+				for (count_t c = 0; c < m_NumChannels; ++c)
+				{
+					outBuffer(f, c) = inBuffer(f, c);
+				}
+			}
 		}
 
 		return Stream::Success;
@@ -204,7 +211,7 @@ private:
 
 				// Zero when new grain just started blending
 				// One when old grain has finished
-				f32_t t = phi0 / endBlendPhase;
+				f32_t t = 1.0f - (phi0 / endBlendPhase);
 				
 				f32_t x0 = g0 + phi0;
 				f32_t x1 = g1 + phi1;
