@@ -8,7 +8,7 @@
 #include <public.sdk/source/vst/vsteditcontroller.h>
 #include <public.sdk/source/vst/vstparameters.h>
 
-#include <variant>
+#include <unordered_map>
 
 using namespace Steinberg;
 
@@ -52,7 +52,7 @@ private:
 class NoisController : public Vst::EditController
 {
 public:
-	inline static DECLARE_UID(kUid, 0x9ee7ec38,-0x41254df7, 0x8863c27f, 0x3782767d)
+	inline static DECLARE_UID(kUid, 0x9ee7ec38, 0x41254df7, 0x8863c27f, 0x3782767d)
 
 public:
 	NoisController();
