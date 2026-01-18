@@ -53,6 +53,20 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::getState(IBStream* state)
 template<typename T, typename C>
 tresult PLUGIN_API NoisVstProcessor<T, C>::setupProcessing(Vst::ProcessSetup& setup)
 {
+	Vst::SpeakerArrangement arrangement;
+
+	if (getBusArrangement(Vst::kInput, 0, arrangement) == kResultTrue)
+	{
+		nois::s32_t numChannels = Vst::SpeakerArr::getChannelCount(arrangement);
+		mSourceBuffer.Reserve(setup.maxSamplesPerBlock, numChannels);
+	}
+
+	if (getBusArrangement(Vst::kOutput, 0, arrangement) == kResultTrue)
+	{
+		nois::s32_t numChannels = Vst::SpeakerArr::getChannelCount(arrangement);
+		mSinkBuffer.Reserve(setup.maxSamplesPerBlock, numChannels);
+	}
+
 	mSampleRate = setup.sampleRate;
 
 	return AudioEffect::setupProcessing(setup);
@@ -81,8 +95,8 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::process(Vst::ProcessData& data)
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Process parameter changes");
 
-		int numParamsChanged = data.inputParameterChanges->getParameterCount();
-		for (int i = 0; i < numParamsChanged; i++)
+		int32 numParamsChanged = data.inputParameterChanges->getParameterCount();
+		for (int32 i = 0; i < numParamsChanged; i++)
 		{
 			Vst::IParamValueQueue* queue = data.inputParameterChanges->getParameterData(i);
 			if (!queue)
@@ -100,35 +114,24 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::process(Vst::ProcessData& data)
 			auto& parameter = it->second;
 			nois::count_t currentSampleOffset = 0;
 			nois::f32_t lastValuePlain = parameter->GetLastPlain();
-			int numPoints = queue->getPointCount();
+			int32 numPoints = queue->getPointCount();
 			for (int j = 0; j < numPoints; ++j)
 			{
-				int sampleOffset;
+				int32 sampleOffset;
 				Vst::ParamValue valueNormalized;
 				if (queue->getPoint(j, sampleOffset, valueNormalized) == kResultTrue)
 				{
 					nois::f32_t valuePlain = parameter->ToPlain(valueNormalized);
 
-					if (numPoints == 1)
-					{
-						parameter->WritePlain(
-							currentSampleOffset,
-							data.numSamples - currentSampleOffset,
-							valuePlain);
-
-						break;
-					}
-
-					nois::count_t nextSampleOffset = sampleOffset;
-					nois::count_t lastSampleOffset = currentSampleOffset;
+					nois::count_t nextSampleOffset = sampleOffset == 0 ? data.numSamples : sampleOffset;
+					nois::count_t prevSampleOffset = currentSampleOffset;
 
 					for (;
 						currentSampleOffset <= nextSampleOffset &&
 						currentSampleOffset < data.numSamples;
 						++currentSampleOffset)
 					{
-						if (currentSampleOffset == nextSampleOffset ||
-							nextSampleOffset == lastSampleOffset)
+						if (nextSampleOffset == prevSampleOffset)
 						{
 							parameter->WritePlain(
 								currentSampleOffset,
@@ -137,8 +140,8 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::process(Vst::ProcessData& data)
 						else
 						{
 							nois::f32_t t =
-								nois::f32_t(currentSampleOffset - lastSampleOffset) /
-								nois::f32_t(nextSampleOffset - lastSampleOffset);
+								nois::f32_t(currentSampleOffset - prevSampleOffset) /
+								nois::f32_t(nextSampleOffset - prevSampleOffset);
 
 							parameter->WritePlain(
 								currentSampleOffset,

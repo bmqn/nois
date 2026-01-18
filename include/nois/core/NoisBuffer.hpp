@@ -118,16 +118,6 @@ public:
 		}
 	}
 
-	void CopyLinearily(const BufferView<T>& buffer, T factor)
-	{
-		// TODO: vectorize
-
-		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
-		{
-			m_Data[i] = m_Data[i] * factor + buffer[i] * (T{ 1 } - factor);
-		}
-	}
-
 	void Reserve(count_t numFrames, count_t numChannels)
 	{
 		count_t size = numFrames * numChannels;
@@ -353,7 +343,7 @@ class BufferView
 {
 public:
 	BufferView(T* data, count_t numFrames, count_t numChannels)
-		: m_Size(numFrames* numChannels)
+		: m_Size(numFrames * numChannels)
 		, m_NumFrames(numFrames)
 		, m_NumChannels(numChannels)
 		, m_Data(data)
@@ -439,7 +429,7 @@ public:
 	}
 
 	template<typename U = T>
-	auto Copy(const BufferView<T>& buffer, T factor) -> std::enable_if_t<!std::is_const_v<U>>
+	auto Copy(const ConstBufferView<T>& buffer, T factor) -> std::enable_if_t<!std::is_const_v<U>>
 	{
 		// TODO: vectorize
 

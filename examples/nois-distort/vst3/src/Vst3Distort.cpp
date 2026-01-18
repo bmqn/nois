@@ -237,7 +237,6 @@ protected:
 		}
 	}
 
-
 private:
 	nois::FloatBuffer mHpBuffer;
 	nois::FloatBuffer mDistBuffer;
