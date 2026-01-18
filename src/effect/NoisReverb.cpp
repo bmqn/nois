@@ -4,34 +4,210 @@
 #include "nois/effect/NoisSignalDelayer.hpp"
 #include "nois/route/NoisCombiner.hpp"
 #include "nois/route/NoisSplitter.hpp"
+#include "nois/util/NoisDelay.hpp"
 
 namespace nois {
 
+template<typename T>
+class DiffusionStep
+{
+	static constexpr f32_t k_DelayMsRange = 100.0f;
+
+public:
+	inline void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		count_t numDelays,
+		f32_t sampleRate)
+	{
+		if (m_NumFrames != numFrames ||
+			m_NumChannels != numChannels ||
+			m_NumDelays != numDelays)
+		{
+			m_Delays.resize(numChannels * numDelays);
+			m_DelaysMixBuffer.Resize(numFrames, numChannels * numDelays);
+			m_Mix.Resize(numChannels * numDelays);
+
+			count_t delayFramesRange = k_DelayMsRange * 0.001f * sampleRate;
+			for (count_t c = 0; c < numChannels; ++c)
+			{
+				for (count_t d = 0; d < numDelays; ++d)
+				{
+					count_t delayFramesLow = delayFramesRange * d / numDelays;
+					count_t delayFramesHigh = delayFramesRange * (d + 1) / numDelays;
+					count_t delayFrames = delayFramesLow + rand() % (delayFramesHigh - delayFramesLow);
+					m_Delays[c * numDelays + d].Reset(delayFrames);
+				}
+			}
+
+			BuildHadamard();
+		}
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+		m_NumDelays = numDelays;
+	}
+
+	inline void Process(
+		const FloatBuffer& inBuffer,
+		FloatBuffer& outBuffer)
+	{
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			for (count_t d = 0; d < m_NumDelays; ++d)
+			{
+				m_Delays[c * m_NumDelays + d].Process(inBuffer.View(c * m_NumDelays + d), m_DelaysMixBuffer.View(c * m_NumDelays + d), m_NumFrames, 0);
+			}
+		}
+
+		m_DelaysMixBuffer.Multiply(m_Mix);
+
+		outBuffer.Copy(m_DelaysMixBuffer);
+	}
+
+private:
+	void BuildHadamard()
+	{
+		count_t dim = std::min(m_Mix.GetM(), m_Mix.GetN());
+
+		m_Mix(0, 0) = 1.0f;
+		for (count_t size = 1; size < dim; size *= 2)
+		{
+			for (count_t i = 0; i < size; ++i)
+			{
+				for (count_t j = 0; j < size; ++j)
+				{
+					f32_t v = m_Mix(i, j);
+					m_Mix(i, j + size) = v;
+					m_Mix(i + size, j) = v;
+					m_Mix(i + size, j + size) = -v;
+				}
+			}
+		}
+
+		f32_t scale = 1.0f / std::sqrt(static_cast<f32_t>(dim));
+		for (count_t i = 0; i < dim; ++i)
+		{
+			for (count_t j = 0; j < dim; ++j)
+			{
+				m_Mix(i, j) *= scale;
+			}
+		}
+	}
+
+private:
+	std::vector<Delay<T, 1>> m_Delays;
+	FloatBuffer m_DelaysMixBuffer;
+	math::FloatMat m_Mix;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	count_t m_NumDelays = 0;
+};
+template<typename T>
+class FeedbackStep
+{
+	static constexpr f32_t k_DelayMsRange = 100.0f;
+
+public:
+	inline void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		count_t numDelays,
+		f32_t sampleRate)
+	{
+		if (m_NumFrames != numFrames ||
+			m_NumChannels != numChannels ||
+			m_NumDelays != numDelays)
+		{
+			m_DelayFeedbacks.resize(numChannels * numDelays);
+			m_DelayFeedbacksMixBuffer.Resize(numFrames, numChannels * numDelays);
+			m_Mix.Resize(numChannels * numDelays);
+
+			for (count_t c = 0; c < numChannels; ++c)
+			{
+				count_t delayFramesRange = k_DelayMsRange * 0.001f * (c + 1) * sampleRate;
+				for (count_t d = 0; d < numDelays; ++d)
+				{
+					count_t delayFramesLow = delayFramesRange * d / numDelays;
+					count_t delayFramesHigh = delayFramesRange * (d + 1) / numDelays;
+					count_t delayFrames = delayFramesLow + rand() % (delayFramesHigh - delayFramesLow);
+					m_DelayFeedbacks[c * numDelays + d].Reset(delayFrames);
+				}
+			}
+
+			BuildHouseholder();
+		}
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+		m_NumDelays = numDelays;
+	}
+
+	inline void Process(
+		const FloatBuffer& inBuffer,
+		FloatBuffer& outBuffer)
+	{
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			for (count_t d = 0; d < m_NumDelays; ++d)
+			{
+				m_DelayFeedbacks[c * m_NumDelays + d].Process(inBuffer.View(c * m_NumDelays + d), m_DelayFeedbacksMixBuffer.View(c * m_NumDelays + d), m_NumFrames, 0);
+			}
+		}
+
+		m_DelayFeedbacksMixBuffer.Multiply(m_Mix);
+
+		outBuffer.Copy(m_DelayFeedbacksMixBuffer);
+	}
+
+private:
+	void BuildHouseholder()
+	{
+		count_t dim = std::min(m_Mix.GetM(), m_Mix.GetN());
+
+		f32_t factor = 2.0f / dim;
+		for (count_t i = 0; i < dim; ++i)
+		{
+			for (count_t j = 0; j < dim; ++j)
+			{
+				if (i == j)
+				{
+					m_Mix(i, j) = 1.0f - factor;
+				}
+				else
+				{
+					m_Mix(i, j) = -factor;
+				}
+			}
+		}
+	}
+
+private:
+	std::vector<DelayFeedback<T, 1>> m_DelayFeedbacks;
+	FloatBuffer m_DelayFeedbacksMixBuffer;
+	math::FloatMat m_Mix;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	count_t m_NumDelays = 0;
+};
+
+
 class Reverb::Impl
 {
-	static constexpr count_t k_SplitChannels = 8;
+	static constexpr count_t k_NumDiffusers = 4;
+	static constexpr count_t k_NumDiffuserChannels = 8;
 
 public:	
 	Impl()
 		: m_Wet(0.0f)
-		, m_NumDelays(k_SplitChannels)
-		, m_DelayBuffer()
-		, m_Delays(k_SplitChannels)
-		, m_DelayMixBuffer()
-		, m_DelayMix()
+		, m_SplitBuffer()
+		, m_NumDiffusionSteps(k_NumDiffusers)
+		, m_DiffusionSteps(k_NumDiffusers)
+		, m_FeedbackStep()
 		, m_NumFrames(0)
 		, m_NumChannels(0)
 	{
-		static constexpr f32_t k_Primes[k_SplitChannels] =
-		{
-			2, 3, 5, 7, 11, 13, 17, 19
-		};
-
-		for (count_t i = 0; i < m_NumDelays; ++i)
-		{
-			m_Delays[i] = SignalDelayer::Create();
-			m_Delays[i]->SetDelayMs(MakeRef<FloatSlotBlockParameter>(7.0f * k_Primes[i]));
-		}
+		srand(time(NULL));
 	}
 
 	Stream::Result Process(
@@ -40,21 +216,33 @@ public:
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Reverb - Process");
 
-		for (count_t d = 0; d < m_NumDelays; ++d)
+		outBuffer.Zero();
+
+		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
-			m_Delays[d]->Process(inBuffer, m_DelayBuffer);
-			for (count_t c = 0; c < m_NumChannels; ++c)
+			for (count_t dc = 0; dc < k_NumDiffuserChannels; ++dc)
 			{
-				m_DelayMixBuffer.View(c * m_NumDelays + d).Copy(m_DelayBuffer.View(c));
+				m_SplitBuffer.View(c * k_NumDiffuserChannels + dc).Copy(inBuffer.View(c));
 			}
 		}
 
-		m_DelayMixBuffer.Multiply(m_DelayMix);
-
-		for (count_t d = 0; d < m_NumDelays; ++d)
+		for (count_t d = 0; d < m_NumDiffusionSteps; ++d)
 		{
-			outBuffer.Add(m_DelayMixBuffer.View(d * m_NumChannels, m_NumChannels));
+			m_DiffusionSteps[d].Process(m_SplitBuffer, m_SplitBuffer);
 		}
+
+		m_FeedbackStep.Process(m_SplitBuffer, m_SplitBuffer);
+
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			for (count_t dc = 0; dc < k_NumDiffuserChannels; ++dc)
+			{
+				f32_t sign = (dc & 1) ? -1.0f : 1.0f;
+				outBuffer.View(c).Add(m_SplitBuffer.View(c * k_NumDiffuserChannels + dc), sign);
+			}
+		}
+
+		outBuffer.CopyLinearily(inBuffer, m_Wet.Get());
 
 		return Stream::Success;
 	}
@@ -66,56 +254,35 @@ public:
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Reverb - Prepare");
 
-		if (m_NumFrames != numFrames)
+		if (m_NumFrames != numFrames ||
+			m_NumChannels != numChannels)
 		{
-			m_DelayBuffer.Resize(numFrames, numChannels);
-			m_DelayMixBuffer.Resize(numFrames, m_NumDelays * numChannels);
-			m_DelayMix.Resize(m_NumDelays * numChannels);
-
-			f32_t factor = 2.0f / m_DelayMix.GetM();
-
-			for (count_t i = 0; i < m_DelayMix.GetM(); ++i)
-			{
-				for (count_t j = 0; j < m_DelayMix.GetN(); ++j)
-				{
-					if (i == j)
-					{
-						m_DelayMix(i, j) = 1.0f - factor;
-					}
-					else
-					{
-						m_DelayMix(i, j) = -factor;
-					}
-					m_DelayMix(i, j) *= 0.75f;
-				}
-			}
+			m_SplitBuffer.Resize(numFrames, k_NumDiffuserChannels * numChannels);
 		}
 
-		for (count_t d = 0; d < m_NumDelays; ++d)
+		for (count_t d = 0; d < m_NumDiffusionSteps; ++d)
 		{
-			m_Delays[d]->Prepare(
-				numFrames,
-				numChannels,
-				sampleRate);
+			m_DiffusionSteps[d].Prepare(numFrames, numChannels, k_NumDiffuserChannels, sampleRate);
 		}
+
+		m_FeedbackStep.Prepare(numFrames, numChannels, k_NumDiffuserChannels, sampleRate);
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
 	}
 
-	void SetWet(Ref_t<FloatParameter> wet)
+	void SetWet(Ref_t<FloatBlockParameter> wet)
 	{
 		m_Wet.Use(wet);
 	}
 
 private:
-	FloatSlotParameter m_Wet;
+	FloatSlotBlockParameter m_Wet;
 
-	count_t m_NumDelays;
-	FloatBuffer m_DelayBuffer;
-	std::vector<Ref_t<SignalDelayer>> m_Delays;
-	FloatBuffer m_DelayMixBuffer;
-	math::FloatMat m_DelayMix;
+	FloatBuffer m_SplitBuffer;
+	count_t m_NumDiffusionSteps;
+	std::vector<DiffusionStep<f32_t>> m_DiffusionSteps;
+	FeedbackStep<f32_t> m_FeedbackStep;
 
 	count_t m_NumFrames;
 	count_t m_NumChannels;
@@ -125,7 +292,7 @@ private:
 };
 
 NOIS_INTERFACE_IMPL(Reverb)
-NOIS_INTERFACE_PARAM_IMPL(Reverb, Wet, FloatParameter)
+NOIS_INTERFACE_PARAM_IMPL(Reverb, Wet, FloatBlockParameter)
 
 Ref_t<Reverb> Reverb::Create()
 {

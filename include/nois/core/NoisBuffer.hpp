@@ -106,6 +106,23 @@ public:
 		}
 	}
 
+	void CopyLinearily(const BufferView<T>& buffer, T factor)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] = m_Data[i] * factor + buffer[i] * (T{ 1 } - factor);
+		}
+	}
+
+	void Reserve(count_t numFrames, count_t numChannels)
+	{
+		count_t size = numFrames * numChannels;
+
+		m_Data.reserve(size);
+	}
+
 	void Resize(count_t numFrames, count_t numChannels)
 	{
 		count_t size = numFrames * numChannels;
@@ -196,6 +213,16 @@ public:
 		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
 		{
 			m_Data[i] += buffer[i];
+		}
+	}
+
+	void AddLinearily(const BufferView<T>& buffer1, const BufferView<T>& buffer2, T factor)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min({ m_Size, buffer1.GetSize(), buffer2.GetSize() }); ++i)
+		{
+			m_Data[i] += buffer1[i] * factor + buffer2[i] * (T{ 1 } - factor);
 		}
 	}
 
@@ -375,6 +402,24 @@ public:
 		}
 	}
 
+	void Copy(BufferView<const T> buffer)
+	{
+		if (count_t copySize = std::min(m_Size, buffer.GetSize()))
+		{
+			std::copy_n(static_cast<const T*>(buffer), copySize, m_Data);
+		}
+	}
+
+	void CopyLinearily(const BufferView<T>& buffer, T factor)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] = m_Data[i] * factor + buffer[i] * (T{ 1 } - factor);
+		}
+	}
+
 	Buffer<T> Take(count_t c, count_t numChannels = 1) const
 	{
 		return Buffer<T>(
@@ -419,6 +464,26 @@ public:
 		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
 		{
 			m_Data[i] += buffer[i];
+		}
+	}
+
+	void Add(const BufferView<T>& buffer, T factor)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] += buffer[i] * factor;
+		}
+	}
+
+	void AddLinearily(const BufferView<T>& buffer1, const BufferView<T>& buffer2, T factor)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min({ m_Size, buffer1.GetSize(), buffer2.GetSize() }); ++i)
+		{
+			m_Data[i] += buffer1[i] * factor + buffer2[i] * (T{ 1 } - factor);
 		}
 	}
 
