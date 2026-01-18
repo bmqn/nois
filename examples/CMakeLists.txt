@@ -26,6 +26,9 @@ add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-stretch/vst3")
 # nois-distort-vst3
 add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-distort/vst3")
 
+# verb-vst3
+add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/verb/vst3" "Examples")
+
 
 #-------------------------------------------------------------------------------------------------
 #	Sub-directories build

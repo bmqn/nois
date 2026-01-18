@@ -67,7 +67,9 @@ target_link_options(
 )
 endif()
 
-set_property(
-	TARGET nois-distort-vst3
-	PROPERTY POSITION_INDEPENDENT_CODE ON
+set_target_properties(
+	nois-distort-vst3
+	PROPERTIES
+	FOLDER "Examples"
+	POSITION_INDEPENDENT_CODE ON
 )

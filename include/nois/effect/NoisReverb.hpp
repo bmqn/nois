@@ -12,7 +12,7 @@ public:
 	static Ref_t<Reverb> Create();
 
 	NOIS_INTERFACE(Reverb)
-	NOIS_INTERFACE_PARAM(Wet, FloatParameter)
+	NOIS_INTERFACE_PARAM(Wet, FloatBlockParameter)
 };
 
 }

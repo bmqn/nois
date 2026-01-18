@@ -25,7 +25,7 @@ inline f32_t FromDb(f32_t db)
 	return std::pow(10.0f, db / 10.0f) + k_DcOffset;
 }
 
-template<typename T>
+template<typename T, count_t C = k_MaxChannels>
 struct Biquad
 {
 	Biquad()
@@ -35,8 +35,8 @@ struct Biquad
 
 	inline void Reset()
 	{
-		std::fill(m_Z1s.begin(), m_Z1s.end(), T{0});
-		std::fill(m_Z2s.begin(), m_Z2s.end(), T{0});
+		std::fill(m_Z1s.begin(), m_Z1s.end(), T{});
+		std::fill(m_Z2s.begin(), m_Z2s.end(), T{});
 	}
 
 	inline T Process(T x, count_t c)
@@ -151,8 +151,8 @@ struct Biquad
 	T b0 = 0.0, b1 = 0.0, b2 = 0.0;
 
 private:
-	std::array<T, k_MaxChannels> m_Z1s;
-	std::array<T, k_MaxChannels> m_Z2s;
+	std::array<T, C> m_Z1s;
+	std::array<T, C> m_Z2s;
 };
 
 class ScopedNoDenorms

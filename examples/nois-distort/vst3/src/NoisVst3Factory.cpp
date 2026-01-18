@@ -27,7 +27,7 @@ DEF_CLASS(
 	PClassInfo::kManyInstances,
 	kVstComponentControllerClass,
 	"NzDistort",
-	Vst::kDistributable,
+	0,
 	"",
 	"1.0.0",
 	kVstVersionString,

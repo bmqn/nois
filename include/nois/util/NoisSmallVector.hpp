@@ -17,6 +17,7 @@ public:
 
 	SmallVector(size_type n = 0, const T &value = T{})
 		: m_Size(n)
+		, m_Data(T{})
 	{
 		if (n > N)
 		{
@@ -28,9 +29,14 @@ public:
 		}
 	}
 
-	SmallVector(const SmallVector &other) = default;
+	SmallVector(const SmallVector& other)
+		: m_Size(other.m_Size)
+		, m_Data(other.m_Data)
+		, m_Fallback(other.m_Fallback)
+	{
+	}
 
-	SmallVector(SmallVector &&other)
+	SmallVector(SmallVector &&other) noexcept
 		: m_Size(other.m_Size)
 		, m_Data(std::move(other.m_Data))
 		, m_Fallback(std::move(other.m_Fallback))
@@ -40,9 +46,14 @@ public:
 		other.m_Fallback = {};
 	}
 
-	SmallVector &operator=(const SmallVector &other) = default;
+	SmallVector& operator=(const SmallVector& other)
+	{
+		m_Size = other.m_Size;
+		m_Data = other.m_Data;
+		m_Fallback = other.m_Fallback;
+	}
 
-	SmallVector &operator=(SmallVector &&other)
+	SmallVector &operator=(SmallVector &&other) noexcept
 	{
 		m_Size = other.m_Size;
 		m_Data = std::move(other.m_Data);
@@ -61,6 +72,30 @@ public:
 	inline size_type size() const
 	{
 		return m_Size;
+	}
+
+	inline void shrink_to_fit()
+	{
+		if (m_Size <= N)
+		{
+			return;
+		}
+		else
+		{
+			ShrinkToFitFallback();
+		}
+	}
+
+	inline void reserve(size_type n)
+	{
+		if (n <= N)
+		{
+			return;
+		}
+		else
+		{
+			ReserveFallback(n);
+		}
 	}
 
 	inline void resize(size_type n, const T &value = T{})
@@ -333,6 +368,16 @@ public:
 	}
 
 private:
+	inline void ShrinkToFitFallback()
+	{
+		m_Fallback.shrink_to_fit();
+	}
+
+	inline void ReserveFallback(size_type n = N)
+	{
+		m_Fallback.reserve(n);
+	}
+
 	inline void MoveToFallback(size_type n = N, const T &value = T{})
 	{
 		m_Fallback.resize(n, value);

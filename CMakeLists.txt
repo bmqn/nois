@@ -58,6 +58,7 @@ set(NOIS_HSPSRC
 	"${NOIS_INC_DIR}/nois/route/NoisCombiner.hpp"
 	"${NOIS_INC_DIR}/nois/route/NoisSplitter.hpp"
 
+	"${NOIS_INC_DIR}/nois/util/NoisDelay.hpp"
 	"${NOIS_INC_DIR}/nois/util/NoisSmallVector.hpp"
 )
 
@@ -191,9 +192,10 @@ target_link_libraries(
 )
 endif()
 
-set_property(
-	TARGET nois
-	PROPERTY POSITION_INDEPENDENT_CODE ON
+set_target_properties(
+	nois
+	PROPERTIES
+	POSITION_INDEPENDENT_CODE ON
 )
 
 
@@ -214,8 +216,9 @@ add_subdirectory("${NOIS_ROOT_DIR}/examples")
 #--------------------------------------------------------------------------------------------------
 if(NOIS_ENABLE_PROFILING)
 # tracy
-set_property(
-	TARGET TracyClient
-	PROPERTY POSITION_INDEPENDENT_CODE ON
+set_target_properties(
+	TracyClient
+	PROPERTIES
+	POSITION_INDEPENDENT_CODE ON
 )
 endif()
