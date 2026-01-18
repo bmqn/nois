@@ -11,6 +11,8 @@
 #define NOIS_ARCH_X64 1
 #elif defined(__aarch64__) || defined(_M_ARM64)
 #define NOIS_ARCH_ARM64 1
+#elif defined(__arm__)
+#define NOIS_ARCH_ARM32 1
 #else
 #error "Unknown architecture"
 #endif
@@ -48,7 +50,7 @@
 	_name(_name&&) noexcept = delete; \
 	_name& operator=(const _name&) = delete; \
 	_name& operator=(_name&&) noexcept = delete; \
-	Stream::Result Process(const FloatBufferView&, FloatBuffer&) override final; \
+	Stream::Result Process(ConstFloatBufferView, FloatBufferView) override final; \
 	void Prepare(count_t, count_t, f32_t) override final; \
 	private: \
 	Own_t<Impl> m_Impl;

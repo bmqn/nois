@@ -124,11 +124,11 @@ NoisPlugin::NoisPlugin()
 	, mTimeStretcher(nullptr)
 	, mSampleRate(0.0)
 {
-	mStretchActive = CreateProcessor<parameter::StretchActive>(mRegistry);
-	mStretchFactor = CreateProcessor<parameter::StretchFactor>(mRegistry);
-	mGrainSize = CreateProcessor<parameter::GrainSize>(mRegistry);
-	mGrainBlend = CreateProcessor<parameter::GrainBlend>(mRegistry);
-	mGrainPhaseLockActive = CreateProcessor<parameter::GrainPhaseLockActive>(mRegistry);
+	mStretchActive = NoisVstProcessorParameter::Create<parameter::StretchActive>(mRegistry);
+	mStretchFactor = NoisVstProcessorParameter::Create<parameter::StretchFactor>(mRegistry);
+	mGrainSize = NoisVstProcessorParameter::Create<parameter::GrainSize>(mRegistry);
+	mGrainBlend = NoisVstProcessorParameter::Create<parameter::GrainBlend>(mRegistry);
+	mGrainPhaseLockActive = NoisVstProcessorParameter::Create<parameter::GrainPhaseLockActive>(mRegistry);
 
 	mTimeStretcher = nois::TimeStretcher::Create();
 	mTimeStretcher->SetStretchActive(*mStretchActive);
@@ -344,11 +344,11 @@ NoisController::NoisController()
 	, mGrainBlend(nullptr)
 	, mGrainPhaseLockActive(nullptr)
 {
-	mStretchActive = CreateController<parameter::StretchActive>();
-	mStretchFactor = CreateController<parameter::StretchFactor>();
-	mGrainSize = CreateController<parameter::GrainSize>();
-	mGrainBlend = CreateController<parameter::GrainBlend>();
-	mGrainPhaseLockActive = CreateController<parameter::GrainPhaseLockActive>();
+	mStretchActive = NoisVstControllerParameter::Create<parameter::StretchActive>();
+	mStretchFactor = NoisVstControllerParameter::Create<parameter::StretchFactor>();
+	mGrainSize = NoisVstControllerParameter::Create<parameter::GrainSize>();
+	mGrainBlend = NoisVstControllerParameter::Create<parameter::GrainBlend>();
+	mGrainPhaseLockActive = NoisVstControllerParameter::Create<parameter::GrainPhaseLockActive>();
 }
 
 FUnknown* PLUGIN_API NoisController::createInstance(void*)

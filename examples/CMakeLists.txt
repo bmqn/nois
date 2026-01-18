@@ -1,30 +1,39 @@
 cmake_minimum_required(VERSION 3.28.0)
 
 set(NOIS_EXAMPLES_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-
-set(VST3_SDK_PATH "${NOIS_EXAMPLES_ROOT_DIR}/libs/vst3sdk")
-set(VST3_SDK_ROOT "${NOIS_EXAMPLES_ROOT_DIR}/libs/vst3sdk")
-set(public_sdk_SOURCE_DIR "${VST3_SDK_PATH}/public.sdk")
+set(NOIS_EXAMPLES_LIB_DIR "${NOIS_EXAMPLES_ROOT_DIR}/libs")
 
 
 #-------------------------------------------------------------------------------------------------
 #	Sub-directories
 #--------------------------------------------------------------------------------------------------
-# vst3sdk
-set(SMTG_ENABLE_VST3_PLUGIN_EXAMPLES OFF)
-set(SMTG_ENABLE_VST3_HOSTING_EXAMPLES OFF)
-set(SMTG_ENABLE_VSTGUI_SUPPORT OFF)
-set(SMTG_CREATE_PLUGIN_LINK OFF)
-add_subdirectory(${VST3_SDK_PATH})
+if(NOIS_EXAMPLES_PLATFORM STREQUAL "VST3")
+	set(VST3_SDK_PATH "${NOIS_EXAMPLES_LIB_DIR}/vst3sdk")
+	set(VST3_SDK_ROOT "${NOIS_EXAMPLES_LIB_DIR}/vst3sdk")
+	set(public_sdk_SOURCE_DIR "${VST3_SDK_PATH}/public.sdk")
 
-# nois-common-vst3
-add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/common/vst3")
+	# vst3sdk
+	set(SMTG_ENABLE_VST3_PLUGIN_EXAMPLES OFF)
+	set(SMTG_ENABLE_VST3_HOSTING_EXAMPLES OFF)
+	set(SMTG_ENABLE_VSTGUI_SUPPORT OFF)
+	set(SMTG_CREATE_PLUGIN_LINK OFF)
+	add_subdirectory("${NOIS_EXAMPLES_LIB_DIR}/vst3sdk")
 
-# nois-stretch-vst3
-add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-stretch/vst3")
+	# nois-common-vst3
+	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/common/vst3")
 
-# nois-distort-vst3
-add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-distort/vst3")
+	# nois-stretch-vst3
+	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-stretch/vst3")
+
+	# nois-distort-vst3
+	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-distort/vst3")
+elseif(NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
+	# libDaisy
+	add_subdirectory("${NOIS_EXAMPLES_LIB_DIR}/libDaisy")
+
+	# nois-stretch-versio
+	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-stretch/versio")
+endif()
 
 # verb-vst3
 add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/verb/vst3" "Examples")
@@ -33,38 +42,39 @@ add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/verb/vst3" "Examples")
 #-------------------------------------------------------------------------------------------------
 #	Sub-directories build
 #--------------------------------------------------------------------------------------------------
-# vst3sdk
-if(MSVC)
-else()
+if(NOIS_EXAMPLES_PLATFORM STREQUAL "VST3")
+	# vst3sdk
+	if(MSVC)
+	else()
+		target_compile_options(
+			base
+			PRIVATE
+			-w
+		)
 
-target_compile_options(
-	base
-	PRIVATE
-	-w
-)
+		target_compile_options(
+			pluginterfaces
+			PRIVATE
+			-w
+		)
 
-target_compile_options(
-	pluginterfaces
-	PRIVATE
-	-w
-)
+		target_compile_options(
+			sdk
+			PRIVATE
+			-w
+		)
 
-target_compile_options(
-	sdk
-	PRIVATE
-	-w
-)
+		target_compile_options(
+			sdk_common
+			PRIVATE
+			-w
+		)
 
-target_compile_options(
-	sdk_common
-	PRIVATE
-	-w
-)
-
-target_compile_options(
-	sdk_hosting
-	PRIVATE
-	-w
-)
+		target_compile_options(
+			sdk_hosting
+			PRIVATE
+			-w
+		)
+endif()
 
 endif()

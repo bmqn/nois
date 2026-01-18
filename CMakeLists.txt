@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28.0)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(SetupConfigs)
 
@@ -19,7 +19,16 @@ project(nois VERSION 1.0.0)
 #--------------------------------------------------------------------------------------------------
 #	Configuration
 #--------------------------------------------------------------------------------------------------
+set(NOIS_EXAMPLES_PLATFORM "VST3" CACHE STRING "Platform to target for examples")
 option(NOIS_ENABLE_PROFILING "Enable profiling" OFF)
+
+if(NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
+add_compile_definitions(STM32H750xx=1 USE_HAL_DRIVER)
+list(APPEND CMAKE_C_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard")
+list(APPEND CMAKE_CXX_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard")
+list(APPEND CMAKE_ASM_FLAGS "-mcpu=cortex-m7 -mthumb")
+list(APPEND CMAKE_EXE_LINKER_FLAGS "--specs=nosys.specs --specs=nano.specs")
+endif()
 
 
 #--------------------------------------------------------------------------------------------------
@@ -68,7 +77,7 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/NoisLog.h"
 	"${NOIS_SRC_DIR}/NoisMacros.hpp"
 
-	"${NOIS_SRC_DIR}/analysis/NoisFilterBank.cpp"
+	#"${NOIS_SRC_DIR}/analysis/NoisFilterBank.cpp"
 
 	"${NOIS_SRC_DIR}/dynamic/NoisExpander.cpp"
 	"${NOIS_SRC_DIR}/dynamic/NoisTransientShaper.cpp"
@@ -161,7 +170,7 @@ target_compile_options(
 	$<$<CONFIG:Debug>:-g>
 	$<$<CONFIG:Release>:-g>
 	$<$<CONFIG:Release>:-O3>
-	$<$<CONFIG:Release>:-flto>
+	# $<$<CONFIG:Release>:-flto>
 	$<$<CONFIG:Release>:-funroll-loops>
 	$<$<CONFIG:Distribution>:-O3>
 	$<$<CONFIG:Distribution>:-flto>

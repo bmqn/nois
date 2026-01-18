@@ -11,7 +11,8 @@ namespace parameter
 
 enum
 {
-	kWet
+	kWet,
+	kDecayMs
 };
 
 struct Wet
@@ -33,6 +34,25 @@ struct Wet
 	}
 };
 
+struct DecayMs
+{
+	static constexpr const char* kTitle = "Decay";
+	static constexpr const char* kUnits = "ms";
+	static constexpr Vst::ParamID kPid = kDecayMs;
+	static constexpr nois::f32_t kDefaultValue = 50.0f;
+	static constexpr nois::f32_t kMinValue = 1.0f;
+	static constexpr nois::f32_t kMaxValue = 10000.0f;
+	static constexpr nois::s32_t kNumSteps = 0;
+
+	static nois::f32_t ToProcessor(
+		nois::f32_t value,
+		nois::count_t numSamples,
+		nois::f32_t sampleRate)
+	{
+		return value;
+	}
+};
+
 }
 
 NoisPlugin::NoisPlugin()
@@ -40,15 +60,19 @@ NoisPlugin::NoisPlugin()
 	, mSinkBuffer()
 	, mRegistry()
 	, mWet(nullptr)
+	, mDecayMs(nullptr)
 	, mReverb()
 	, mSampleRate(0.0)
 {
-	mWet = CreateProcessor<parameter::Wet>(mRegistry);
+	mWet = NoisVstProcessorParameter::Create<parameter::Wet>(mRegistry);
+	mDecayMs = NoisVstProcessorParameter::Create<parameter::DecayMs>(mRegistry);
 	
 	mReverb = nois::Reverb::Create();
 	mReverb->SetWet(*mWet);
+	mReverb->SetDecayMs(*mDecayMs);
 
 	mParameterLookup[mWet->GetPid()] = mWet.get();
+	mParameterLookup[mDecayMs->GetPid()] = mDecayMs.get();
 
 	setControllerClass(NoisController::kUid);
 }
@@ -257,8 +281,10 @@ tresult PLUGIN_API NoisPlugin::process(Vst::ProcessData& data)
 
 NoisController::NoisController()
 	: mWet(nullptr)
+	, mDecayMs(nullptr)
 {
-	mWet = CreateController<parameter::Wet>();
+	mWet = NoisVstControllerParameter::Create<parameter::Wet>();
+	mDecayMs = NoisVstControllerParameter::Create<parameter::DecayMs>();
 }
 
 FUnknown* PLUGIN_API NoisController::createInstance(void*)
@@ -276,6 +302,7 @@ tresult PLUGIN_API NoisController::initialize(FUnknown* context)
 	}
 
 	parameters.addParameter(*mWet);
+	parameters.addParameter(*mDecayMs);
 
 	return result;
 }

@@ -11,8 +11,8 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer)
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer)
 	{
 		outBuffer.Copy(inBuffer);
 		outBuffer.Multiply(m_Gain);

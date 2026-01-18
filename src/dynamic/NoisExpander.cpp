@@ -10,8 +10,8 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer)
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer)
 	{
 		NOIS_PROFILE_SCOPE();
 

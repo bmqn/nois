@@ -13,8 +13,8 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer)
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer)
 	{
 		// Scratch storage for samples
 		std::array<f32_t, k_MaxChannels> samples;

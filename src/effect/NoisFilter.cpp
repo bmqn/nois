@@ -43,8 +43,8 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer) override final
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer) override final
 	{
 		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterLowImpl - Consume");
 
@@ -99,8 +99,8 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer) override final
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer) override final
 	{
 		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterHighImpl - Consume");
 
@@ -155,8 +155,8 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer) override final
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer) override final
 	{
 		NOIS_PROFILE_SCOPE_NAMED("LR4FilterLowImpl - Consume");
 
@@ -217,8 +217,8 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer) override final
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer) override final
 	{
 		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Consume");
 
@@ -278,8 +278,8 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer) override final
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer) override final
 	{
 		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Consume");
 

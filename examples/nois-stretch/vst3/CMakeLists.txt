@@ -23,46 +23,9 @@ smtg_target_configure_version_file(
 
 target_link_libraries(
 	nois-stretch-vst3
-	PRIVATE sdk nois nois-common-vst3
-)
-
-if(MSVC)
-target_compile_options(
-	nois-stretch-vst3
 	PRIVATE
-	$<$<CONFIG:Release>:/Ox>
-	$<$<CONFIG:Release>:/GL>
+	nois-common-vst3
 )
-target_link_options(
-	nois-stretch-vst3
-	PRIVATE
-	$<$<CONFIG:Release>:/LTCG>
-)
-else()
-target_compile_options(
-	nois-stretch-vst3
-	PRIVATE
-	-Wall
-	-Wextra
-	-Wpedantic
-	-Wno-unused-parameter
-	-Wno-sign-compare
-	$<$<CONFIG:Debug>:-g>
-	$<$<CONFIG:Release>:-g>
-	$<$<CONFIG:Release>:-O3>
-	$<$<CONFIG:Release>:-flto>
-	$<$<CONFIG:Release>:-funroll-loops>
-	$<$<CONFIG:Distribution>:-O3>
-	$<$<CONFIG:Distribution>:-flto>
-	$<$<CONFIG:Distribution>:-funroll-loops>
-)
-target_link_options(
-	nois-stretch-vst3
-	PRIVATE
-	$<$<CONFIG:Release>:-flto>
-	$<$<CONFIG:Distribution>:-flto>
-)
-endif()
 
 set_target_properties(
 	nois-stretch-vst3

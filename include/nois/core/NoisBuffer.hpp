@@ -11,9 +11,12 @@ template<typename>
 class Buffer;
 template<typename>
 class BufferView;
+template<typename T>
+using ConstBufferView = BufferView<const T>;
 
 using FloatBuffer = Buffer<f32_t>;
 using FloatBufferView = BufferView<f32_t>;
+using ConstFloatBufferView = ConstBufferView<f32_t>;
 
 template<typename T>
 class Buffer
@@ -106,6 +109,15 @@ public:
 		}
 	}
 
+	template<typename U = T>
+	auto Copy(const ConstBufferView<U>& buffer) -> std::enable_if_t<!std::is_const_v<U>>
+	{
+		if (count_t copySize = std::min(m_Size, buffer.GetSize()))
+		{
+			std::copy_n(static_cast<const T*>(buffer), copySize, m_Data.data());
+		}
+	}
+
 	void CopyLinearily(const BufferView<T>& buffer, T factor)
 	{
 		// TODO: vectorize
@@ -187,9 +199,9 @@ public:
 		);
 	}
 
-	BufferView<const T> View(count_t c, count_t numChannels = 1) const
+	ConstBufferView<T> View(count_t c, count_t numChannels = 1) const
 	{
-		return BufferView<const T>(
+		return ConstBufferView<T>(
 			&m_Data[c * m_NumFrames],
 			m_NumFrames,
 			std::min(m_NumChannels - c, numChannels)
@@ -290,6 +302,11 @@ public:
 	}
 
 	operator BufferView<T>()
+	{
+		return View(0, m_NumChannels);
+	}
+
+	operator ConstBufferView<T>() const
 	{
 		return View(0, m_NumChannels);
 	}
@@ -402,7 +419,8 @@ public:
 		}
 	}
 
-	void Copy(BufferView<const T> buffer)
+	template<typename U = T>
+	auto Copy(const ConstBufferView<U>& buffer) -> std::enable_if_t<!std::is_const_v<U>>
 	{
 		if (count_t copySize = std::min(m_Size, buffer.GetSize()))
 		{
@@ -410,7 +428,39 @@ public:
 		}
 	}
 
+	void Copy(const BufferView<T>& buffer, T factor)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] = buffer[i] * factor;
+		}
+	}
+
+	template<typename U = T>
+	auto Copy(const BufferView<T>& buffer, T factor) -> std::enable_if_t<!std::is_const_v<U>>
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] = buffer[i] * factor;
+		}
+	}
+
 	void CopyLinearily(const BufferView<T>& buffer, T factor)
+	{
+		// TODO: vectorize
+
+		for (count_t i = 0; i < std::min(m_Size, buffer.GetSize()); ++i)
+		{
+			m_Data[i] = m_Data[i] * factor + buffer[i] * (T{ 1 } - factor);
+		}
+	}
+
+	template<typename U = T>
+	auto CopyLinearily(const ConstBufferView<T>& buffer, T factor) -> std::enable_if_t<!std::is_const_v<U>>
 	{
 		// TODO: vectorize
 

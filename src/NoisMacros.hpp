@@ -5,7 +5,7 @@
 #define NOIS_INTERFACE_IMPL_MULTI() \
 	public: \
 	Impl() = default; \
-	virtual Stream::Result Process(const FloatBufferView&, FloatBuffer&) = 0; \
+	virtual Stream::Result Process(ConstFloatBufferView, FloatBufferView) = 0; \
 	virtual void Prepare(count_t, count_t, f32_t) = 0;
 
 #define NOIS_INTERFACE_IMPL_MULTI_PARAM(_name, _type) \
@@ -17,7 +17,7 @@
 	: m_Impl(std::move(impl)) \
 	{ \
 	} \
-	Stream::Result _class::Process(const FloatBufferView& inBuffer, FloatBuffer& outBuffer) \
+	Stream::Result _class::Process(ConstFloatBufferView inBuffer, FloatBufferView outBuffer) \
 	{ \
 		return m_Impl->Process(inBuffer, outBuffer); \
 	} \
