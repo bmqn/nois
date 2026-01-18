@@ -11,32 +11,33 @@ namespace nois {
 template<typename T>
 class DiffusionStep
 {
-	static constexpr f32_t k_DelayMsRange = 500.0f;
+	static constexpr T k_DelayMsRange = T{ 300.0 };
 
 public:
 	inline void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		count_t numDelays,
+		count_t numDiffusionChannels,
 		f32_t sampleRate)
 	{
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels ||
-			m_NumDelays != numDelays)
+			m_NumDiffusionChannels != numDiffusionChannels)
 		{
-			m_Delays.resize(numChannels * numDelays);
-			m_DelaysMixBuffer.Resize(numFrames, numChannels * numDelays);
-			m_Mix.Resize(numChannels * numDelays);
+			m_Delays.resize(numChannels * numDiffusionChannels);
+			m_DelaysMixBuffer.Resize(numFrames, numChannels * numDiffusionChannels);
+			m_Mix.Resize(numDiffusionChannels);
 
 			for (count_t c = 0; c < numChannels; ++c)
 			{
-				count_t delayNumFramesRange = k_DelayMsRange * (c + 1) * 0.001f * sampleRate;
-				for (count_t d = 0; d < numDelays; ++d)
+				count_t delayNumFramesRange = k_DelayMsRange * T{ 0.001 } * sampleRate;
+				for (count_t d = 0; d < numDiffusionChannels; ++d)
 				{
-					count_t delayNumFramesLow = delayNumFramesRange * d / numDelays;
-					count_t delayNumFramesHigh = delayNumFramesRange * (d + 1) / numDelays;
+					count_t delayNumFramesLow = delayNumFramesRange * d / numDiffusionChannels;
+					count_t delayNumFramesHigh = delayNumFramesRange * (d + 1) / numDiffusionChannels;
 					count_t delayNumFrames = delayNumFramesLow + rand() % (delayNumFramesHigh - delayNumFramesLow);
-					m_Delays[c * numDelays + d].Reset(delayNumFrames);
+					NZ_ASSERT(delayNumFrames != 0);
+					m_Delays[c * numDiffusionChannels + d].Reset(delayNumFrames);
 				}
 			}
 
@@ -47,7 +48,7 @@ public:
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
-		m_NumDelays = numDelays;
+		m_NumDiffusionChannels = numDiffusionChannels;
 	}
 
 	inline void Process(
@@ -56,20 +57,13 @@ public:
 	{
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
-			for (count_t d = 0; d < m_NumDelays; ++d)
+			for (count_t d = 0; d < m_NumDiffusionChannels; ++d)
 			{
-				m_Delays[c * m_NumDelays + d].Process(inBuffer.View(c * m_NumDelays + d), m_DelaysMixBuffer.View(c * m_NumDelays + d), m_NumFrames, 0);
+				m_Delays[c * m_NumDiffusionChannels + d].Process(inBuffer.View(c * m_NumDiffusionChannels + d), m_DelaysMixBuffer.View(c * m_NumDiffusionChannels + d), m_NumFrames, 0);
 			}
-		}
 
-		m_DelaysMixBuffer.Multiply(m_Mix);
-
-		for (count_t c = 0; c < m_NumChannels; ++c)
-		{
-			for (count_t d = 0; d < m_NumDelays; ++d)
-			{
-				outBuffer.View(c * m_NumDelays + d).Copy(m_DelaysMixBuffer.View(c * m_NumDelays + d), (d & 1) ? -1.0f : 1.0f);
-			}
+			m_DelaysMixBuffer.View(c * m_NumDiffusionChannels, m_NumDiffusionChannels).Multiply(m_Mix);
+			outBuffer.View(c * m_NumDiffusionChannels, m_NumDiffusionChannels).Copy(m_DelaysMixBuffer.View(c * m_NumDiffusionChannels, m_NumDiffusionChannels));
 		}
 	}
 
@@ -77,6 +71,8 @@ private:
 	void BuildHadamard()
 	{
 		count_t dim = std::min(m_Mix.GetM(), m_Mix.GetN());
+
+		m_Mix.Zero();
 
 		m_Mix(0, 0) = 1.0f;
 		for (count_t size = 1; size < dim; size *= 2)
@@ -109,39 +105,39 @@ private:
 	math::FloatMat m_Mix;
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
-	count_t m_NumDelays = 0;
+	count_t m_NumDiffusionChannels = 0;
 };
 
 template<typename T>
 class FeedbackStep
 {
-	static constexpr f32_t k_DelayMsRange = 150.0f;
+	static constexpr T k_DelayMsBase = T{ 50.0 };
 
 public:
 	inline void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		count_t numDelays,
+		count_t numFeedbacks,
 		f32_t decayTimeMs,
 		f32_t sampleRate)
 	{
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels ||
-			m_NumDelays != numDelays)
+			m_NumFeedbacks != numFeedbacks)
 		{
-			m_DelayFeedbacks.resize(numChannels * numDelays);
-			m_DelayFeedbacksMixBuffer.Resize(numFrames, numChannels * numDelays);
-			m_Mix.Resize(numChannels * numDelays);
+			m_DelayFeedbacks.resize(numChannels * numFeedbacks);
+			m_DelayFeedbacksMixBuffer.Resize(numFrames, numChannels * numFeedbacks);
+			m_Mix.Resize(numFeedbacks);
 
 			for (count_t c = 0; c < numChannels; ++c)
 			{
-				count_t delayNumFramesRange = k_DelayMsRange * 0.001f * (c + 1) * sampleRate;
-				for (count_t d = 0; d < numDelays; ++d)
+				count_t delaySamplesBase = k_DelayMsBase * T{ 0.001 } * sampleRate;
+				for (count_t d = 0; d < numFeedbacks; ++d)
 				{
-					count_t delayNumFramesLow = delayNumFramesRange * d / numDelays;
-					count_t delayNumFramesHigh = delayNumFramesRange * (d + 1) / numDelays;
-					count_t delayNumFrames = delayNumFramesLow + rand() % (delayNumFramesHigh - delayNumFramesLow);
-					m_DelayFeedbacks[c * numDelays + d].Reset(delayNumFrames);
+					T r = d * T{ 1.0 } / numFeedbacks;
+					count_t delayNumFrames = std::pow(2, r) * delaySamplesBase;
+					NZ_ASSERT(delayNumFrames != 0);
+					m_DelayFeedbacks[c * numFeedbacks + d].Reset(delayNumFrames);
 				}
 			}
 
@@ -153,10 +149,10 @@ public:
 			f32_t t60 = decayTimeMs / 1000.0f;
 			for (count_t c = 0; c < numChannels; ++c)
 			{
-				for (count_t d = 0; d < numDelays; ++d)
+				for (count_t d = 0; d < numFeedbacks; ++d)
 				{
-					auto& delayFeedback = m_DelayFeedbacks[c * numDelays + d];
-					delayFeedback.feedbackGain = std::pow(10.0f, (-3.0f * delayFeedback.GetNumFrames()) / (sampleRate * t60));
+					auto& delayFeedback = m_DelayFeedbacks[c * numFeedbacks + d];
+					delayFeedback.SetFeedbackTarget(std::pow(10.0f, (-3.0f * delayFeedback.GetNumFrames()) / (sampleRate * t60)));
 				}
 			}
 		}
@@ -165,7 +161,7 @@ public:
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
-		m_NumDelays = numDelays;
+		m_NumFeedbacks = numFeedbacks;
 		m_DecayTimeMs = decayTimeMs;
 	}
 
@@ -175,15 +171,14 @@ public:
 	{
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
-			for (count_t d = 0; d < m_NumDelays; ++d)
+			for (count_t d = 0; d < m_NumFeedbacks; ++d)
 			{
-				m_DelayFeedbacks[c * m_NumDelays + d].Process(inBuffer.View(c * m_NumDelays + d), m_DelayFeedbacksMixBuffer.View(c * m_NumDelays + d), m_NumFrames, 0);
+				m_DelayFeedbacks[c * m_NumFeedbacks + d].Process(inBuffer.View(c * m_NumFeedbacks + d), m_DelayFeedbacksMixBuffer.View(c * m_NumFeedbacks + d), m_NumFrames, 0);
 			}
+
+			m_DelayFeedbacksMixBuffer.View(c * m_NumFeedbacks, m_NumFeedbacks).Multiply(m_Mix);
+			outBuffer.View(c * m_NumFeedbacks, m_NumFeedbacks).Copy(m_DelayFeedbacksMixBuffer.View(c * m_NumFeedbacks, m_NumFeedbacks));
 		}
-
-		m_DelayFeedbacksMixBuffer.Multiply(m_Mix);
-
-		outBuffer.Copy(m_DelayFeedbacksMixBuffer);
 	}
 
 private:
@@ -191,20 +186,14 @@ private:
 	{
 		count_t dim = std::min(m_Mix.GetM(), m_Mix.GetN());
 
-		f32_t factor = 2.0f / dim;
+		m_Mix.Zero();
+
+		f32_t factor = 2.0f / static_cast<f32_t>(dim);
 		for (count_t i = 0; i < dim; ++i)
 		{
 			for (count_t j = 0; j < dim; ++j)
 			{
-				if (i == j)
-				{
-					m_Mix(i, j) = 1.0f - factor;
-				}
-				else
-				{
-					m_Mix(i, j) = -factor;
-				}
-				m_Mix(i, j) += ((rand() / float(RAND_MAX)) - 0.5f) * 0.02f;
+				m_Mix(i, j) = (i == j) ? 1.0f - factor : -factor;
 			}
 		}
 	}
@@ -215,15 +204,16 @@ private:
 	math::FloatMat m_Mix;
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
-	count_t m_NumDelays = 0;
+	count_t m_NumFeedbacks = 0;
 	f32_t m_DecayTimeMs = 50.0f;
 };
 
 
 class Reverb::Impl
 {
-	static constexpr count_t k_NumDiffusers = 1;
+	static constexpr count_t k_NumDiffusers = 4;
 	static constexpr count_t k_NumDiffuserChannels = 8;
+	static constexpr f32_t k_SplitSumGain = 1.0f / std::sqrt(f32_t(k_NumDiffuserChannels));
 
 public:	
 	Impl()
@@ -266,7 +256,7 @@ public:
 		{
 			for (count_t dc = 0; dc < k_NumDiffuserChannels; ++dc)
 			{
-				outBuffer.View(c).Add(m_SplitBuffer.View(c * k_NumDiffuserChannels + dc));
+				outBuffer.View(c).Add(m_SplitBuffer.View(c * k_NumDiffuserChannels + dc), k_SplitSumGain);
 			}
 		}
 
@@ -285,7 +275,7 @@ public:
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels)
 		{
-			m_SplitBuffer.Resize(numFrames, k_NumDiffuserChannels * numChannels);
+			m_SplitBuffer.Resize(numFrames, numChannels * k_NumDiffuserChannels);
 		}
 
 		for (count_t d = 0; d < m_NumDiffusionSteps; ++d)

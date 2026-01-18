@@ -16,8 +16,11 @@ struct Delay
 
 	inline void Reset(count_t numFrames)
 	{
-		m_Offset = 0;
 		m_NumFrames = numFrames;
+		for (auto& offset : m_Offsets)
+		{
+			offset = 0;
+		}
 		for (auto& buffer : m_Buffers)
 		{
 			buffer.resize(numFrames, T{});
@@ -27,11 +30,21 @@ struct Delay
 
 	inline T Process(T x, count_t c)
 	{
+		if (m_NumFrames == 0)
+		{
+			return x;
+		}
+
+		auto& offset = m_Offsets[c];
 		auto& buffer = m_Buffers[c];
-		count_t offsetWrapped = m_Offset % m_NumFrames;
-		T y = buffer[offsetWrapped];
-		buffer[offsetWrapped] = x;
-		++m_Offset;
+
+		count_t indexRead = (offset + 1) % m_NumFrames;
+		count_t indexWrite = offset % m_NumFrames;
+		T y = buffer[indexRead];
+		buffer[indexWrite] = x;
+	
+		++offset;
+
 		return y;
 	}
 
@@ -49,8 +62,8 @@ struct Delay
 	}
 
 private:
-	count_t m_Offset = 0;
 	count_t m_NumFrames = 0;
+	std::array<count_t, C> m_Offsets = { 0 };
 	std::array<SmallVector<T, F>, C> m_Buffers;
 };
 
@@ -64,8 +77,15 @@ struct DelayFeedback
 
 	inline void Reset(count_t numFrames)
 	{
-		m_Offset = 0;
 		m_NumFrames = numFrames;
+		for (auto& offset : m_Offsets)
+		{
+			offset = 0;
+		}
+		for (auto& feedback : m_Feedbacks)
+		{
+			feedback = m_FeedbackTarget;
+		}
 		for (auto& buffer : m_Buffers)
 		{
 			buffer.resize(numFrames, T{});
@@ -73,13 +93,30 @@ struct DelayFeedback
 		}
 	}
 
+	inline void SetFeedbackTarget(f32_t feedbackTarget)
+	{
+		m_FeedbackTarget = feedbackTarget;
+	}
+
 	inline T Process(T x, count_t c)
 	{
+		if (m_NumFrames == 0)
+		{
+			return x;
+		}
+
+		auto& offset = m_Offsets[c];
+		auto& feedback = m_Feedbacks[c];
 		auto& buffer = m_Buffers[c];
-		count_t offsetWrapped = m_Offset % m_NumFrames;
-		T y = buffer[offsetWrapped];
-		buffer[offsetWrapped] = x + std::clamp(feedbackGain, T{ 0 }, T{ 1 }) * y;
-		++m_Offset;
+
+		count_t indexRead = (offset + 1) % m_NumFrames;
+		count_t indexWrite = offset % m_NumFrames;
+		T y = buffer[indexRead];
+		buffer[indexWrite] = x + feedback * y;
+	
+		++offset;
+		feedback += (m_FeedbackTarget - feedback) * T{ 0.1 };
+	
 		return y;
 	}
 
@@ -96,11 +133,11 @@ struct DelayFeedback
 		return m_NumFrames;
 	}
 
-	T feedbackGain = T{ 0 };
-
 private:
-	count_t m_Offset = 0;
 	count_t m_NumFrames = 0;
+	T m_FeedbackTarget = T{ 0 };
+	std::array<count_t, C> m_Offsets = { 0 };
+	std::array<T, C> m_Feedbacks = { T{ 0 } };
 	std::array<SmallVector<T, F>, C> m_Buffers;
 };
 

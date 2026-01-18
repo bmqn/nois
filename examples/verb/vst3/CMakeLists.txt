@@ -12,9 +12,7 @@ set(NOIS_VERB_SRC_DIR "${NOIS_VERB_ROOT_DIR}/src")
 #--------------------------------------------------------------------------------------------------
 smtg_add_vst3plugin(
 	verb-vst3
-	"${NOIS_VERB_SRC_DIR}/NoisVst3Plugin.cpp"
-	"${NOIS_VERB_SRC_DIR}/NoisVst3Plugin.hpp"
-	"${NOIS_VERB_SRC_DIR}/NoisVst3Factory.cpp"
+	"${NOIS_VERB_SRC_DIR}/Vst3Verb.cpp"
 )
 
 smtg_target_configure_version_file(
