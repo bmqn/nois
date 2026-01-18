@@ -11,7 +11,7 @@ namespace nois {
 template<typename T>
 class DiffusionStep
 {
-	static constexpr f32_t k_DelayMsRange = 100.0f;
+	static constexpr f32_t k_DelayMsRange = 500.0f;
 
 public:
 	inline void Prepare(
@@ -28,20 +28,22 @@ public:
 			m_DelaysMixBuffer.Resize(numFrames, numChannels * numDelays);
 			m_Mix.Resize(numChannels * numDelays);
 
-			count_t delayFramesRange = k_DelayMsRange * 0.001f * sampleRate;
 			for (count_t c = 0; c < numChannels; ++c)
 			{
+				count_t delayNumFramesRange = k_DelayMsRange * (c + 1) * 0.001f * sampleRate;
 				for (count_t d = 0; d < numDelays; ++d)
 				{
-					count_t delayFramesLow = delayFramesRange * d / numDelays;
-					count_t delayFramesHigh = delayFramesRange * (d + 1) / numDelays;
-					count_t delayFrames = delayFramesLow + rand() % (delayFramesHigh - delayFramesLow);
-					m_Delays[c * numDelays + d].Reset(delayFrames);
+					count_t delayNumFramesLow = delayNumFramesRange * d / numDelays;
+					count_t delayNumFramesHigh = delayNumFramesRange * (d + 1) / numDelays;
+					count_t delayNumFrames = delayNumFramesLow + rand() % (delayNumFramesHigh - delayNumFramesLow);
+					m_Delays[c * numDelays + d].Reset(delayNumFrames);
 				}
 			}
 
 			BuildHadamard();
 		}
+
+		m_DelaysMixBuffer.Zero();
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
@@ -49,8 +51,8 @@ public:
 	}
 
 	inline void Process(
-		const FloatBuffer& inBuffer,
-		FloatBuffer& outBuffer)
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer)
 	{
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
@@ -62,7 +64,13 @@ public:
 
 		m_DelaysMixBuffer.Multiply(m_Mix);
 
-		outBuffer.Copy(m_DelaysMixBuffer);
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			for (count_t d = 0; d < m_NumDelays; ++d)
+			{
+				outBuffer.View(c * m_NumDelays + d).Copy(m_DelaysMixBuffer.View(c * m_NumDelays + d), (d & 1) ? -1.0f : 1.0f);
+			}
+		}
 	}
 
 private:
@@ -103,16 +111,18 @@ private:
 	count_t m_NumChannels = 0;
 	count_t m_NumDelays = 0;
 };
+
 template<typename T>
 class FeedbackStep
 {
-	static constexpr f32_t k_DelayMsRange = 100.0f;
+	static constexpr f32_t k_DelayMsRange = 150.0f;
 
 public:
 	inline void Prepare(
 		count_t numFrames,
 		count_t numChannels,
 		count_t numDelays,
+		f32_t decayTimeMs,
 		f32_t sampleRate)
 	{
 		if (m_NumFrames != numFrames ||
@@ -125,27 +135,43 @@ public:
 
 			for (count_t c = 0; c < numChannels; ++c)
 			{
-				count_t delayFramesRange = k_DelayMsRange * 0.001f * (c + 1) * sampleRate;
+				count_t delayNumFramesRange = k_DelayMsRange * 0.001f * (c + 1) * sampleRate;
 				for (count_t d = 0; d < numDelays; ++d)
 				{
-					count_t delayFramesLow = delayFramesRange * d / numDelays;
-					count_t delayFramesHigh = delayFramesRange * (d + 1) / numDelays;
-					count_t delayFrames = delayFramesLow + rand() % (delayFramesHigh - delayFramesLow);
-					m_DelayFeedbacks[c * numDelays + d].Reset(delayFrames);
+					count_t delayNumFramesLow = delayNumFramesRange * d / numDelays;
+					count_t delayNumFramesHigh = delayNumFramesRange * (d + 1) / numDelays;
+					count_t delayNumFrames = delayNumFramesLow + rand() % (delayNumFramesHigh - delayNumFramesLow);
+					m_DelayFeedbacks[c * numDelays + d].Reset(delayNumFrames);
 				}
 			}
 
 			BuildHouseholder();
 		}
 
+		if (m_DecayTimeMs != decayTimeMs)
+		{
+			f32_t t60 = decayTimeMs / 1000.0f;
+			for (count_t c = 0; c < numChannels; ++c)
+			{
+				for (count_t d = 0; d < numDelays; ++d)
+				{
+					auto& delayFeedback = m_DelayFeedbacks[c * numDelays + d];
+					delayFeedback.feedbackGain = std::pow(10.0f, (-3.0f * delayFeedback.GetNumFrames()) / (sampleRate * t60));
+				}
+			}
+		}
+
+		m_DelayFeedbacksMixBuffer.Zero();
+
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
 		m_NumDelays = numDelays;
+		m_DecayTimeMs = decayTimeMs;
 	}
 
 	inline void Process(
-		const FloatBuffer& inBuffer,
-		FloatBuffer& outBuffer)
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer)
 	{
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
@@ -178,6 +204,7 @@ private:
 				{
 					m_Mix(i, j) = -factor;
 				}
+				m_Mix(i, j) += ((rand() / float(RAND_MAX)) - 0.5f) * 0.02f;
 			}
 		}
 	}
@@ -189,17 +216,19 @@ private:
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
 	count_t m_NumDelays = 0;
+	f32_t m_DecayTimeMs = 50.0f;
 };
 
 
 class Reverb::Impl
 {
-	static constexpr count_t k_NumDiffusers = 4;
+	static constexpr count_t k_NumDiffusers = 1;
 	static constexpr count_t k_NumDiffuserChannels = 8;
 
 public:	
 	Impl()
 		: m_Wet(0.0f)
+		, m_DecayMs(1000.0f)
 		, m_SplitBuffer()
 		, m_NumDiffusionSteps(k_NumDiffusers)
 		, m_DiffusionSteps(k_NumDiffusers)
@@ -211,12 +240,10 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer)
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer)
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Reverb - Process");
-
-		outBuffer.Zero();
 
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
@@ -233,12 +260,13 @@ public:
 
 		m_FeedbackStep.Process(m_SplitBuffer, m_SplitBuffer);
 
+		outBuffer.Zero();
+
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
 			for (count_t dc = 0; dc < k_NumDiffuserChannels; ++dc)
 			{
-				f32_t sign = (dc & 1) ? -1.0f : 1.0f;
-				outBuffer.View(c).Add(m_SplitBuffer.View(c * k_NumDiffuserChannels + dc), sign);
+				outBuffer.View(c).Add(m_SplitBuffer.View(c * k_NumDiffuserChannels + dc));
 			}
 		}
 
@@ -265,7 +293,9 @@ public:
 			m_DiffusionSteps[d].Prepare(numFrames, numChannels, k_NumDiffuserChannels, sampleRate);
 		}
 
-		m_FeedbackStep.Prepare(numFrames, numChannels, k_NumDiffuserChannels, sampleRate);
+		m_FeedbackStep.Prepare(numFrames, numChannels, k_NumDiffuserChannels, m_DecayMs.Get(), sampleRate);
+
+		m_SplitBuffer.Zero();
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
@@ -276,8 +306,14 @@ public:
 		m_Wet.Use(wet);
 	}
 
+	void SetDecayMs(Ref_t<FloatBlockParameter> decayMs)
+	{
+		m_DecayMs.Use(decayMs);
+	}
+
 private:
 	FloatSlotBlockParameter m_Wet;
+	FloatSlotBlockParameter m_DecayMs;
 
 	FloatBuffer m_SplitBuffer;
 	count_t m_NumDiffusionSteps;
@@ -293,6 +329,7 @@ private:
 
 NOIS_INTERFACE_IMPL(Reverb)
 NOIS_INTERFACE_PARAM_IMPL(Reverb, Wet, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(Reverb, DecayMs, FloatBlockParameter)
 
 Ref_t<Reverb> Reverb::Create()
 {

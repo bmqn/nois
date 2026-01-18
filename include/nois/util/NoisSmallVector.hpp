@@ -17,7 +17,7 @@ public:
 
 	SmallVector(size_type n = 0, const T &value = T{})
 		: m_Size(n)
-		, m_Data(T{})
+		, m_Data{T{}}
 	{
 		if (n > N)
 		{

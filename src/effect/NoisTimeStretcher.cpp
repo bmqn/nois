@@ -15,8 +15,8 @@ public:
 	}
 
 	Stream::Result Process(
-		const FloatBufferView& inBuffer,
-		FloatBuffer& outBuffer)
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer)
 	{
 		NOIS_PROFILE_SCOPE();
 
@@ -162,8 +162,8 @@ public:
 
 private:
 	void DoStretch(
-		const FloatBufferView& inBuffer,
-		FloatBuffer &outBuffer,
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer,
 		count_t f,
 		f32_t stretchFactor,
 		f32_t grainSize,

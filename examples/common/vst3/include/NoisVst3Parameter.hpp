@@ -26,6 +26,10 @@ public:
 
 	virtual operator nois::Ref_t<nois::FloatParameter>() = 0;
 	virtual operator nois::Ref_t<nois::FloatBlockParameter>() = 0;
+
+public:
+	template<typename Param>
+	static nois::Own_t<NoisVstProcessorParameter> Create(nois::FloatParameterRegistry& registry);
 };
 
 class NoisVstControllerParameter
@@ -34,6 +38,10 @@ public:
 	virtual Vst::ParamID GetPid() const = 0;
 
 	virtual operator Vst::Parameter*() = 0;
+
+public:
+	template<typename Param>
+	static nois::Own_t<NoisVstControllerParameter> Create();
 };
 
 namespace util
@@ -194,7 +202,7 @@ public:
 			[this]() -> nois::f32_t
 			{
 				return util::ToProcessor<Param>(
-					mValues.front(),
+					mValues.back(),
 					mNumFrames,
 					mSampleRate);
 			});
@@ -294,13 +302,13 @@ private:
 };
 
 template<typename Param>
-nois::Own_t<NoisVstProcessorParameter> CreateProcessor(nois::FloatParameterRegistry& registry)
+nois::Own_t<NoisVstProcessorParameter> NoisVstProcessorParameter::Create(nois::FloatParameterRegistry& registry)
 {
 	return nois::MakeOwn<NoisVstProcessorParameterImpl<Param>>(registry);
 }
 
 template<typename Param>
-nois::Own_t<NoisVstControllerParameter> CreateController()
+nois::Own_t<NoisVstControllerParameter> NoisVstControllerParameter::Create()
 {
 	return nois::MakeOwn<NoisVstControllerParameterImpl<Param>>();
 }

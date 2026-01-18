@@ -41,8 +41,8 @@ class ProcessStream : public Stream
 	friend class StreamGraph;
 
 	virtual Result Process(
-		const FloatBufferView &inBuffer,
-		FloatBuffer &outBuffer)
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer)
 	= 0;
 };
 
@@ -57,7 +57,7 @@ public:
 	}
 
 	virtual Result Process(
-		FloatBuffer &outBuffer)
+		FloatBufferView outBuffer)
 	{
 		outBuffer.Copy(*m_Buffer);
 		return Stream::Success;

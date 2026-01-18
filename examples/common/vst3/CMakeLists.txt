@@ -11,6 +11,8 @@ set(NOIS_COMMON_INC_DIR "${NOIS_COMMON_ROOT_DIR}/include")
 #--------------------------------------------------------------------------------------------------
 set(NOIS_COMMON_HSPSRC
 	"${NOIS_COMMON_INC_DIR}/NoisVst3Parameter.hpp"
+	"${NOIS_COMMON_INC_DIR}/NoisVst3Processor.hpp"
+	"${NOIS_COMMON_INC_DIR}/NoisVst3Processor.inl"
 )
 
 source_group(
@@ -38,7 +40,8 @@ target_include_directories(
 target_link_libraries(
 	nois-common-vst3
 	INTERFACE
-	nois sdk
+	nois
+	sdk
 )
 
 if(MSVC)

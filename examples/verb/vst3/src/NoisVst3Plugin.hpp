@@ -35,6 +35,7 @@ private:
 
 	nois::FloatParameterRegistry mRegistry;
 	nois::Own_t<NoisVstProcessorParameter> mWet;
+	nois::Own_t<NoisVstProcessorParameter> mDecayMs;
 
 	nois::Ref_t<nois::Reverb> mReverb;
 
@@ -59,4 +60,5 @@ public:
 
 private:
 	nois::Own_t<NoisVstControllerParameter> mWet;
+	nois::Own_t<NoisVstControllerParameter> mDecayMs;
 };
