@@ -231,7 +231,7 @@ protected:
 					nois::f32_t wet = mWet->GetLastPlain();
 					nois::f32_t x = sourceBuffer(f, c);
 					nois::f32_t z = mHpBuffer(f, c) + mDistBuffer(f, c);
-					sinkBuffer[f] = x * (1.0f - wet) + z * wet;
+					sinkBuffer(f, c) = x * (1.0f - wet) + z * wet;
 				}
 			}
 		}
