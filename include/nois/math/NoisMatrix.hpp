@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nois/NoisConfig.hpp"
+#include "nois/NoisMacros.hpp"
 #include "nois/NoisTypes.hpp"
 #include "nois/util/NoisSmallVector.hpp"
 
@@ -152,6 +154,11 @@ public:
 		return m_Data[i * m_N + j];
 	}
 
+	operator MatView<T>()
+	{
+		return MatView<T>(m_M, m_N, m_Data.data());
+	}
+
 	operator ConstMatView<T>() const
 	{
 		return ConstMatView<T>(m_M, m_N, m_Data.data());
@@ -260,89 +267,9 @@ private:
 	T* m_Data;
 };
 
-#include <immintrin.h>
-
-template<>
-inline void Mat<f32_t>::Multiply(ConstMatView<f32_t> mat, MatView<f32_t> outMat) const
-{
-	for (count_t i = 0; i < m_M; ++i)
-	{
-		for (count_t j = 0; j < mat.GetN(); ++j)
-		{
-			count_t k = 0;
-			f32_t acc = 0.0f;
-			f32_t vaccBuf[8]{ 0.0f };
-			__m256 vacc = _mm256_setzero_ps();
-
-			for (; k + 7 < m_N; k += 8)
-			{
-				__m256 va = _mm256_loadu_ps(
-					&(*this)(i, k));
-				__m256 vb = _mm256_set_ps(
-					mat(k + 7, j), mat(k + 6, j),
-					mat(k + 5, j), mat(k + 4, j),
-					mat(k + 3, j), mat(k + 2, j),
-					mat(k + 1, j), mat(k + 0, j));
-				vacc = _mm256_add_ps(
-					vacc,
-					_mm256_mul_ps(va, vb));
-			}
-			_mm256_storeu_ps(vaccBuf, vacc);
-			acc +=
-				vaccBuf[0] + vaccBuf[1] +
-				vaccBuf[2] + vaccBuf[3] +
-				vaccBuf[4] + vaccBuf[5] +
-				vaccBuf[6] + vaccBuf[7];
-			for (; k < m_N; ++k)
-			{
-				acc += (*this)(i, k) * mat(k, j);
-			}
-
-			outMat(i, j) = acc;
-		}
-	}
-}
-
-template<>
-inline void MatView<f32_t>::Multiply(ConstMatView<f32_t> mat, MatView<f32_t> outMat) const
-{
-	for (count_t i = 0; i < m_M; ++i)
-	{
-		for (count_t j = 0; j < mat.GetN(); ++j)
-		{
-			count_t k = 0;
-			f32_t acc = 0.0f;
-			f32_t vaccBuf[8]{ 0.0f };
-			__m256 vacc = _mm256_setzero_ps();
-
-			for (; k + 7 < m_N; k += 8)
-			{
-				__m256 va = _mm256_loadu_ps(
-					&(*this)(i, k));
-				__m256 vb = _mm256_set_ps(
-					mat(k + 7, j), mat(k + 6, j),
-					mat(k + 5, j), mat(k + 4, j),
-					mat(k + 3, j), mat(k + 2, j),
-					mat(k + 1, j), mat(k + 0, j));
-				vacc = _mm256_add_ps(
-					vacc,
-					_mm256_mul_ps(va, vb));
-			}
-			_mm256_storeu_ps(vaccBuf, vacc);
-			acc +=
-				vaccBuf[0] + vaccBuf[1] +
-				vaccBuf[2] + vaccBuf[3] +
-				vaccBuf[4] + vaccBuf[5] +
-				vaccBuf[6] + vaccBuf[7];
-			for (; k < m_N; ++k)
-			{
-				acc += (*this)(i, k) * mat(k, j);
-			}
-
-			outMat(i, j) = acc;
-		}
-	}
-}
-
 }
 }
+
+#if NOIS_ENABLE_AVX_SIMD
+#include "NoisMatrixAvx.inl"
+#endif // NOIS_ENABLE_AVX_SIMD

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nois/NoisConfig.hpp"
+#include "nois/NoisMacros.hpp"
 #include "nois/NoisTypes.hpp"
 #include "nois/math/NoisMatrix.hpp"
 #include "nois/parameter/NoisParameter.hpp"

@@ -21,6 +21,8 @@
 #include "effect/NoisSignalDelayer.hpp"
 #include "effect/NoisTimeStretcher.hpp"
 
+#include "math/NoisMatrix.hpp"
+
 #include "midi/NoisMidiBuffer.hpp"
 #include "midi/NoisMidiStream.hpp"
 

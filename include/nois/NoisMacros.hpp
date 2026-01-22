@@ -32,6 +32,10 @@
 #endif
 #endif
 
+#if NOIS_ARCH_X64
+#define NOIS_ENABLE_AVX_SIMD 1
+#endif // NOIS_ARCH_X64
+
 #if NOIS_ENABLE_PROFILING
 #define NOIS_PROFILE_MARK() FrameMark
 #define NOIS_PROFILE_SCOPE() ZoneScoped

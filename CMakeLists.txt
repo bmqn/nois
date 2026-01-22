@@ -58,6 +58,7 @@ set(NOIS_HSPSRC
 	"${NOIS_INC_DIR}/nois/effect/NoisTimeStretcher.hpp"
 
 	"${NOIS_INC_DIR}/nois/math/NoisMatrix.hpp"
+	"${NOIS_INC_DIR}/nois/math/NoisMatrixAvx.inl"
 
 	"${NOIS_INC_DIR}/nois/midi/NoisMidiBuffer.hpp"
 	"${NOIS_INC_DIR}/nois/midi/NoisMidiStream.hpp"
