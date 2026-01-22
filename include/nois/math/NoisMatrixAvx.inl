@@ -7,7 +7,7 @@ namespace math {
 
 namespace detail {
 
-inline void MultiplyImpl(ConstMatView<f32_t> a, ConstMatView<f32_t> b, MatView<f32_t> y)
+inline void Multiply(ConstMatView<f32_t> a, ConstMatView<f32_t> b, MatView<f32_t> y)
 {
 	const count_t M = a.GetM();
 	const count_t N = b.GetN();
@@ -56,28 +56,28 @@ template<>
 inline Mat<f32_t> Mat<f32_t>::Multiply(const Mat<f32_t>& mat) const
 {
 	Mat<f32_t> result(m_M, mat.GetN());
-	detail::MultiplyImpl(*this, mat, result);
+	detail::Multiply(*this, mat, result);
 	return result;
 }
 
 template<>
 inline void Mat<f32_t>::Multiply(ConstMatView<f32_t> mat, MatView<f32_t> outMat) const
 {
-	detail::MultiplyImpl(*this, mat, outMat);
+	detail::Multiply(*this, mat, outMat);
 }
 
 template<>
 inline Mat<f32_t> MatView<f32_t>::Multiply(const Mat<f32_t>& mat) const
 {
 	Mat<f32_t> result(m_M, mat.GetN());
-	detail::MultiplyImpl(*this, mat, result);
+	detail::Multiply(*this, mat, result);
 	return result;
 }
 
 template<>
 inline void MatView<f32_t>::Multiply(ConstMatView<f32_t> mat, MatView<f32_t> outMat) const
 {
-	detail::MultiplyImpl(*this, mat, outMat);
+	detail::Multiply(*this, mat, outMat);
 }
 
 }

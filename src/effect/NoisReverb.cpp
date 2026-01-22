@@ -1,9 +1,6 @@
 #include "nois/effect/NoisReverb.hpp"
 
 #include "nois/NoisUtil.hpp"
-#include "nois/effect/NoisSignalDelayer.hpp"
-#include "nois/route/NoisCombiner.hpp"
-#include "nois/route/NoisSplitter.hpp"
 #include "nois/util/NoisDelay.hpp"
 
 namespace nois {
@@ -54,6 +51,8 @@ public:
 		T gainPerDelay = T{ 1.0 } / std::sqrt(static_cast<T>(m_NumReflections));
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
+			outBuffer.View(c).Zero();
+
 			for (count_t f = 0; f < m_NumFrames; ++f)
 			{
 				T acc{ 0 };
@@ -378,9 +377,6 @@ public:
 		}
 
 		m_FeedbackStep.Prepare(numFrames, numChannels, k_NumDiffuserChannels, sampleRate);
-
-		m_EarlyReflectionBuffer.Zero();
-		m_DiffusionBuffer.Zero();
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;

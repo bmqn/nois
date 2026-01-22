@@ -185,27 +185,19 @@ class NoisVstProcessorParameterImpl : public NoisVstProcessorParameter
 public:
 	NoisVstProcessorParameterImpl(nois::FloatParameterRegistry& registry)
 		: mParameter(nullptr)
+		, mBlockParameter(nullptr)
+		, mRegistry(registry)
 		, mNumFrames(0)
 		, mSampleRate(0.0f)
 		, mValues()
 	{
-		mParameter = registry.CreateBinder(
-			[this](nois::count_t f) -> nois::f32_t
-			{
-				return util::ToProcessor<Param>(
-					mValues[f],
-					mNumFrames,
-					mSampleRate);
-			});
+		mParameter = mRegistry.CreateBinder(
+			nois::ParamBind_t(&NoisVstProcessorParameterImpl<Param>::GetValue, this));
 
-		mBlockParameter = registry.CreateBlockBinder(
-			[this]() -> nois::f32_t
-			{
-				return util::ToProcessor<Param>(
-					mValues.back(),
-					mNumFrames,
-					mSampleRate);
-			});
+		mBlockParameter = mRegistry.CreateBlockBinder(
+			nois::ParamBlockBind_t(&NoisVstProcessorParameterImpl<Param>::GetBlockValue, this),
+			Param::kMinValue,
+			Param::kMaxValue);
 	}
 
 	Vst::ParamID GetPid() const override final
@@ -257,6 +249,7 @@ public:
 		{
 			return mValues.back();
 		}
+
 		return 0.0f;
 	}
 
@@ -271,8 +264,20 @@ public:
 	}
 
 private:
+	nois::f32_t GetValue(nois::count_t f) const
+	{
+		return mValues[f];
+	}
+
+	nois::f32_t GetBlockValue() const
+	{
+		return mValues.back();
+	}
+
+private:
 	nois::Ref_t<nois::FloatParameter> mParameter;
 	nois::Ref_t<nois::FloatBlockParameter> mBlockParameter;
+	nois::FloatParameterRegistry& mRegistry;
 	nois::count_t mNumFrames;
 	nois::f32_t mSampleRate;
 	nois::SmallVector<nois::f32_t> mValues;

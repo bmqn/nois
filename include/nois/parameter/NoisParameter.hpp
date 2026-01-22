@@ -14,9 +14,13 @@ template<typename T>
 class SlotParameter;
 template<typename T>
 class BinderParameter;
+template<typename T>
+class TransformerParameter;
 
 template<typename T>
 class BlockParameter;
+template<typename T>
+class ConstantBlockParameter;
 template<typename T>
 class SlotBlockParameter;
 template<typename T>
@@ -58,16 +62,16 @@ using FloatParameterRegistry = ParameterRegistry<f32_t>;
 using FloatParameter = Parameter<f32_t>;
 using FloatSlotParameter = SlotParameter<f32_t>;
 using FloatBinderParameter = BinderParameter<f32_t>;
+using FoatTransformerParameter = TransformerParameter<f32_t>;
 using FloatBinderFunc_t = BinderFunc_t<f32_t>;
-using FloatParameterList = std::vector<Ref_t<FloatParameter>>;
 
 using FloatBlockParameter = BlockParameter<f32_t>;
+using FloatConstantBlockParameter = ConstantBlockParameter<f32_t>;
 using FloatSlotBlockParameter = SlotBlockParameter<f32_t>;
 using FloatBinderBlockParameter = BinderBlockParameter<f32_t>;
 using FloatTransformerBlockParameter = TransformerBlockParameter<f32_t>;
 using FloatBlockBinderFunc_t = BlockBinderFunc_t<f32_t>;
 using FloatBlockTransformerFunc_t = BlockTransformerFunc_t<f32_t>;
-using FloatBlockParameterList = std::vector<Ref_t<FloatBlockParameter>>;
 
 template<typename T>
 class ParameterRegistry
@@ -84,7 +88,7 @@ public:
 
 	Ref_t<BlockParameter<T>> CreateBlockConstant(T value)
 	{
-		auto parameter = MakeRef<BinderBlockParameter<T>>([value]() { return value; });
+		auto parameter = MakeRef<ConstantBlockParameter<T>>(value);
 		m_BlockParameters.emplace_back(parameter);
 		return parameter;
 	}
@@ -96,10 +100,17 @@ public:
 		return parameter;
 	}
 
-	Ref_t<BlockParameter<T>> CreateBlockBinder(BlockBinderFunc_t<T> binder)
+	Ref_t<BlockParameter<T>> CreateBlockBinder(BlockBinderFunc_t<T> binder, T min, T max)
 	{
-		auto parameter = MakeRef<BinderBlockParameter<T>>(binder);
+		auto parameter = MakeRef<BinderBlockParameter<T>>(binder, min, max);
 		m_BlockParameters.emplace_back(parameter);
+		return parameter;
+	}
+
+	Ref_t<Parameter<T>> CreateTransformer(Ref_t<Parameter<T>> transformee, TransformerFunc_t<T> transformer)
+	{
+		auto parameter = MakeRef<TransformerParameter<T>>(transformee, transformer);
+		m_Parameters.emplace_back(parameter);
 		return parameter;
 	}
 
@@ -289,18 +300,89 @@ private:
 };
 
 template<typename T>
+class TransformerParameter : public Parameter<T>
+{
+public:
+	TransformerParameter(Ref_t<Parameter<T>> parameter, TransformerFunc_t<T> transformer)
+		: m_Used(parameter)
+		, m_Transformer(transformer)
+	{
+	}
+
+	T Get(count_t f) const override final
+	{
+		return m_Transformer(m_Used->Get(f), f);
+	}
+
+	bool Changed(count_t f) const override final
+	{
+		return m_Used->Changed(f);
+	}
+
+private:
+	Ref_t<Parameter<T>> m_Used;
+	TransformerFunc_t<T> m_Transformer;
+};
+
+template<typename T>
 class BlockParameter
 {
 	friend class ParameterRegistry<T>;
 
 public:
 	virtual T Get() const = 0;
+	virtual T Min() const = 0;
+	virtual T Max() const = 0;
 	virtual bool Changed() const = 0;
 
 private:
 	virtual void Prepare(count_t numFrames, f32_t sampleRate)
 	{
 	}
+};
+
+template<typename T>
+class ConstantBlockParameter : public BlockParameter<T>
+{
+public:
+	ConstantBlockParameter(T value)
+		: m_Value(value)
+		, m_Dirty(false)
+		, m_Initialised(true)
+	{
+	}
+
+	T Get() const override final
+	{
+		return m_Value;
+	}
+
+	T Min() const override final
+	{
+		return m_Value;
+	}
+
+	T Max() const override final
+	{
+		return m_Value;
+	}
+
+	bool Changed() const override final
+	{
+		return m_Dirty;
+	}
+
+private:
+	void Prepare(count_t numFrames, f32_t sampleRate) override final
+	{
+		m_Dirty = m_Initialised;
+		m_Initialised = false;
+	}
+
+private:
+	T m_Value;
+	bool m_Dirty;
+	bool m_Initialised;
 };
 
 template<typename T>
@@ -318,6 +400,16 @@ public:
 	T Get() const override final
 	{
 		return m_Used ? m_Used->Get() : m_Default;
+	}
+
+	T Min() const override final
+	{
+		return m_Used ? m_Used->Min() : m_Default;
+	}
+
+	T Max() const override final
+	{
+		return m_Used ? m_Used->Max() : m_Default;
 	}
 
 	bool Changed() const override final
@@ -357,9 +449,11 @@ template<typename T>
 class BinderBlockParameter : public BlockParameter<T>
 {
 public:
-	BinderBlockParameter(BlockBinderFunc_t<T> binder)
-		: m_LastValue(T{ 0 })
-		, m_Value(T{ 0 })
+	BinderBlockParameter(BlockBinderFunc_t<T> binder, T min, T max)
+		: m_LastValue(min)
+		, m_Value(min)
+		, m_Min(min)
+		, m_Max(max)
 		, m_Binder(binder)
 	{
 	}
@@ -367,6 +461,16 @@ public:
 	T Get() const override final
 	{
 		return m_Value;
+	}
+
+	T Min() const override final
+	{
+		return m_Min;
+	}
+
+	T Max() const override final
+	{
+		return m_Max;
 	}
 
 	bool Changed() const override final
@@ -385,13 +489,15 @@ private:
 		if (m_Binder)
 		{
 			m_LastValue = m_Value;
-			m_Value = m_Binder();
+			m_Value = std::clamp(m_Binder(), m_Min, m_Max);
 		}
 	}
 
 private:
 	T m_LastValue;
 	T m_Value;
+	T m_Min;
+	T m_Max;
 	BlockBinderFunc_t<T> m_Binder;
 };
 
@@ -408,6 +514,16 @@ public:
 	T Get() const override final
 	{
 		return m_Transformer(m_Used->Get());
+	}
+
+	T Min() const override final
+	{
+		return m_Transformer(m_Used->Min());
+	}
+
+	T Max() const override final
+	{
+		return m_Transformer(m_Used->Max());
 	}
 
 	bool Changed() const override final

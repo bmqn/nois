@@ -1,6 +1,8 @@
 #include "nois/effect/NoisSignalDelayer.hpp"
 
-#include "nois/core/NoisRingBuffer.hpp"
+#include "NoisLog.h"
+#include "nois/NoisConfig.hpp"
+#include "nois/util/NoisDelay.hpp"
 
 namespace nois {
 
@@ -16,27 +18,11 @@ public:
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer)
 	{
-		// Scratch storage for samples
-		std::array<f32_t, k_MaxChannels> samples;
-
-		for (count_t f = 0; f < m_NumFrames; ++f)
+		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
-			// Grab latest samples
-			for (count_t c = 0; c < m_NumChannels; ++c)
+			for (count_t f = 0; f < m_NumFrames; ++f)
 			{
-				samples[c] = inBuffer(f, c);
-			}
-
-			// Add the latest samples to our cache
-			m_CacheBuffer.Add(samples.data(), m_NumChannels);
-
-			// Grab the oldest samples from our cache
-			m_CacheBuffer.GetOldest(samples.data(), m_NumChannels);
-
-			// Write the oldest samples
-			for (count_t c = 0; c < m_NumChannels; ++c)
-			{
-				outBuffer(f, c) = samples[c];
+				outBuffer(f, c) = m_Delay.Process(inBuffer(f, c));
 			}
 		}
 
@@ -48,12 +34,21 @@ public:
 		count_t numChannels,
 		f32_t sampleRate)
 	{
+		if (m_SampleRate != sampleRate)
+		{
+			const f32_t maxDelayMs = m_DelayMs.Max();
+			count_t maxDelayNumFrames = static_cast<count_t>((maxDelayMs * sampleRate) / 1000.0f);
+			NZ_ASSERT(maxDelayNumFrames != 0);
+			m_Delay.Reset(maxDelayNumFrames);
+		}
+
 		if (m_SampleRate != sampleRate ||
 			m_DelayMs.Changed())
 		{
 			const f32_t delayMs = m_DelayMs.Get();
-			count_t numCacheFrames = static_cast<count_t>((delayMs * sampleRate) / 1000.0f);
-			m_CacheBuffer.Resize(numCacheFrames, numChannels);
+			count_t numDelayFrames = static_cast<count_t>((delayMs * sampleRate) / 1000.0f);
+			NZ_ASSERT(numDelayFrames != 0);
+			m_Delay.SetDelay(numDelayFrames);
 		}
 
 		m_NumFrames = numFrames;
@@ -69,8 +64,7 @@ public:
 private:
 	SlotBlockParameter<f32_t> m_DelayMs;
 
-	// TODO: replace with non-interleaved since buffers are not interleaved
-	FloatInterleavedRingBuffer m_CacheBuffer;
+	Delay<f32_t, k_MaxChannels> m_Delay;
 
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;

@@ -23,14 +23,6 @@ struct Wet
 	static constexpr nois::f32_t kMinValue = 0.0f;
 	static constexpr nois::f32_t kMaxValue = 100.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return (value - kMinValue) / (kMaxValue - kMinValue);
-	}
 };
 
 struct DecayMs
@@ -42,14 +34,6 @@ struct DecayMs
 	static constexpr nois::f32_t kMinValue = 1.0f;
 	static constexpr nois::f32_t kMaxValue = 10000.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value;
-	}
 };
 
 }
@@ -115,9 +99,14 @@ public:
 
 		Register(mWet.get());
 		Register(mDecayMs.get());
+
+		auto wetNormalized =
+			mRegistry.CreateBlockTransformer(
+				*mWet,
+				[](nois::f32_t x) { return x / 100.0f; });
 		
 		mReverb = nois::Reverb::Create();
-		mReverb->SetWet(*mWet);
+		mReverb->SetWet(wetNormalized);
 		mReverb->SetDecayMs(*mDecayMs);
 	}
 

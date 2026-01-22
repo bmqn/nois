@@ -42,13 +42,13 @@ struct Delay
 		auto& buffer = m_Buffers[c];
 
 		// Grab write/read indices
-		count_t indexWrite = offset & m_ModuloMask;
+		ucount_t indexWrite = offset & m_ModuloMask;
 		T indexReadFrac = m_NumDelayFrames + m;
 		indexReadFrac = (indexWrite - static_cast<ucount_t>(indexReadFrac)) & m_ModuloMask;
+		ucount_t indexReadFrac0 = indexReadFrac;
+		ucount_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
 
 		// Interpolate read & write
-		count_t indexReadFrac0 = indexReadFrac;
-		count_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
 		T factor = indexReadFrac - T{ indexReadFrac0 };
 		T y0 = buffer[indexReadFrac0];
 		T y1 = buffer[indexReadFrac1];
@@ -66,6 +66,51 @@ struct Delay
 		{
 			outData[f] = Process(inData[f], modData[f], c);
 		}
+	}
+
+	inline void Write(T x, count_t c = 0)
+	{
+		if (m_NumFrames == 0)
+		{
+			return;
+		}
+
+		auto& offset = m_Offsets[c];
+		auto& buffer = m_Buffers[c];
+
+		// Grab write/read indices
+		ucount_t indexWrite = offset & m_ModuloMask;
+		
+		// Write
+		buffer[indexWrite] = x;
+	
+		++offset;
+	}
+
+	inline T Search(T d, count_t c = 0) const
+	{
+		if (m_NumFrames == 0)
+		{
+			return 0.0f;
+		}
+
+		auto& offset = m_Offsets[c];
+		auto& buffer = m_Buffers[c];
+
+		// Grab write/read indices
+		ucount_t indexWrite = offset & m_ModuloMask;
+		T indexReadFrac = d;
+		indexReadFrac = (indexWrite - static_cast<ucount_t>(indexReadFrac)) & m_ModuloMask;
+		ucount_t indexReadFrac0 = indexReadFrac;
+		ucount_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
+
+		// Interpolate read & write
+		T factor = indexReadFrac - T{ indexReadFrac0 };
+		T y0 = buffer[indexReadFrac0];
+		T y1 = buffer[indexReadFrac1];
+		T y = y0 + (y1 - y0) * factor;
+
+		return y;
 	}
 
 	inline void SetDelay(T numDelayFrames)
@@ -129,13 +174,13 @@ struct DelayFeedback
 		auto& buffer = m_Buffers[c];
 
 		// Grab write/read indices
-		count_t indexWrite = offset & m_ModuloMask;
+		ucount_t indexWrite = offset & m_ModuloMask;
 		T indexReadFrac = m_NumDelayFrames + m;
 		indexReadFrac = (indexWrite - static_cast<ucount_t>(indexReadFrac)) & m_ModuloMask;
+		ucount_t indexReadFrac0 = indexReadFrac;
+		ucount_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
 
 		// Interpolate read & write
-		count_t indexReadFrac0 = indexReadFrac;
-		count_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
 		T factor = indexReadFrac - T{ indexReadFrac0 };
 		T y0 = buffer[indexReadFrac0];
 		T y1 = buffer[indexReadFrac1];

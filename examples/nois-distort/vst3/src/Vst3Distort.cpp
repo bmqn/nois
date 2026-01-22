@@ -25,14 +25,6 @@ struct SubFreq
 	static constexpr nois::f32_t kMinValue = 50.0f;
 	static constexpr nois::f32_t kMaxValue = 140.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value / (sampleRate * 0.5f);
-	}
 };
 
 struct Drive
@@ -44,14 +36,6 @@ struct Drive
 	static constexpr nois::f32_t kMinValue = 0.0f;
 	static constexpr nois::f32_t kMaxValue = 16.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value;
-	}
 };
 
 struct Wet
@@ -63,14 +47,6 @@ struct Wet
 	static constexpr nois::f32_t kMinValue = 0.0f;
 	static constexpr nois::f32_t kMaxValue = 1.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value;
-	}
 };
 
 }
@@ -151,12 +127,15 @@ public:
 		Register(mDrive.get());
 		Register(mWet.get());
 
+		auto subFreqRatio = 
+			mRegistry.CreateBlockTransformer(*mSubFreq,
+				[this](float x) { return x / (mSampleRate * 0.5f); });
 		auto ap1CutoffRatio =
 			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[](float x) { return std::clamp(x * 0.7f, 0.002f, 0.02f); });
+				[this](float x) { return std::clamp(x * 0.7f, 0.002f, 0.02f) / (mSampleRate * 0.5f); });
 		auto ap2CutoffRatio =
 			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[](float x) { return std::clamp(x * 1.2f, 0.002f, 0.03f); });
+				[this](float x) { return std::clamp(x * 1.2f, 0.002f, 0.03f) / (mSampleRate * 0.5f); });
 		auto apQ =
 			mRegistry.CreateBlockConstant(0.67f);
 		auto distWet =

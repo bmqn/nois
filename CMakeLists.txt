@@ -44,7 +44,6 @@ set(NOIS_HSPSRC
 	"${NOIS_INC_DIR}/nois/analysis/NoisFilterBank.hpp"
 
 	"${NOIS_INC_DIR}/nois/core/NoisBuffer.hpp"
-	"${NOIS_INC_DIR}/nois/core/NoisRingBuffer.hpp"
 	"${NOIS_INC_DIR}/nois/core/NoisStream.hpp"
 
 	"${NOIS_INC_DIR}/nois/dynamic/NoisExpander.hpp"

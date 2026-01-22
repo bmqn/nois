@@ -8,7 +8,6 @@
 #include "analysis/NoisFilterBank.hpp"
 
 #include "core/NoisBuffer.hpp"
-#include "core/NoisRingBuffer.hpp"
 #include "core/NoisStream.hpp"
 
 #include "dynamic/NoisExpander.hpp"

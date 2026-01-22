@@ -45,14 +45,6 @@ struct StretchFactor
 	static constexpr nois::f32_t kMinValue = 1.0f;
 	static constexpr nois::f32_t kMaxValue = 16.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value;
-	}
 };
 
 struct GrainSize
@@ -64,14 +56,6 @@ struct GrainSize
 	static constexpr nois::f32_t kMinValue = 0.5f;
 	static constexpr nois::f32_t kMaxValue = 100.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return (value / 1000.0f) * sampleRate;
-	}
 };
 
 struct GrainBlend
@@ -83,14 +67,6 @@ struct GrainBlend
 	static constexpr nois::f32_t kMinValue = 0.0f;
 	static constexpr nois::f32_t kMaxValue = 1.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value / 2.0f;
-	}
 };
 
 struct GrainPhaseLockActive
@@ -102,14 +78,6 @@ struct GrainPhaseLockActive
 	static constexpr nois::f32_t kMinValue = 0.0f;
 	static constexpr nois::f32_t kMaxValue = 1.0f;
 	static constexpr nois::s32_t kNumSteps = 1;
-
-	static nois::f32_t ToProcessor(
-		nois::f32_t value,
-		nois::count_t numSamples,
-		nois::f32_t sampleRate)
-	{
-		return value;
-	}
 };
 }
 
@@ -130,11 +98,20 @@ NoisPlugin::NoisPlugin()
 	mGrainBlend = NoisVstProcessorParameter::Create<parameter::GrainBlend>(mRegistry);
 	mGrainPhaseLockActive = NoisVstProcessorParameter::Create<parameter::GrainPhaseLockActive>(mRegistry);
 
+	auto grainSize =
+		mRegistry.CreateTransformer(
+			*mGrainSize,
+			[this](nois::f32_t x, nois::count_t) { return (x / 1000.0f) * mSampleRate; });
+	auto grainBlendNormalized =
+		mRegistry.CreateTransformer(
+			*mGrainBlend,
+			[this](nois::f32_t x, nois::count_t) { return x / 2.0f; });
+
 	mTimeStretcher = nois::TimeStretcher::Create();
 	mTimeStretcher->SetStretchActive(*mStretchActive);
 	mTimeStretcher->SetStretchFactor(*mStretchFactor);
-	mTimeStretcher->SetGrainSize(*mGrainSize);
-	mTimeStretcher->SetGrainBlend(*mGrainBlend);
+	mTimeStretcher->SetGrainSize(grainSize);
+	mTimeStretcher->SetGrainBlend(grainBlendNormalized);
 	mTimeStretcher->SetGrainLockActive(*mGrainPhaseLockActive);
 
 	mParameterLookup[mStretchActive->GetPid()] = mStretchActive.get();
