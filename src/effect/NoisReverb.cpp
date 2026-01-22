@@ -9,61 +9,149 @@
 namespace nois {
 
 template<typename T>
-class DiffusionStep
+class EarlyReflectionStep
 {
-	static constexpr T k_DelayMsRange = T{ 300.0 };
+	static constexpr T k_MinDelayMs = T{ 5.0 };
+	static constexpr T k_MaxDelayMs = T{ 50.0 };
 
 public:
 	inline void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		count_t numDiffusionChannels,
+		count_t numReflections,
 		f32_t sampleRate)
 	{
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels ||
-			m_NumDiffusionChannels != numDiffusionChannels)
+			m_NumReflections != numReflections)
 		{
-			m_Delays.resize(numChannels * numDiffusionChannels);
-			m_DelaysMixBuffer.Resize(numFrames, numChannels * numDiffusionChannels);
-			m_Mix.Resize(numDiffusionChannels);
+			m_Delays.resize(numChannels * numReflections);
 
 			for (count_t c = 0; c < numChannels; ++c)
 			{
-				count_t delayNumFramesRange = k_DelayMsRange * T{ 0.001 } * sampleRate;
-				for (count_t d = 0; d < numDiffusionChannels; ++d)
+				for (count_t r = 0; r < numReflections; ++r)
 				{
-					count_t delayNumFramesLow = delayNumFramesRange * d / numDiffusionChannels;
-					count_t delayNumFramesHigh = delayNumFramesRange * (d + 1) / numDiffusionChannels;
-					count_t delayNumFrames = delayNumFramesLow + rand() % (delayNumFramesHigh - delayNumFramesLow);
+					T t = static_cast<T>(r + 1) / static_cast<T>(numReflections);
+					T delayMs = std::lerp(k_MinDelayMs, k_MaxDelayMs, t * t);
+					count_t delayNumFrames = delayMs * T{ 0.001 } * sampleRate;
 					NZ_ASSERT(delayNumFrames != 0);
-					m_Delays[c * numDiffusionChannels + d].Reset(delayNumFrames);
+					auto& delay = m_Delays[c * numReflections + r];
+					delay.Reset(delayNumFrames);
+					delay.SetDelay(delayNumFrames);
 				}
 			}
-
-			BuildHadamard();
 		}
-
-		m_DelaysMixBuffer.Zero();
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
-		m_NumDiffusionChannels = numDiffusionChannels;
+		m_NumReflections = numReflections;
 	}
 
 	inline void Process(
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer)
 	{
+		T gainPerDelay = T{ 1.0 } / std::sqrt(static_cast<T>(m_NumReflections));
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
-			for (count_t d = 0; d < m_NumDiffusionChannels; ++d)
+			for (count_t f = 0; f < m_NumFrames; ++f)
 			{
-				m_Delays[c * m_NumDiffusionChannels + d].Process(inBuffer.View(c * m_NumDiffusionChannels + d), m_DelaysMixBuffer.View(c * m_NumDiffusionChannels + d), m_NumFrames, 0);
+				T acc{ 0 };
+				for (count_t r = 0; r < m_NumReflections; ++r)
+				{
+					auto& delay = m_Delays[c * m_NumReflections + r];
+					acc += delay.Process(inBuffer(f, c));
+				}
+
+				outBuffer(f, c) += acc * gainPerDelay;
+			}
+		}
+	}
+
+private:
+	std::vector<Delay<T>> m_Delays;
+	count_t m_NumFrames = 0;
+	count_t m_NumChannels = 0;
+	count_t m_NumReflections = 0;
+};
+
+
+template<typename T>
+class DiffusionStep
+{
+	static constexpr T k_MinDelayMs = T{ 20.0 };
+	static constexpr T k_MaxDelayMs = T{ 150.0 };
+
+public:
+	inline void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		count_t numDelays,
+		f32_t sampleRate)
+	{
+		if (m_NumFrames != numFrames ||
+			m_NumChannels != numChannels ||
+			m_NumDelays != numDelays)
+		{
+			m_Delays.resize(numChannels * numDelays);
+			m_Mix.Resize(numDelays);
+
+			for (count_t c = 0; c < numChannels; ++c)
+			{
+				for (count_t d = 0; d < numDelays; ++d)
+				{
+					T t = static_cast<T>(d + 1) / static_cast<T>(numDelays);
+					T delayMs = std::lerp(k_MinDelayMs, k_MaxDelayMs, t * t);
+					count_t delayNumFrames = delayMs * T{ 0.001 } * sampleRate;
+					auto& delay = m_Delays[c * numDelays + d];
+					delay.Reset(delayNumFrames);
+					delay.SetDelay(delayNumFrames);
+				}
 			}
 
-			m_DelaysMixBuffer.View(c * m_NumDiffusionChannels, m_NumDiffusionChannels).Multiply(m_Mix);
-			outBuffer.View(c * m_NumDiffusionChannels, m_NumDiffusionChannels).Copy(m_DelaysMixBuffer.View(c * m_NumDiffusionChannels, m_NumDiffusionChannels));
+			BuildHadamard();
+		}
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+		m_NumDelays = numDelays;
+		m_SampleRate = sampleRate;
+	}
+
+	inline f32_t Noise()
+	{
+		static u32_t seed = 12345;
+		seed ^= seed << 13;
+		seed ^= seed >> 17;
+		seed ^= seed << 5;
+		return static_cast<f32_t>(seed & 0xFFFFFF) / static_cast<f32_t>(0x1000000);
+	}
+
+	inline void Process(
+		ConstFloatBufferView inBuffer,
+		FloatBufferView outBuffer)
+	{
+		// TODO: replace simple modulation...
+		static float mod = 0.0f;
+		static int modx = 0;
+		mod = 5.0f * std::sin(2.0f * M_PI * (float)modx / (float)(1 << 10));
+		modx = (modx + 1) & ((1 << 10) - 1);
+
+		for (count_t c = 0; c < m_NumChannels; ++c)
+		{
+			auto delayInBuffer = inBuffer.View(c * m_NumDelays, m_NumDelays);
+			auto delayOutBuffer = outBuffer.View(c * m_NumDelays, m_NumDelays);
+
+			for (count_t f = 0; f < m_NumFrames; ++f)
+			{
+				for (count_t d = 0; d < m_NumDelays; ++d)
+				{
+					auto& delay = m_Delays[c * m_NumDelays + d];
+					delayOutBuffer(f, d) = delay.Process(delayInBuffer(f, d), mod);
+				}
+			}
+
+			delayOutBuffer.Multiply(m_Mix);
 		}
 	}
 
@@ -100,84 +188,81 @@ private:
 	}
 
 private:
-	std::vector<Delay<T, 1>> m_Delays;
-	FloatBuffer m_DelaysMixBuffer;
+	std::vector<Delay<T>> m_Delays;
 	math::FloatMat m_Mix;
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
-	count_t m_NumDiffusionChannels = 0;
+	count_t m_NumDelays = 0;
+	f32_t m_SampleRate = 0.0f;
 };
 
 template<typename T>
 class FeedbackStep
 {
-	static constexpr T k_DelayMsBase = T{ 50.0 };
+	static constexpr T k_MinDelayMs = T{ 30.0 };
+	static constexpr T k_MaxDelayMs = T{ 120.0 };
 
 public:
 	inline void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		count_t numFeedbacks,
-		f32_t decayTimeMs,
+		count_t numDelays,
 		f32_t sampleRate)
 	{
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels ||
-			m_NumFeedbacks != numFeedbacks)
+			m_NumDelays != numDelays)
 		{
-			m_DelayFeedbacks.resize(numChannels * numFeedbacks);
-			m_DelayFeedbacksMixBuffer.Resize(numFrames, numChannels * numFeedbacks);
-			m_Mix.Resize(numFeedbacks);
+			m_Delays.resize(numChannels * numDelays);
+			m_Mix.Resize(numDelays);
 
 			for (count_t c = 0; c < numChannels; ++c)
 			{
-				count_t delaySamplesBase = k_DelayMsBase * T{ 0.001 } * sampleRate;
-				for (count_t d = 0; d < numFeedbacks; ++d)
+				for (count_t d = 0; d < numDelays; ++d)
 				{
-					T r = d * T{ 1.0 } / numFeedbacks;
-					count_t delayNumFrames = std::pow(2, r) * delaySamplesBase;
+					T t = static_cast<T>(d + 1) / static_cast<T>(numDelays);
+					T delayMs = std::lerp(k_MinDelayMs, k_MaxDelayMs, t * t);
+					count_t delayNumFrames = delayMs * T{ 0.001 } * sampleRate;
 					NZ_ASSERT(delayNumFrames != 0);
-					m_DelayFeedbacks[c * numFeedbacks + d].Reset(delayNumFrames);
+					auto& delay = m_Delays[c * numDelays + d];
+					delay.Reset(delayNumFrames);
+					delay.SetDelay(delayNumFrames);
 				}
 			}
 
 			BuildHouseholder();
 		}
 
-		if (m_DecayTimeMs != decayTimeMs)
-		{
-			f32_t t60 = decayTimeMs / 1000.0f;
-			for (count_t c = 0; c < numChannels; ++c)
-			{
-				for (count_t d = 0; d < numFeedbacks; ++d)
-				{
-					auto& delayFeedback = m_DelayFeedbacks[c * numFeedbacks + d];
-					delayFeedback.SetFeedbackTarget(std::pow(10.0f, (-3.0f * delayFeedback.GetNumFrames()) / (sampleRate * t60)));
-				}
-			}
-		}
-
-		m_DelayFeedbacksMixBuffer.Zero();
-
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
-		m_NumFeedbacks = numFeedbacks;
-		m_DecayTimeMs = decayTimeMs;
+		m_NumDelays = numDelays;
 	}
 
 	inline void Process(
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer)
 	{
+		// TODO: replace simple modulation...
+		static float mod = 0.0f;
+		static int modx = 0;
+		mod = 5.0f * std::sin(2.0f * M_PI * (float)modx / (float)(1 << 10));
+		modx = (modx + 1) & ((1 << 10) - 1);
+
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
-			for (count_t d = 0; d < m_NumFeedbacks; ++d)
+			auto delayInBuffer = inBuffer.View(c * m_NumDelays, m_NumDelays);
+			auto delayOutBuffer = outBuffer.View(c * m_NumDelays, m_NumDelays);
+
+			for (count_t f = 0; f < m_NumFrames; ++f)
 			{
-				m_DelayFeedbacks[c * m_NumFeedbacks + d].Process(inBuffer.View(c * m_NumFeedbacks + d), m_DelayFeedbacksMixBuffer.View(c * m_NumFeedbacks + d), m_NumFrames, 0);
+				for (count_t d = 0; d < m_NumDelays; ++d)
+				{
+					auto& delay = m_Delays[c * m_NumDelays + d];
+					delayOutBuffer(f, d) = delay.Process(delayInBuffer(f, d), mod, 0.9f);
+				}
 			}
 
-			m_DelayFeedbacksMixBuffer.View(c * m_NumFeedbacks, m_NumFeedbacks).Multiply(m_Mix);
-			outBuffer.View(c * m_NumFeedbacks, m_NumFeedbacks).Copy(m_DelayFeedbacksMixBuffer.View(c * m_NumFeedbacks, m_NumFeedbacks));
+			delayOutBuffer.Multiply(m_Mix);
 		}
 	}
 
@@ -199,28 +284,29 @@ private:
 	}
 
 private:
-	std::vector<DelayFeedback<T, 1>> m_DelayFeedbacks;
-	FloatBuffer m_DelayFeedbacksMixBuffer;
+	std::vector<DelayFeedback<T>> m_Delays;
 	math::FloatMat m_Mix;
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
-	count_t m_NumFeedbacks = 0;
+	count_t m_NumDelays = 0;
 	f32_t m_DecayTimeMs = 50.0f;
 };
 
 
 class Reverb::Impl
 {
+	static constexpr count_t k_NumEarlyReflections = 8;
 	static constexpr count_t k_NumDiffusers = 4;
 	static constexpr count_t k_NumDiffuserChannels = 8;
-	static constexpr f32_t k_SplitSumGain = 1.0f / std::sqrt(f32_t(k_NumDiffuserChannels));
 
 public:	
 	Impl()
 		: m_Wet(0.0f)
 		, m_DecayMs(1000.0f)
-		, m_SplitBuffer()
+		, m_EarlyReflectionBuffer()
+		, m_DiffusionBuffer()
 		, m_NumDiffusionSteps(k_NumDiffusers)
+		, m_EarlyReflectionStep()
 		, m_DiffusionSteps(k_NumDiffusers)
 		, m_FeedbackStep()
 		, m_NumFrames(0)
@@ -235,28 +321,33 @@ public:
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Reverb - Process");
 
+		m_EarlyReflectionStep.Process(inBuffer, m_EarlyReflectionBuffer);
+
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
 			for (count_t dc = 0; dc < k_NumDiffuserChannels; ++dc)
 			{
-				m_SplitBuffer.View(c * k_NumDiffuserChannels + dc).Copy(inBuffer.View(c));
+				m_DiffusionBuffer.View(c * k_NumDiffuserChannels + dc).Copy(inBuffer.View(c));
 			}
 		}
 
 		for (count_t d = 0; d < m_NumDiffusionSteps; ++d)
 		{
-			m_DiffusionSteps[d].Process(m_SplitBuffer, m_SplitBuffer);
+			m_DiffusionSteps[d].Process(m_DiffusionBuffer, m_DiffusionBuffer);
 		}
 
-		m_FeedbackStep.Process(m_SplitBuffer, m_SplitBuffer);
+		m_FeedbackStep.Process(m_DiffusionBuffer, m_DiffusionBuffer);
 
-		outBuffer.Zero();
+		outBuffer.Copy(m_EarlyReflectionBuffer);
 
+		f32_t gainPerChannel = 1.0f / std::sqrt(f32_t(k_NumDiffuserChannels));
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
 			for (count_t dc = 0; dc < k_NumDiffuserChannels; ++dc)
 			{
-				outBuffer.View(c).Add(m_SplitBuffer.View(c * k_NumDiffuserChannels + dc), k_SplitSumGain);
+				outBuffer.View(c).Add(
+					m_DiffusionBuffer.View(c * k_NumDiffuserChannels + dc),
+					gainPerChannel);
 			}
 		}
 
@@ -275,17 +366,21 @@ public:
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels)
 		{
-			m_SplitBuffer.Resize(numFrames, numChannels * k_NumDiffuserChannels);
+			m_EarlyReflectionBuffer.Resize(numFrames, numChannels);
+			m_DiffusionBuffer.Resize(numFrames, numChannels * k_NumDiffuserChannels);
 		}
+
+		m_EarlyReflectionStep.Prepare(numFrames, numChannels, k_NumEarlyReflections, sampleRate);
 
 		for (count_t d = 0; d < m_NumDiffusionSteps; ++d)
 		{
 			m_DiffusionSteps[d].Prepare(numFrames, numChannels, k_NumDiffuserChannels, sampleRate);
 		}
 
-		m_FeedbackStep.Prepare(numFrames, numChannels, k_NumDiffuserChannels, m_DecayMs.Get(), sampleRate);
+		m_FeedbackStep.Prepare(numFrames, numChannels, k_NumDiffuserChannels, sampleRate);
 
-		m_SplitBuffer.Zero();
+		m_EarlyReflectionBuffer.Zero();
+		m_DiffusionBuffer.Zero();
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
@@ -305,8 +400,10 @@ private:
 	FloatSlotBlockParameter m_Wet;
 	FloatSlotBlockParameter m_DecayMs;
 
-	FloatBuffer m_SplitBuffer;
+	FloatBuffer m_EarlyReflectionBuffer;
+	FloatBuffer m_DiffusionBuffer;
 	count_t m_NumDiffusionSteps;
+	EarlyReflectionStep<f32_t> m_EarlyReflectionStep;
 	std::vector<DiffusionStep<f32_t>> m_DiffusionSteps;
 	FeedbackStep<f32_t> m_FeedbackStep;
 

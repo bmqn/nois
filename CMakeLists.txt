@@ -175,6 +175,8 @@ target_compile_options(
 	$<$<CONFIG:Distribution>:-O3>
 	$<$<CONFIG:Distribution>:-flto>
 	$<$<CONFIG:Distribution>:-funroll-loops>
+	PUBLIC
+	-mavx
 )
 endif()
 

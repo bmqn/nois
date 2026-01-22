@@ -6,7 +6,7 @@
 
 namespace nois {
 
-template<typename T, count_t C = k_MaxChannels, count_t F = k_CacheOptimisedNumFrames>
+template<typename T, count_t C = 1, count_t F = k_CacheOptimisedNumFrames>
 struct Delay
 {
 	Delay(count_t numFrames = 0)
@@ -16,19 +16,21 @@ struct Delay
 
 	inline void Reset(count_t numFrames)
 	{
-		m_NumFrames = numFrames;
+		ucount_t realNumFrames = NextPowerOfTwo(numFrames);
+		m_NumFrames = realNumFrames;
+		m_ModuloMask = realNumFrames - 1;
 		for (auto& offset : m_Offsets)
 		{
 			offset = 0;
 		}
 		for (auto& buffer : m_Buffers)
 		{
-			buffer.resize(numFrames, T{});
+			buffer.resize(realNumFrames, T{});
 			buffer.shrink_to_fit();
 		}
 	}
 
-	inline T Process(T x, count_t c)
+	inline T Process(T x, T m = T{ 0 }, count_t c = 0)
 	{
 		if (m_NumFrames == 0)
 		{
@@ -38,9 +40,18 @@ struct Delay
 		auto& offset = m_Offsets[c];
 		auto& buffer = m_Buffers[c];
 
-		count_t indexRead = (offset + 1) % m_NumFrames;
-		count_t indexWrite = offset % m_NumFrames;
-		T y = buffer[indexRead];
+		// Grab write/read indices
+		count_t indexWrite = offset & m_ModuloMask;
+		T indexReadFrac = m_NumDelayFrames + m;
+		indexReadFrac = (indexWrite - static_cast<ucount_t>(indexReadFrac)) & m_ModuloMask;
+
+		// Interpolate read & write
+		count_t indexReadFrac0 = indexReadFrac;
+		count_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
+		T factor = indexReadFrac - T{ indexReadFrac0 };
+		T y0 = buffer[indexReadFrac0];
+		T y1 = buffer[indexReadFrac1];
+		T y = y0 + (y1 - y0) * factor;
 		buffer[indexWrite] = x;
 	
 		++offset;
@@ -48,26 +59,41 @@ struct Delay
 		return y;
 	}
 
-	inline void Process(const T* inData, T* outData, count_t numFrames, count_t c)
+	inline void Process(const T* inData, const T* modData, T* outData, count_t numFrames, count_t c = 0)
 	{
 		for (count_t f = 0; f < numFrames; ++f)
 		{
-			outData[f] = Process(inData[f], c);
+			outData[f] = Process(inData[f], modData[f], c);
 		}
 	}
 
-	inline count_t GetNumFrames() const
+	inline void SetDelay(T numDelayFrames)
 	{
-		return m_NumFrames;
+		m_NumDelayFrames = std::clamp(numDelayFrames, T{ 0 }, T{ m_NumFrames - 1 });
 	}
 
 private:
-	count_t m_NumFrames = 0;
-	std::array<count_t, C> m_Offsets = { 0 };
+	ucount_t NextPowerOfTwo(count_t n)
+	{
+		ucount_t power = 1;
+
+		while (power < n)
+		{
+			power <<= 1;
+		}
+		
+		return power;
+	}
+
+private:
+	ucount_t m_NumFrames = 0;
+	ucount_t m_ModuloMask;
+	T m_NumDelayFrames  = T{ 0 };
+	std::array<ucount_t, C> m_Offsets = { 0 };
 	std::array<SmallVector<T, F>, C> m_Buffers;
 };
 
-template<typename T, count_t C = k_MaxChannels, count_t F = k_CacheOptimisedNumFrames>
+template<typename T, count_t C = 1, count_t F = k_CacheOptimisedNumFrames>
 struct DelayFeedback
 {
 	DelayFeedback(count_t numFrames = 0)
@@ -77,28 +103,21 @@ struct DelayFeedback
 
 	inline void Reset(count_t numFrames)
 	{
-		m_NumFrames = numFrames;
+		ucount_t realNumFrames = NextPowerOfTwo(numFrames);
+		m_NumFrames = realNumFrames;
+		m_ModuloMask = realNumFrames - 1;
 		for (auto& offset : m_Offsets)
 		{
 			offset = 0;
 		}
-		for (auto& feedback : m_Feedbacks)
-		{
-			feedback = m_FeedbackTarget;
-		}
 		for (auto& buffer : m_Buffers)
 		{
-			buffer.resize(numFrames, T{});
+			buffer.resize(realNumFrames, T{});
 			buffer.shrink_to_fit();
 		}
 	}
 
-	inline void SetFeedbackTarget(f32_t feedbackTarget)
-	{
-		m_FeedbackTarget = feedbackTarget;
-	}
-
-	inline T Process(T x, count_t c)
+	inline T Process(T x, T m = T{ 0 }, T f = T{ 0 }, count_t c = 0)
 	{
 		if (m_NumFrames == 0)
 		{
@@ -106,38 +125,58 @@ struct DelayFeedback
 		}
 
 		auto& offset = m_Offsets[c];
-		auto& feedback = m_Feedbacks[c];
 		auto& buffer = m_Buffers[c];
 
-		count_t indexRead = (offset + 1) % m_NumFrames;
-		count_t indexWrite = offset % m_NumFrames;
-		T y = buffer[indexRead];
-		buffer[indexWrite] = x + feedback * y;
+		// Grab write/read indices
+		count_t indexWrite = offset & m_ModuloMask;
+		T indexReadFrac = m_NumDelayFrames + m;
+		indexReadFrac = (indexWrite - static_cast<ucount_t>(indexReadFrac)) & m_ModuloMask;
+
+		// Interpolate read & write
+		count_t indexReadFrac0 = indexReadFrac;
+		count_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
+		T factor = indexReadFrac - T{ indexReadFrac0 };
+		T y0 = buffer[indexReadFrac0];
+		T y1 = buffer[indexReadFrac1];
+		T y = y0 + (y1 - y0) * factor;
+		buffer[indexWrite] = x + f * y;
 	
 		++offset;
-		feedback += (m_FeedbackTarget - feedback) * T{ 0.1 };
-	
+
 		return y;
 	}
 
-	inline void Process(const T* inData, T* outData, count_t numFrames, count_t c)
+	inline void Process(const T* inData, const T* modData, const T* feedbackData, T* outData, count_t numFrames, count_t c = 0)
 	{
 		for (count_t f = 0; f < numFrames; ++f)
 		{
-			outData[f] = Process(inData[f], c);
+			outData[f] = Process(inData[f], modData[f], feedbackData[f], c);
 		}
 	}
 
-	inline count_t GetNumFrames() const
+	inline void SetDelay(T numDelayFrames)
 	{
-		return m_NumFrames;
+		m_NumDelayFrames = std::clamp(numDelayFrames, T{ 0 }, T{ m_NumFrames - 1 });
 	}
 
 private:
-	count_t m_NumFrames = 0;
-	T m_FeedbackTarget = T{ 0 };
-	std::array<count_t, C> m_Offsets = { 0 };
-	std::array<T, C> m_Feedbacks = { T{ 0 } };
+	ucount_t NextPowerOfTwo(count_t n)
+	{
+		ucount_t power = 1;
+
+		while (power < n)
+		{
+			power <<= 1;
+		}
+		
+		return power;
+	}
+
+private:
+	ucount_t m_NumFrames = 0;
+	ucount_t m_ModuloMask;
+	T m_NumDelayFrames  = T{ 0 };
+	std::array<ucount_t, C> m_Offsets = { 0 };
 	std::array<SmallVector<T, F>, C> m_Buffers;
 };
 

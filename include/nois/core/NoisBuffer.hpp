@@ -564,6 +564,16 @@ public:
 
 	void Multiply(const math::Mat<T>& mat)
 	{
+		// TODO: crap, the fast matrix path requires an interleaved layout
+
+		// for (count_t f = 0; f < m_NumFrames; ++f)
+		// {
+		// 	count_t m = std::min(m_NumChannels, mat.GetM());
+		// 	math::MatView<T> samples = math::MatView<T>(m, 1, &(*this)(f, 0));
+		// 	math::Mat<T> samplesCopy = samples;
+		// 	mat.Multiply(samplesCopy, samples);
+		// }
+
 		for (count_t f = 0; f < m_NumFrames; ++f)
 		{
 			count_t m = std::min(m_NumChannels, mat.GetM());
