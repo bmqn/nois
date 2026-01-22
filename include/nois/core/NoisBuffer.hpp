@@ -293,16 +293,6 @@ public:
 		return m_Data.data();
 	}
 
-	operator BufferView<T>()
-	{
-		return View(0, m_NumChannels);
-	}
-
-	operator ConstBufferView<T>() const
-	{
-		return View(0, m_NumChannels);
-	}
-
 	T& operator()(count_t f, count_t c)
 	{
 		return m_Data[f + c * m_NumFrames];
@@ -331,6 +321,16 @@ public:
 	const T& operator[](count_t i) const
 	{
 		return m_Data[i];
+	}
+
+	operator BufferView<T>()
+	{
+		return View(0, m_NumChannels);
+	}
+
+	operator ConstBufferView<T>() const
+	{
+		return View(0, m_NumChannels);
 	}
 
 private:
@@ -480,9 +480,9 @@ public:
 		);
 	}
 
-	BufferView<const T> View(count_t c, count_t numChannels = 1) const
+	ConstBufferView<T> View(count_t c, count_t numChannels = 1) const
 	{
-		return BufferView<const T>(
+		return ConstBufferView<T>(
 			&m_Data[c * m_NumFrames],
 			m_NumFrames,
 			std::min(m_NumChannels - c, numChannels)
@@ -630,6 +630,11 @@ public:
 	const T& operator[](count_t i) const
 	{
 		return m_Data[i];
+	}
+
+	operator ConstBufferView<T>() const
+	{
+		return View(0, m_NumChannels);
 	}
 
 private:
