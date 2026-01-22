@@ -77,7 +77,7 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/NoisLog.h"
 	"${NOIS_SRC_DIR}/NoisMacros.hpp"
 
-	#"${NOIS_SRC_DIR}/analysis/NoisFilterBank.cpp"
+	"${NOIS_SRC_DIR}/analysis/NoisFilterBank.cpp"
 
 	"${NOIS_SRC_DIR}/dynamic/NoisExpander.cpp"
 	"${NOIS_SRC_DIR}/dynamic/NoisTransientShaper.cpp"
@@ -170,7 +170,7 @@ target_compile_options(
 	$<$<CONFIG:Debug>:-g>
 	$<$<CONFIG:Release>:-g>
 	$<$<CONFIG:Release>:-O3>
-	# $<$<CONFIG:Release>:-flto>
+	$<$<CONFIG:Release>:-flto>
 	$<$<CONFIG:Release>:-funroll-loops>
 	$<$<CONFIG:Distribution>:-O3>
 	$<$<CONFIG:Distribution>:-flto>
