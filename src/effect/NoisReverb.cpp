@@ -146,7 +146,7 @@ public:
 				for (count_t d = 0; d < m_NumDelays; ++d)
 				{
 					auto& delay = m_Delays[c * m_NumDelays + d];
-					delayOutBuffer(f, d) = delay.Process(delayInBuffer(f, d), mod);
+					delayOutBuffer(f, d) = delay.Process(delayInBuffer(f, d), mod, 0.3f);
 				}
 			}
 
@@ -187,7 +187,7 @@ private:
 	}
 
 private:
-	std::vector<Delay<T>> m_Delays;
+	std::vector<DelayFeedback<T>> m_Delays;
 	math::FloatMat m_Mix;
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
