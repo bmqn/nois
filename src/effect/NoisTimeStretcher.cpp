@@ -260,60 +260,47 @@ private:
 		// If we should start blending in the next grain
 		if (m_Phases[c][m_GrainPlayings[c]] >= startBlendPhase)
 		{
-			count_t newGrainOffset = m_Grains[c][m_GrainPlayings[c]] + grainOffset;
+			count_t g = m_Grains[c][m_GrainPlayings[c]] + grainOffset;
 
 			if (m_IsGrainLockActive)
 			{
-				// // Lock the offset to the nearest zero crossing
-				// newGrainOffset = FindZeroCrossing(
-				// 	m_CacheBuffer,
-				// 	newGrainOffset,
-				// 	c,
-				// 	grainOffset);
+				// Lock the offset to the nearest zero crossing
+				g = FindZeroCrossing(g, c, grainOffset);
 			}
 
 			// Start the next grain
 			m_Phases[c][!m_GrainPlayings[c]] = 0.0f;
-			m_Grains[c][!m_GrainPlayings[c]] = newGrainOffset;
+			m_Grains[c][!m_GrainPlayings[c]] = g;
 			m_GrainPlayings[c] = 1 - m_GrainPlayings[c];
 		}
 
 		return y;
 	}
 
-	// inline count_t FindZeroCrossing(
-	// 	const InterleavedRingBuffer<f32_t> &buffer,
-	// 	count_t frameIndex,
-	// 	count_t channelIndex,
-	// 	count_t searchLength)
-	// {
-	// 	count_t numChannels = buffer.GetNumChannels();
+	inline count_t FindZeroCrossing(
+		count_t g,
+		count_t c,
+		count_t searchLength)
+	{
+		f32_t prevX  = 0.0f;
+		f32_t currX  = 0.0f;
 
-	// 	// Scratch storage for samples
-	// 	std::array<f32_t, k_MaxChannels> samples;
+		// Scan backward to find zero-crossing
+		for (count_t s = 0; s < searchLength; ++s)
+		{
+			currX = m_Delay.Search(m_FillOffsets[c] - g + s);
 
-	// 	f32_t prevSample = 0.0f;
-	// 	f32_t currSample = 0.0f;
+			// Check for zero crossing
+			if (prevX <= 0.0f && currX > 0.0f)
+			{
+				return g - s;
+			}
 
-	// 	// Scan backward to find zero-crossing
-	// 	for (count_t searchOffset = 0; searchOffset < searchLength; ++searchOffset)
-	// 	{
-	// 		buffer.GetChronological(frameIndex - searchOffset, samples.data(), numChannels);
+			prevX = currX;
+		}
 
-	// 		currSample = samples[channelIndex];
-
-	// 		// Check for zero crossing
-	// 		if (prevSample <= 0.0f && currSample > 0.0f)
-	// 		{
-	// 			return frameIndex - searchOffset;
-	// 		}
-
-	// 		prevSample = currSample;
-	// 	}
-
-	// 	// Fallback on provided frame index
-	// 	return frameIndex;
-	// }
+		return g;
+	}
 
 private:
 	FloatSlotParameter m_StretchActive = 0.0f;

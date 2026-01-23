@@ -37,7 +37,7 @@ private:
 	nois::Own_t<NoisVstProcessorParameter> mStretchFactor;
 	nois::Own_t<NoisVstProcessorParameter> mGrainSize;
 	nois::Own_t<NoisVstProcessorParameter> mGrainBlend;
-	nois::Own_t<NoisVstProcessorParameter> mGrainPhaseLockActive;
+	nois::Own_t<NoisVstProcessorParameter> mGrainLockActive;
 
 	nois::FloatParameterRegistry mRegistry;
 
@@ -68,5 +68,5 @@ private:
 	nois::Own_t<NoisVstControllerParameter> mStretchFactor;
 	nois::Own_t<NoisVstControllerParameter> mGrainSize;
 	nois::Own_t<NoisVstControllerParameter> mGrainBlend;
-	nois::Own_t<NoisVstControllerParameter> mGrainPhaseLockActive;
+	nois::Own_t<NoisVstControllerParameter> mGrainLockActive;
 };
