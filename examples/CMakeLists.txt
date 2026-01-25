@@ -50,30 +50,42 @@ if(NOIS_EXAMPLES_PLATFORM STREQUAL "VST3")
 			base
 			PRIVATE
 			-w
+			$<$<CONFIG:Release>:-flto=thin>
 		)
 
 		target_compile_options(
 			pluginterfaces
 			PRIVATE
 			-w
+			$<$<CONFIG:Release>:-flto=thin>
 		)
 
 		target_compile_options(
 			sdk
 			PRIVATE
 			-w
+			$<$<CONFIG:Release>:-flto=thin>
 		)
 
 		target_compile_options(
 			sdk_common
 			PRIVATE
 			-w
+			$<$<CONFIG:Release>:-flto=thin>
 		)
 
 		target_compile_options(
 			sdk_hosting
 			PRIVATE
 			-w
+			$<$<CONFIG:Release>:-flto=thin>
+		)
+
+		target_compile_options(
+			validator
+			PRIVATE
+			-w
+			$<$<CONFIG:Release>:-flto=thin>
 		)
 endif()
 

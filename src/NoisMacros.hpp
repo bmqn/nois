@@ -5,6 +5,7 @@
 #define NOIS_INTERFACE_IMPL_MULTI() \
 	public: \
 	Impl() = default; \
+	virtual ~Impl() {} \
 	virtual Stream::Result Process(ConstFloatBufferView, FloatBufferView) = 0; \
 	virtual void Prepare(count_t, count_t, f32_t) = 0;
 

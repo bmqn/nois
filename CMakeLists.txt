@@ -127,71 +127,76 @@ target_compile_features(
 target_compile_definitions(
 	nois
 	PUBLIC
-	$<$<CONFIG:Debug>:NOIS_DEBUG=1>
-	$<$<CONFIG:Release>:NOIS_RELEASE=1>
-	$<$<CONFIG:Distribution>:NOIS_DISTRIBUTION=1>
+		$<$<CONFIG:Debug>:NOIS_DEBUG=1>
+		$<$<CONFIG:Release>:NOIS_RELEASE=1>
+		$<$<CONFIG:Distribution>:NOIS_DISTRIBUTION=1>
 )
 
 if(NOIS_ENABLE_PROFILING)
 target_compile_definitions(
 	nois
-	PUBLIC NOIS_ENABLE_PROFILING=1
+	PUBLIC
+		NOIS_ENABLE_PROFILING=1
 )
 endif()
 
 target_include_directories(
 	nois
-	PUBLIC "${NOIS_INC_DIR}"
-	PRIVATE "${NOIS_INC_DIR}" "${NOIS_SRC_DIR}" "${NOIS_LIB_DIR}/debugbreak"
+	PUBLIC
+		"${NOIS_INC_DIR}"
+	PRIVATE
+		"${NOIS_INC_DIR}"
+		"${NOIS_SRC_DIR}"
+		"${NOIS_LIB_DIR}/debugbreak"
 )
 
 target_precompile_headers(
 	nois
-	PRIVATE "${NOIS_SRC_DIR}/NoisPrefix.pch"
+	PRIVATE
+		"${NOIS_SRC_DIR}/NoisPrefix.pch"
 )
 
 if(MSVC)
 target_compile_options(
 	nois
-	PRIVATE
-	$<$<CONFIG:Release>:/Ox>
-	$<$<CONFIG:Release>:/GL>
-	/Zc:__cplusplus
+	PUBLIC
+		$<$<CONFIG:Release>:/Ox>
+		$<$<CONFIG:Release>:/GL>
+		/Zc:__cplusplus
 )
 else()
 target_compile_options(
 	nois
-	PRIVATE
-	-Wall
-	-Wextra
-	-Wpedantic
-	-Wno-unused-parameter
-	-Wno-sign-compare
-	$<$<CONFIG:Debug>:-g>
-	$<$<CONFIG:Release>:-g>
-	$<$<CONFIG:Release>:-O3>
-	$<$<CONFIG:Release>:-flto>
-	$<$<CONFIG:Release>:-funroll-loops>
-	$<$<CONFIG:Distribution>:-O3>
-	$<$<CONFIG:Distribution>:-flto>
-	$<$<CONFIG:Distribution>:-funroll-loops>
 	PUBLIC
-	-mavx
+		-Wall
+		-Wextra
+		-Wpedantic
+		-Wno-unused-parameter
+		-Wno-sign-compare
+		-mavx
+		$<$<CONFIG:Debug>:-g>
+		$<$<CONFIG:Release>:-g>
+		$<$<CONFIG:Release>:-O3>
+		$<$<CONFIG:Release>:-flto=thin>
+		$<$<CONFIG:Release>:-funroll-loops>
+		$<$<CONFIG:Distribution>:-O3>
+		$<$<CONFIG:Distribution>:-flto=thin>
+		$<$<CONFIG:Distribution>:-funroll-loops>
 )
 endif()
 
 if(MSVC)
 target_link_options(
 	nois
-	PRIVATE
-	$<$<CONFIG:Release>:/LTCG>
+	PUBLIC
+		$<$<CONFIG:Release>:/LTCG>
 )
 else()
 target_link_options(
 	nois
-	PRIVATE
-	$<$<CONFIG:Release>:-flto>
-	$<$<CONFIG:Distribution>:-flto>
+	PUBLIC
+		$<$<CONFIG:Release>:-flto=thin>
+		$<$<CONFIG:Distribution>:-flto=thin>
 )
 endif()
 

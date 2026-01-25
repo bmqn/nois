@@ -12,6 +12,8 @@ using namespace Steinberg;
 class NoisVstProcessorParameter
 {
 public:
+	virtual ~NoisVstProcessorParameter() {}
+
 	virtual Vst::ParamID GetPid() const = 0;
 
 	virtual Vst::ParamValue ApplyStep(Vst::ParamValue valuePlain) const = 0;
@@ -35,6 +37,8 @@ public:
 class NoisVstControllerParameter
 {
 public:
+	virtual ~NoisVstControllerParameter() {}
+
 	virtual Vst::ParamID GetPid() const = 0;
 
 	virtual operator Vst::Parameter*() = 0;

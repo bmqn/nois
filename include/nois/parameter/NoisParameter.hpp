@@ -145,6 +145,8 @@ class Parameter
 	friend class ParameterRegistry<T>;
 
 public:
+	virtual ~Parameter() {}
+
 	virtual T Get(count_t f) const = 0;
 	virtual bool Changed(count_t f) const = 0;
 
@@ -330,6 +332,8 @@ class BlockParameter
 	friend class ParameterRegistry<T>;
 
 public:
+	virtual ~BlockParameter() {}
+
 	virtual T Get() const = 0;
 	virtual T Min() const = 0;
 	virtual T Max() const = 0;

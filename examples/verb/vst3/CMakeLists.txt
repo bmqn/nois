@@ -21,12 +21,12 @@ smtg_target_configure_version_file(
 
 target_link_libraries(
 	verb-vst3
-	nois-common-vst3
+		nois-common-vst3
 )
 
 set_target_properties(
 	verb-vst3
 	PROPERTIES
-	FOLDER "Examples"
-	POSITION_INDEPENDENT_CODE ON
+		FOLDER "Examples"
+		POSITION_INDEPENDENT_CODE ON
 )

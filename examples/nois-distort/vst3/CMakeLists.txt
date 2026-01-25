@@ -22,12 +22,12 @@ smtg_target_configure_version_file(
 target_link_libraries(
 	nois-distort-vst3
 	PRIVATE
-	nois-common-vst3
+		nois-common-vst3
 )
 
 set_target_properties(
 	nois-distort-vst3
 	PROPERTIES
-	FOLDER "Examples"
-	POSITION_INDEPENDENT_CODE ON
+		FOLDER "Examples"
+		POSITION_INDEPENDENT_CODE ON
 )
