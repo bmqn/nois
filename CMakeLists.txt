@@ -220,6 +220,7 @@ set_target_properties(
 #--------------------------------------------------------------------------------------------------
 if(NOIS_ENABLE_PROFILING)
 # tracy
+set(TRACY_LTO ON)
 add_subdirectory("${NOIS_LIB_DIR}/tracy")
 endif()
 
