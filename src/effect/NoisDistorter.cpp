@@ -25,7 +25,7 @@ public:
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("TanhDistorterImpl - Consume");
+		NOIS_PROFILE_SCOPE();
 
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
@@ -59,7 +59,7 @@ public:
 		count_t numChannels,
 		f32_t sampleRate) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("TanhDistorterImpl - Prepare");
+		NOIS_PROFILE_SCOPE();
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;

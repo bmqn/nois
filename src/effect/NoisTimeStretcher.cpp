@@ -108,7 +108,7 @@ public:
 		count_t numChannels,
 		f32_t sampleRate)
 	{
-		NOIS_PROFILE_SCOPE_NAMED("TimeStretcher - PrepareToConsume");
+		NOIS_PROFILE_SCOPE();
 
 		if (m_SampleRate != sampleRate ||
 			m_NumChannels != numChannels ||

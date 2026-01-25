@@ -318,7 +318,7 @@ public:
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer)
 	{
-		NOIS_PROFILE_SCOPE_NAMED("Reverb - Process");
+		NOIS_PROFILE_SCOPE();
 
 		m_EarlyReflectionStep.Process(inBuffer, m_EarlyReflectionBuffer);
 
@@ -360,7 +360,7 @@ public:
 		count_t numChannels,
 		f32_t sampleRate)
 	{
-		NOIS_PROFILE_SCOPE_NAMED("Reverb - Prepare");
+		NOIS_PROFILE_SCOPE();
 
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels)

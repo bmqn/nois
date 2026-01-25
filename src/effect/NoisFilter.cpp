@@ -46,7 +46,7 @@ public:
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterLowImpl - Consume");
+		NOIS_PROFILE_SCOPE();
 
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
@@ -61,7 +61,7 @@ public:
 		count_t numChannels,
 		f32_t sampleRate) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterLowImpl - Prepare");
+		NOIS_PROFILE_SCOPE();
 
 		if (m_CutoffRatio.Changed())
 		{
@@ -102,7 +102,7 @@ public:
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterHighImpl - Consume");
+		NOIS_PROFILE_SCOPE();
 
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
@@ -117,7 +117,7 @@ public:
 		count_t numChannels,
 		f32_t sampleRate) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("N2ButterworthFilterHighImpl - Prepare");
+		NOIS_PROFILE_SCOPE();
 
 		if (m_CutoffRatio.Changed())
 		{
@@ -158,7 +158,7 @@ public:
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("LR4FilterLowImpl - Consume");
+		NOIS_PROFILE_SCOPE();
 
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
@@ -176,7 +176,7 @@ public:
 		count_t numChannels,
 		f32_t sampleRate) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("LR4FilterLowImpl - Prepare");
+		NOIS_PROFILE_SCOPE();
 
 		if (m_CutoffRatio.Changed())
 		{
@@ -220,7 +220,7 @@ public:
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Consume");
+		NOIS_PROFILE_SCOPE();
 
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
@@ -238,7 +238,7 @@ public:
 		count_t numChannels,
 		f32_t sampleRate) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Prepare");
+		NOIS_PROFILE_SCOPE();
 
 		if (m_CutoffRatio.Changed())
 		{
@@ -281,7 +281,7 @@ public:
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Consume");
+		NOIS_PROFILE_SCOPE();
 
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
@@ -296,7 +296,7 @@ public:
 		count_t numChannels,
 		f32_t sampleRate) override final
 	{
-		NOIS_PROFILE_SCOPE_NAMED("LR4FilterHighImpl - Prepare");
+		NOIS_PROFILE_SCOPE();
 
 		if (m_CutoffRatio.Changed() ||
 			m_Q.Changed())
