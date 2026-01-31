@@ -19,7 +19,7 @@ struct Wet
 	static constexpr const char* kTitle = "Wet";
 	static constexpr const char* kUnits = "%";
 	static constexpr Vst::ParamID kPid = kWet;
-	static constexpr nois::f32_t kDefaultValue = 50.0f;
+	static constexpr nois::f32_t kDefaultValue = 100.0f;
 	static constexpr nois::f32_t kMinValue = 0.0f;
 	static constexpr nois::f32_t kMaxValue = 100.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
