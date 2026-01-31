@@ -150,7 +150,6 @@ public:
 	virtual T Get(count_t f) const = 0;
 	virtual bool Changed(count_t f) const = 0;
 
-private:
 	virtual void Prepare(count_t numFrames, f32_t sampleRate)
 	{
 	}
@@ -219,7 +218,6 @@ public:
 		return m_Default;
 	}
 
-private:
 	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
 		m_Dirty = m_Dirtied;
@@ -277,7 +275,6 @@ public:
 		m_Binder = binder;
 	}
 
-private:
 	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
 		m_Frames.resize(numFrames);
@@ -339,7 +336,6 @@ public:
 	virtual T Max() const = 0;
 	virtual bool Changed() const = 0;
 
-private:
 	virtual void Prepare(count_t numFrames, f32_t sampleRate)
 	{
 	}
@@ -376,7 +372,6 @@ public:
 		return m_Dirty;
 	}
 
-private:
 	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
 		m_Dirty = m_Initialised;
@@ -435,7 +430,6 @@ public:
 		return m_Default;
 	}
 
-private:
 	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
 		m_Dirty = m_Reslotted;
@@ -487,7 +481,6 @@ public:
 		m_Binder = binder;
 	}
 
-private:
 	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
 		if (m_Binder)
