@@ -143,8 +143,8 @@ public:
 		}
 
 		m_NumFrames = numFrames;
-		m_SampleRate = sampleRate;
 		m_NumChannels = numChannels;
+		m_SampleRate = sampleRate;
 	}
 
 	void SetStretchActive(Ref_t<FloatParameter> stretchActive)
@@ -224,8 +224,8 @@ private:
 			f32_t x0 = g0 + phi0;
 			f32_t x1 = g1 + phi1;
 
-			f32_t y0 = m_Delay.Search(m_FillOffsets[c] - x0);
-			f32_t y1 = m_Delay.Search(m_FillOffsets[c] - x1);
+			f32_t y0 = m_Delay.Search(m_FillOffsets[c] - x0, c);
+			f32_t y1 = m_Delay.Search(m_FillOffsets[c] - x1, c);
 
 			y = y0 + (y1 - y0) * t;
 		}
@@ -237,7 +237,7 @@ private:
 
 			f32_t x = g + phi;
 
-			y = m_Delay.Search(m_FillOffsets[c] - x);
+			y = m_Delay.Search(m_FillOffsets[c] - x, c);
 		}
 
 		// Increment current grain phase
@@ -288,7 +288,7 @@ private:
 		// Scan backward to find zero-crossing
 		for (count_t s = 0; s < searchLength; ++s)
 		{
-			currX = m_Delay.Search(m_FillOffsets[c] - g + s);
+			currX = m_Delay.Search(m_FillOffsets[c] - g + s, c);
 
 			// Check for zero crossing
 			if (prevX <= 0.0f && currX > 0.0f)
