@@ -44,7 +44,7 @@ struct GrainSize
 	static constexpr const char* kTitle = "Grain Size";
 	static constexpr const char* kUnits = "ms";
 	static constexpr Vst::ParamID kPid = kGrainSize;
-	static constexpr nois::f32_t kDefaultValue = 10.0f;
+	static constexpr nois::f32_t kDefaultValue = 75.0f;
 	static constexpr nois::f32_t kMinValue = 0.5f;
 	static constexpr nois::f32_t kMaxValue = 100.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
@@ -97,7 +97,7 @@ NoisPlugin::NoisPlugin()
 	auto grainBlendNormalized =
 		mRegistry.CreateTransformer(
 			*mGrainBlend,
-			[this](nois::f32_t x, nois::count_t) { return x / 2.0f; });
+			[](nois::f32_t x, nois::count_t) { return x / 2.0f; });
 
 	mTimeStretcher = nois::TimeStretcher::Create();
 	mTimeStretcher->SetStretchActive(*mStretchActive);
