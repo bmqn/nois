@@ -13,22 +13,18 @@ set(NOIS_INC_DIR "${NOIS_ROOT_DIR}/include")
 set(NOIS_SRC_DIR "${NOIS_ROOT_DIR}/src")
 set(NOIS_LIB_DIR "${NOIS_ROOT_DIR}/libs")
 
-project(nois VERSION 1.0.0)
-
 
 #--------------------------------------------------------------------------------------------------
 #	Configuration
 #--------------------------------------------------------------------------------------------------
+set(NOIS_ENABLE_PROFILING OFF CACHE BOOL "Enable profiling")
 set(NOIS_EXAMPLES_PLATFORM "VST3" CACHE STRING "Platform to target for examples")
-option(NOIS_ENABLE_PROFILING "Enable profiling" OFF)
 
 if(NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
-add_compile_definitions(STM32H750xx=1 USE_HAL_DRIVER)
-list(APPEND CMAKE_C_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard")
-list(APPEND CMAKE_CXX_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard")
-list(APPEND CMAKE_ASM_FLAGS "-mcpu=cortex-m7 -mthumb")
-list(APPEND CMAKE_EXE_LINKER_FLAGS "--specs=nosys.specs --specs=nano.specs")
+include(${NOIS_ROOT_DIR}/examples/libs/libDaisy/cmake/toolchains/autodetect.cmake)
 endif()
+
+project(nois VERSION 1.0.0)
 
 
 #--------------------------------------------------------------------------------------------------
@@ -114,8 +110,8 @@ source_group(
 add_library(
 	nois
 	STATIC
-	"${NOIS_HSPSRC}"
-	"${NOIS_SRC}"
+		"${NOIS_HSPSRC}"
+		"${NOIS_SRC}"
 )
 
 target_compile_features(
@@ -173,16 +169,24 @@ target_compile_options(
 		-Wpedantic
 		-Wno-unused-parameter
 		-Wno-sign-compare
-		-mavx
+		# -fsanitize=address,undefined
+		# -fno-omit-frame-pointer
 		$<$<CONFIG:Debug>:-g>
 		$<$<CONFIG:Release>:-g>
 		$<$<CONFIG:Release>:-O3>
-		$<$<CONFIG:Release>:-flto=thin>
+		$<$<CONFIG:Release>:-flto>
 		$<$<CONFIG:Release>:-funroll-loops>
 		$<$<CONFIG:Distribution>:-O3>
-		$<$<CONFIG:Distribution>:-flto=thin>
+		$<$<CONFIG:Distribution>:-flto>
 		$<$<CONFIG:Distribution>:-funroll-loops>
 )
+if(NOT NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
+target_compile_options(
+	nois
+	PUBLIC
+		-mavx
+)
+endif()
 endif()
 
 if(MSVC)
@@ -195,8 +199,9 @@ else()
 target_link_options(
 	nois
 	PUBLIC
-		$<$<CONFIG:Release>:-flto=thin>
-		$<$<CONFIG:Distribution>:-flto=thin>
+		# -fsanitize=address,undefined
+		$<$<CONFIG:Release>:-flto>
+		$<$<CONFIG:Distribution>:-flto>
 )
 endif()
 
@@ -204,15 +209,17 @@ if(NOIS_ENABLE_PROFILING)
 target_link_libraries(
 	nois
 	PUBLIC
-	Tracy::TracyClient
+		Tracy::TracyClient
 )
 endif()
 
+if(NOT NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
 set_target_properties(
 	nois
 	PROPERTIES
-	POSITION_INDEPENDENT_CODE ON
+		POSITION_INDEPENDENT_CODE ON
 )
+endif()
 
 
 #-------------------------------------------------------------------------------------------------

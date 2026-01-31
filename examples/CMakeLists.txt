@@ -27,6 +27,9 @@ if(NOIS_EXAMPLES_PLATFORM STREQUAL "VST3")
 
 	# nois-distort-vst3
 	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-distort/vst3")
+
+	# verb-vst3
+	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/verb/vst3" "Examples")
 elseif(NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
 	# libDaisy
 	add_subdirectory("${NOIS_EXAMPLES_LIB_DIR}/libDaisy")
@@ -34,9 +37,6 @@ elseif(NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
 	# nois-stretch-versio
 	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-stretch/versio")
 endif()
-
-# verb-vst3
-add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/verb/vst3" "Examples")
 
 
 #-------------------------------------------------------------------------------------------------
