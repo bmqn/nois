@@ -3,6 +3,8 @@
 #include "nois/NoisTypes.hpp"
 #include "nois/util/NoisSmallVector.hpp"
 
+#include <unordered_map>
+
 namespace nois {
 
 template<typename T>
@@ -11,132 +13,267 @@ class ParameterRegistry;
 template<typename T>
 class Parameter;
 template<typename T>
-class SlotParameter;
-template<typename T>
+class ConstantParameter;
+template<typename T, typename F>
 class BinderParameter;
-template<typename T>
+template<typename T, typename F>
 class TransformerParameter;
 
 template<typename T>
 class BlockParameter;
 template<typename T>
 class ConstantBlockParameter;
-template<typename T>
-class SlotBlockParameter;
-template<typename T>
+template<typename T, typename F>
 class BinderBlockParameter;
-template<typename T>
+template<typename T, typename F>
 class TransformerBlockParameter;
 
 template<typename T>
-using BinderFunc_t = std::function<T(count_t)>;
+class SlotParameter;
 template<typename T>
-using BlockBinderFunc_t = std::function<T()>;
-
-template<typename T>
-using TransformerFunc_t = std::function<T(T, count_t)>;
-template<typename T>
-using BlockTransformerFunc_t = std::function<T(T)>;
-
-template<typename F, typename... Args>
-auto ParamBind_t(F&& f, Args &&...args)
-{
-	using T = std::invoke_result_t<F, Args..., count_t>;
-	return BinderFunc_t<T>(std::bind(
-		std::forward<F>(f),
-		std::forward<Args>(args)...,
-		std::placeholders::_1));
-}
-
-template<typename F, typename... Args>
-auto ParamBlockBind_t(F&& f, Args &&...args)
-{
-	using T = std::invoke_result_t<F, Args...>;
-	return BlockBinderFunc_t<T>(std::bind(
-		std::forward<F>(f),
-		std::forward<Args>(args)...));
-}
+class SlotBlockParameter;
 
 using FloatParameterRegistry = ParameterRegistry<f32_t>;
 
 using FloatParameter = Parameter<f32_t>;
-using FloatSlotParameter = SlotParameter<f32_t>;
-using FloatBinderParameter = BinderParameter<f32_t>;
-using FoatTransformerParameter = TransformerParameter<f32_t>;
-using FloatBinderFunc_t = BinderFunc_t<f32_t>;
+using FloatConstantParameter = ConstantParameter<f32_t>;
+template<typename F>
+using FloatBinderParameter = BinderParameter<f32_t, F>;
+template<typename F>
+using FloatTransformerParameter = TransformerParameter<f32_t, F>;
 
 using FloatBlockParameter = BlockParameter<f32_t>;
 using FloatConstantBlockParameter = ConstantBlockParameter<f32_t>;
+template<typename F>
+using FloatBinderBlockParameter = BinderBlockParameter<f32_t, F>;
+template<typename F>
+using FloatTransformerBlockParameter = TransformerBlockParameter<f32_t, F>;
+
+using FloatSlotParameter = SlotParameter<f32_t>;
 using FloatSlotBlockParameter = SlotBlockParameter<f32_t>;
-using FloatBinderBlockParameter = BinderBlockParameter<f32_t>;
-using FloatTransformerBlockParameter = TransformerBlockParameter<f32_t>;
-using FloatBlockBinderFunc_t = BlockBinderFunc_t<f32_t>;
-using FloatBlockTransformerFunc_t = BlockTransformerFunc_t<f32_t>;
 
 template<typename T>
 class ParameterRegistry
 {
 	// TODO: create parameters through this manager so they're auto-registered
 
+private:
+	enum class NodeState : uint8_t
+	{
+		Unvisited,
+		Visited
+	};
+
+	template <typename P>
+	struct Node
+	{
+		Ref_t<P> parameter = nullptr;
+		std::vector<Node<P>*> dependencies;
+		NodeState state = NodeState::Unvisited;
+	};
+
 public:
 	Ref_t<Parameter<T>> CreateConstant(T value)
 	{
-		auto parameter = MakeRef<BinderParameter<T>>([value](count_t) { return value; });
-		m_Parameters.emplace_back(parameter);
+		if (m_ParameterNodes.full())
+		{
+			return nullptr;
+		}
+
+		auto parameter = MakeRef<ConstantParameter<T>>(value);
+		
+		Node<Parameter<T>> node;
+		node.parameter = parameter;
+		m_ParameterNodes.emplace_back(node);
+		m_ParameterLookup.emplace(parameter, &m_ParameterNodes.back());
+
 		return parameter;
 	}
 
 	Ref_t<BlockParameter<T>> CreateBlockConstant(T value)
 	{
+		if (m_BlockParameterNodes.full())
+		{
+			return nullptr;
+		}
+
 		auto parameter = MakeRef<ConstantBlockParameter<T>>(value);
-		m_BlockParameters.emplace_back(parameter);
+		
+		Node<BlockParameter<T>> node;
+		node.parameter = parameter;
+		m_BlockParameterNodes.emplace_back(node);
+		m_BlockParameterLookup.emplace(parameter, &m_BlockParameterNodes.back());
+
 		return parameter;
 	}
 
-	Ref_t<Parameter<T>> CreateBinder(BinderFunc_t<T> binder)
+	template<typename F>
+	Ref_t<Parameter<T>> CreateBinder(F&& binder)
 	{
-		auto parameter = MakeRef<BinderParameter<T>>(binder);
-		m_Parameters.emplace_back(parameter);
+		if (m_ParameterNodes.full())
+		{
+			return nullptr;
+		}
+
+		auto parameter = MakeRef<BinderParameter<T, F>>(std::move(binder));
+		
+		Node<Parameter<T>> node;
+		node.parameter = parameter;
+		m_ParameterNodes.emplace_back(node);
+		m_ParameterLookup.emplace(parameter, &m_ParameterNodes.back());
+
 		return parameter;
 	}
 
-	Ref_t<BlockParameter<T>> CreateBlockBinder(BlockBinderFunc_t<T> binder, T min, T max)
+	template<typename F>
+	Ref_t<BlockParameter<T>> CreateBlockBinder(F&& binder, T min, T max)
 	{
-		auto parameter = MakeRef<BinderBlockParameter<T>>(binder, min, max);
-		m_BlockParameters.emplace_back(parameter);
+		if (m_BlockParameterNodes.full())
+		{
+			return nullptr;
+		}
+
+		auto parameter = MakeRef<BinderBlockParameter<T, F>>(std::move(binder), min, max);
+		
+		Node<BlockParameter<T>> node;
+		node.parameter = parameter;
+		m_BlockParameterNodes.emplace_back(node);
+		m_BlockParameterLookup.emplace(parameter, &m_BlockParameterNodes.back());
+
 		return parameter;
 	}
 
-	Ref_t<Parameter<T>> CreateTransformer(Ref_t<Parameter<T>> transformee, TransformerFunc_t<T> transformer)
+	template<typename F>
+	Ref_t<Parameter<T>> CreateTransformer(Ref_t<Parameter<T>> transformee, F&& transformer)
 	{
-		auto parameter = MakeRef<TransformerParameter<T>>(transformee, transformer);
-		m_Parameters.emplace_back(parameter);
+		if (m_ParameterNodes.full())
+		{
+			return nullptr;
+		}
+
+		auto parameter = MakeRef<TransformerParameter<T, F>>(transformee, std::move(transformer));
+		
+		Node<Parameter<T>> node;
+		node.dependencies.emplace_back(m_ParameterLookup[transformee]);
+		node.parameter = parameter;
+		m_ParameterNodes.emplace_back(node);
+		m_ParameterLookup.emplace(parameter, &m_ParameterNodes.back());
+
 		return parameter;
 	}
 
-	Ref_t<BlockParameter<T>> CreateBlockTransformer(Ref_t<BlockParameter<T>> transformee, BlockTransformerFunc_t<T> transformer)
+	template<typename F>
+	Ref_t<BlockParameter<T>> CreateBlockTransformer(Ref_t<BlockParameter<T>> transformee, F&& transformer)
 	{
-		auto parameter = MakeRef<TransformerBlockParameter<T>>(transformee, transformer);
-		m_BlockParameters.emplace_back(parameter);
+		if (m_BlockParameterNodes.full())
+		{
+			return nullptr;
+		}
+
+		auto parameter = MakeRef<TransformerBlockParameter<T, F>>(transformee, std::move(transformer));
+	
+		Node<BlockParameter<T>> node;
+		node.dependencies.emplace_back(m_BlockParameterLookup[transformee]);
+		node.parameter = parameter;
+		m_BlockParameterNodes.emplace_back(node);
+		m_BlockParameterLookup.emplace(parameter, &m_BlockParameterNodes.back());
+
 		return parameter;
+	}
+
+	void PrepareParameterVisit(Node<Parameter<T>>* node, count_t numFrames, f32_t sampleRate)
+	{
+		if (node->state == NodeState::Visited)
+		{
+			return;
+		}
+
+		for (auto* depNode : node->dependencies)
+		{
+			PrepareParameterVisit(depNode, numFrames, sampleRate);
+		}
+
+		node->parameter->Prepare(numFrames, sampleRate);
+		node->state = NodeState::Visited;
+	}
+
+	void PrepareBlockParameterVisit(Node<BlockParameter<T>>* node, f32_t sampleRate)
+	{
+		if (node->state == NodeState::Visited)
+		{
+			return;
+		}
+
+		for (auto* depNode : node->dependencies)
+		{
+			PrepareBlockParameterVisit(depNode, sampleRate);
+		}
+
+		node->parameter->Prepare(sampleRate);
+		node->state = NodeState::Visited;
 	}
 
 	void Prepare(count_t numFrames, f32_t sampleRate)
 	{
-		for (auto& parameter : m_Parameters)
+		for (auto& node : m_ParameterNodes)
 		{
-			parameter->Prepare(numFrames, sampleRate);
+			node.state = NodeState::Unvisited;
 		}
 
-		for (auto& parameter : m_BlockParameters)
+		for (auto& node : m_BlockParameterNodes)
 		{
-			parameter->Prepare(numFrames, sampleRate);
+			node.state = NodeState::Unvisited;
+		}
+
+		for (auto& node : m_ParameterNodes)
+		{
+			PrepareParameterVisit(&node, numFrames, sampleRate);
+		}
+
+		for (auto& node : m_BlockParameterNodes)
+		{
+			PrepareBlockParameterVisit(&node, sampleRate);
 		}
 	}
 
 private:
-	std::vector<Ref_t<Parameter<T>>> m_Parameters;
-	std::vector<Ref_t<BlockParameter<T>>> m_BlockParameters;
+	SmallVector<Node<Parameter<T>>, 64> m_ParameterNodes;
+	std::unordered_map<Ref_t<Parameter<T>>, Node<Parameter<T>>*> m_ParameterLookup;
+
+	SmallVector<Node<BlockParameter<T>>, 64> m_BlockParameterNodes;
+	std::unordered_map<Ref_t<BlockParameter<T>>, Node<BlockParameter<T>>*> m_BlockParameterLookup;
+};
+
+template<typename T>
+class ParameterBlock
+{
+public:
+	struct Frame
+	{
+		T value = T{ 0 };
+		bool changed = false;
+	};
+
+public:
+	ParameterBlock(const Frame* frames, count_t numFrames = 1)
+		: m_NumFrames(numFrames)
+		, m_Frames(frames)
+	{
+	}
+
+	T Get(count_t f) const
+	{
+		return m_NumFrames > 1 ? m_Frames[f].value : m_Frames->value;
+	}
+
+	bool Changed(count_t f) const
+	{
+		return m_NumFrames > 1 ? m_Frames[f].changed : m_Frames->changed;
+	}
+
+private:
+	count_t m_NumFrames;
+	const Frame* m_Frames;
 };
 
 template<typename T>
@@ -147,8 +284,7 @@ class Parameter
 public:
 	virtual ~Parameter() {}
 
-	virtual T Get(count_t f) const = 0;
-	virtual bool Changed(count_t f) const = 0;
+	virtual ParameterBlock<T> Get() const = 0;
 
 	virtual void Prepare(count_t numFrames, f32_t sampleRate)
 	{
@@ -156,171 +292,109 @@ public:
 };
 
 template<typename T>
-class SlotParameter : public Parameter<T>
+class ConstantParameter : public Parameter<T>
 {
 public:
-	SlotParameter(T value)
-		: m_Default(value)
-		, m_Used(nullptr)
-		, m_Tranformer()
-		, m_Dirty(false)
-		, m_Dirtied(false)
-	{
-	}
-
-	T Get(count_t f) const override final
-	{
-		if (m_Used)
-		{
-			T value = m_Used->Get(f);
-			return m_Tranformer ? m_Tranformer(value, f) : value;
-		}
-
-		return m_Default;
-	}
-
-	bool Changed(count_t f) const override final
-	{
-		if (m_Dirty)
-		{
-			return true;
-		}
-
-		if (m_Used)
-		{
-			bool changed = m_Used->Changed(f);
-			return changed;
-		}
-
-		return false;
-	}
-
-	void Use(Ref_t<Parameter<T>> parameter)
-	{
-		if (m_Used != parameter)
-		{
-			m_Used = parameter;
-			m_Dirtied = true;
-		}
-	}
-
-	void Transform(TransformerFunc_t<T> tranformer)
-	{
-		if (m_Tranformer != nullptr)
-		{
-			m_Tranformer = tranformer;
-			m_Dirtied = true;
-		}
-	}
-
-	T Default() const
-	{
-		return m_Default;
-	}
-
-	void Prepare(count_t numFrames, f32_t sampleRate) override final
-	{
-		m_Dirty = m_Dirtied;
-		m_Dirtied = false;
-	}
-
-private:
-	T m_Default;
-	Ref_t<Parameter<T>> m_Used;
-	TransformerFunc_t<T> m_Tranformer;
-	bool m_Dirty;
-	bool m_Dirtied;
-};
-
-template<typename T>
-class BinderParameter : public Parameter<T>
-{
-private:
-	struct Frame
-	{
-		T value = T{ 0 };
-		bool changed = false;
-	};
-
-public:
-	BinderParameter(
-		BinderFunc_t<T> binder)
-		: m_Binder(binder)
+	ConstantParameter(T value)
+		: m_Value(value)
 		, m_Frames()
 	{
 	}
 
-	T Get(count_t f) const override final
+	ParameterBlock<T> Get() const final
 	{
-		if (f < 0 || f >= m_Frames.size())
-		{
-			return T{ 0 };
-		}
-
-		return m_Frames[f].value;
-	}
-
-	bool Changed(count_t f) const override final
-	{
-		if (f < 0 || f >= m_Frames.size())
-		{
-			return false;
-		}
-
-		return m_Frames[f].changed;
-	}
-
-	void Bind(BinderFunc_t<T> binder)
-	{
-		m_Binder = binder;
+		return ParameterBlock<T>(m_Frames.data(), m_Frames.size());
 	}
 
 	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
 		m_Frames.resize(numFrames);
 
-		if (m_Binder)
+		for (count_t f = 0; f < numFrames; ++f)
 		{
-			for (count_t f = 0; f < numFrames; ++f)
-			{
-				Frame& frame = m_Frames[f];
-				T value = m_Binder(f);
-				frame.value = value;
-				frame.changed = f > 0
-					? value != m_Frames[f - 1].value
-					: value != m_Frames.back().value;
-			}
+			auto& frame = m_Frames[f];
+			frame.value = m_Value;
+			frame.changed = false;
 		}
 	}
 
 private:
-	BinderFunc_t<T> m_Binder;
-	SmallVector<Frame> m_Frames;
+	T m_Value;
+	SmallVector<typename ParameterBlock<T>::Frame, k_MaxNumInplaceFrames> m_Frames;
 };
 
-template<typename T>
+template<typename T, typename F>
+class BinderParameter : public Parameter<T>
+{
+public:
+	BinderParameter(
+		F&& binder)
+		: m_Binder(std::forward<F>(binder))
+		, m_Frames()
+	{
+	}
+
+	ParameterBlock<T> Get() const final
+	{
+		return ParameterBlock<T>(m_Frames.data(), m_Frames.size());
+	}
+
+	void Prepare(count_t numFrames, f32_t sampleRate) override final
+	{
+		m_Frames.resize(numFrames);
+
+		for (count_t f = 0; f < numFrames; ++f)
+		{
+			auto& frame = m_Frames[f];
+			T value = m_Binder(f);
+			frame.value = value;
+			frame.changed = f > 0
+				? value != m_Frames[f - 1].value
+				: value != m_Frames.back().value;
+		}
+	}
+
+private:
+	F m_Binder;
+	SmallVector<typename ParameterBlock<T>::Frame, k_MaxNumInplaceFrames> m_Frames;
+};
+
+template<typename T, typename F>
 class TransformerParameter : public Parameter<T>
 {
 public:
-	TransformerParameter(Ref_t<Parameter<T>> parameter, TransformerFunc_t<T> transformer)
+	TransformerParameter(Ref_t<Parameter<T>> parameter, F&& transformer)
 		: m_Used(parameter)
-		, m_Transformer(transformer)
+		, m_Transformer(std::forward<F>(transformer))
 	{
 	}
 
-	T Get(count_t f) const override final
+	ParameterBlock<T> Get() const final
 	{
-		return m_Transformer(m_Used->Get(f), f);
+		return ParameterBlock<T>(m_Frames.data(), m_Frames.size());
 	}
 
-	bool Changed(count_t f) const override final
+	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
-		return m_Used->Changed(f);
+		m_Frames.resize(numFrames);
+
+		auto block = m_Used->Get();
+
+		for (count_t f = 0; f < numFrames; ++f)
+		{
+			auto& frame = m_Frames[f];
+			T value = m_Transformer(block.Get(f), f);
+			frame.value = value;
+			frame.changed = f > 0
+				? value != m_Frames[f - 1].value
+				: value != m_Frames.back().value;
+		}
 	}
 
 private:
 	Ref_t<Parameter<T>> m_Used;
-	TransformerFunc_t<T> m_Transformer;
+	F m_Transformer;
+	SmallVector<typename ParameterBlock<T>::Frame, k_MaxNumInplaceFrames> m_Frames;
 };
 
 template<typename T>
@@ -336,7 +410,7 @@ public:
 	virtual T Max() const = 0;
 	virtual bool Changed() const = 0;
 
-	virtual void Prepare(count_t numFrames, f32_t sampleRate)
+	virtual void Prepare(f32_t sampleRate)
 	{
 	}
 };
@@ -346,9 +420,7 @@ class ConstantBlockParameter : public BlockParameter<T>
 {
 public:
 	ConstantBlockParameter(T value)
-		: m_Value(value)
-		, m_Dirty(false)
-		, m_Initialised(true)
+		:  m_Value(value)
 	{
 	}
 
@@ -369,90 +441,23 @@ public:
 
 	bool Changed() const override final
 	{
-		return m_Dirty;
-	}
-
-	void Prepare(count_t numFrames, f32_t sampleRate) override final
-	{
-		m_Dirty = m_Initialised;
-		m_Initialised = false;
+		return false;
 	}
 
 private:
 	T m_Value;
-	bool m_Dirty;
-	bool m_Initialised;
 };
 
-template<typename T>
-class SlotBlockParameter : public BlockParameter<T>
-{
-public:
-	SlotBlockParameter(T value)
-		: m_Default(value)
-		, m_Used(nullptr)
-		, m_Dirty(false)
-		, m_Reslotted(false)
-	{
-	}
-
-	T Get() const override final
-	{
-		return m_Used ? m_Used->Get() : m_Default;
-	}
-
-	T Min() const override final
-	{
-		return m_Used ? m_Used->Min() : m_Default;
-	}
-
-	T Max() const override final
-	{
-		return m_Used ? m_Used->Max() : m_Default;
-	}
-
-	bool Changed() const override final
-	{
-		return m_Dirty || (m_Used ? m_Used->Changed() : false);
-	}
-
-	void Use(Ref_t<BlockParameter<T>> parameter)
-	{
-		if (m_Used != parameter)
-		{
-			m_Used = parameter;
-			m_Reslotted = true;
-		}
-	}
-
-	T Default() const
-	{
-		return m_Default;
-	}
-
-	void Prepare(count_t numFrames, f32_t sampleRate) override final
-	{
-		m_Dirty = m_Reslotted;
-		m_Reslotted = false;
-	}
-
-private:
-	T m_Default;
-	Ref_t<BlockParameter<T>> m_Used;
-	bool m_Dirty;
-	bool m_Reslotted;
-};
-
-template<typename T>
+template<typename T, typename F>
 class BinderBlockParameter : public BlockParameter<T>
 {
 public:
-	BinderBlockParameter(BlockBinderFunc_t<T> binder, T min, T max)
-		: m_LastValue(min)
-		, m_Value(min)
+	BinderBlockParameter(F&& binder, T min, T max)
+		: m_Binder(std::forward<F>(binder))
 		, m_Min(min)
 		, m_Max(max)
-		, m_Binder(binder)
+		, m_Value(0.0f)
+		, m_Changed(false)
 	{
 	}
 
@@ -473,64 +478,147 @@ public:
 
 	bool Changed() const override final
 	{
-		return m_Value != m_LastValue;
+		return m_Changed;
 	}
 
-	void Bind(BinderFunc_t<T> binder)
+	void Prepare(f32_t sampleRate) override final
 	{
-		m_Binder = binder;
-	}
-
-	void Prepare(count_t numFrames, f32_t sampleRate) override final
-	{
-		if (m_Binder)
-		{
-			m_LastValue = m_Value;
-			m_Value = std::clamp(m_Binder(), m_Min, m_Max);
-		}
+		T value = std::clamp(m_Binder(), m_Min, m_Max);
+		m_Changed = m_Value != value;
+		m_Value = value;
 	}
 
 private:
-	T m_LastValue;
-	T m_Value;
+	F m_Binder;
 	T m_Min;
 	T m_Max;
-	BlockBinderFunc_t<T> m_Binder;
+	T m_Value;
+	bool m_Changed;
 };
 
-template<typename T>
+template<typename T, typename F>
 class TransformerBlockParameter : public BlockParameter<T>
 {
 public:
-	TransformerBlockParameter(Ref_t<BlockParameter<T>> parameter, BlockTransformerFunc_t<T> transformer)
+	TransformerBlockParameter(Ref_t<BlockParameter<T>> parameter, F&& transformer)
 		: m_Used(parameter)
-		, m_Transformer(transformer)
+		, m_Transformer(std::forward<F>(transformer))
+		, m_Min(0.0f)
+		, m_Max(0.0f)
+		, m_Value(0.0f)
+		, m_Changed(false)
 	{
 	}
 
 	T Get() const override final
 	{
-		return m_Transformer(m_Used->Get());
+		return m_Value;
 	}
 
 	T Min() const override final
 	{
-		return m_Transformer(m_Used->Min());
+		return m_Min;
 	}
 
 	T Max() const override final
 	{
-		return m_Transformer(m_Used->Max());
+		return m_Max;
 	}
 
 	bool Changed() const override final
 	{
-		return m_Used->Changed();
+		return m_Changed;
+	}
+
+	void Prepare(f32_t sampleRate) override final
+	{
+		T value = std::clamp(m_Transformer(m_Used->Get()), m_Min, m_Max);
+		// TODO: this new min/max isn't always true, make user specify it
+		m_Min = m_Transformer(m_Used->Min());
+		m_Max = m_Transformer(m_Used->Max());
+		m_Changed = m_Value != value;
+		m_Value = value;
 	}
 
 private:
 	Ref_t<BlockParameter<T>> m_Used;
-	BlockTransformerFunc_t<T> m_Transformer;
+	F m_Transformer;
+	T m_Min;
+	T m_Max;
+	T m_Value;
+	bool m_Changed;
+};
+
+template<typename T>
+class SlotParameter
+{
+public:
+	SlotParameter(T value)
+		: m_Used(nullptr)
+		, m_Default{value, false}
+	{
+	}
+
+	void Use(Ref_t<Parameter<T>> parameter)
+	{
+		m_Used = parameter;
+	}
+
+	ParameterBlock<T> Get() const
+	{
+		return m_Used ? m_Used->Get() : ParameterBlock<T>(&m_Default);
+	}
+
+private:
+	Ref_t<Parameter<T>> m_Used;
+	ParameterBlock<T>::Frame m_Default;
+};
+
+template<typename T>
+class SlotBlockParameter
+{
+public:
+	SlotBlockParameter(T value, T min, T max)
+		: m_Used(nullptr)
+		, m_Min(min)
+		, m_Max(max)
+		, m_Default(std::clamp(value, min, max))
+	{
+	}
+
+	void Use(Ref_t<BlockParameter<T>> parameter)
+	{
+		if (m_Used != parameter)
+		{
+			m_Used = parameter;
+		}
+	}
+
+	T Get() const
+	{
+		return m_Used ? m_Used->Get() : m_Default;
+	}
+
+	T Min() const
+	{
+		return m_Used ? m_Used->Min() : m_Min;
+	}
+
+	T Max() const
+	{
+		return m_Used ? m_Used->Max() : m_Max;
+	}
+
+	bool Changed() const
+	{
+		return m_Used ? m_Used->Changed() : false;
+	}
+
+private:
+	Ref_t<BlockParameter<T>> m_Used;
+	T m_Min;
+	T m_Max;
+	T m_Default;
 };
 
 }

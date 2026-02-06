@@ -12,7 +12,7 @@ public:
 	static Ref_t<Gainer> Create();
 
 	NOIS_INTERFACE(Gainer)
-	NOIS_INTERFACE_PARAM(GainDb, FloatParameter)
+	NOIS_INTERFACE_PARAM(Gain, FloatParameter)
 };
 
 }

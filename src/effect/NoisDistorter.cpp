@@ -1,53 +1,39 @@
 #include "nois/effect/NoisDistorter.hpp"
 
+#include "nois/NoisUtil.hpp"
 #include "nois/util/NoisSmallVector.hpp"
 
 namespace nois {
 
-class Distorter::Impl
+class DynamicTanhDistorter::Impl
 {
 public:
-	NOIS_INTERFACE_IMPL_MULTI()
-	NOIS_INTERFACE_IMPL_MULTI_PARAM(DriveDb, FloatParameter)
-	NOIS_INTERFACE_IMPL_MULTI_PARAM(MakeupDb, FloatParameter)
-	NOIS_INTERFACE_IMPL_MULTI_PARAM(Bias, FloatParameter)
-	NOIS_INTERFACE_IMPL_MULTI_PARAM(Wet, FloatParameter)
-};
-
-class TanhDistorterImpl : public Distorter::Impl
-{
-public:
-	TanhDistorterImpl()
+	Impl()
 	{
 	}
 
 	Stream::Result Process(
 		ConstFloatBufferView inBuffer,
-		FloatBufferView outBuffer) override final
+		FloatBufferView outBuffer)
 	{
 		NOIS_PROFILE_SCOPE();
+
+		f32_t drive = FromDb(m_DriveDb.Get());
+		f32_t makeup = FromDb(m_MakeupDb.Get());
+		f32_t wet = m_Wet.Get();
+		f32_t shape = m_Shape.Get();
+		f32_t asym = m_Asym.Get();
 
 		for (count_t c = 0; c < m_NumChannels; ++c)
 		{
 			for (count_t f = 0; f < m_NumFrames; ++f)
 			{
 				f32_t x = inBuffer(f, c);
-				f32_t& y = outBuffer(f, c);
-
-				f32_t drive = FromDb(m_DriveDb.Get(f));
-				f32_t makeup = FromDb(m_MakeupDb.Get(f));
-				f32_t bias = m_Bias.Get(f);
-				f32_t wet = m_Wet.Get(f);
-
-				if (wet == 0.0f)
-				{
-					y = x;
-				}
-				else
-				{
-					f32_t z = makeup * std::tanh(drive * (x + bias));
-					y = x * (1.0f - wet) + z * wet;
-				}
+				f32_t d = drive * x;
+				f32_t s = d > 0.0f ? 1.0f : asym;
+				f32_t k = 1.0f + shape;
+				f32_t y = FastTanh(d * s * k);
+				outBuffer(f, c) = makeup * (x + (y - x) * wet);
 			}
 		}
 
@@ -57,7 +43,7 @@ public:
 	void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		f32_t sampleRate) override final
+		f32_t sampleRate)
 	{
 		NOIS_PROFILE_SCOPE();
 
@@ -65,52 +51,64 @@ public:
 		m_NumChannels = numChannels;
 	}
 
-	void SetDriveDb(Ref_t<FloatParameter> driveDb) override final
+	void SetDriveDb(Ref_t<FloatBlockParameter> driveDb)
 	{
 		m_DriveDb.Use(driveDb);
 	}
 
-	void SetMakeupDb(Ref_t<FloatParameter> makeupDb) override final
+	void SetMakeupDb(Ref_t<FloatBlockParameter> makeupDb)
 	{
 		m_MakeupDb.Use(makeupDb);
 	}
 
-	void SetBias(Ref_t<FloatParameter> bias) override final
-	{
-		m_Bias.Use(bias);
-	}
-
-	void SetWet(Ref_t<FloatParameter> wet) override final
+	void SetWet(Ref_t<FloatBlockParameter> wet)
 	{
 		m_Wet.Use(wet);
 	}
 
+	void SetShape(Ref_t<FloatBlockParameter> shape)
+	{
+		m_Shape.Use(shape);
+	}
+
+	void SetAsym(Ref_t<FloatBlockParameter> asym)
+	{
+		m_Asym.Use(asym);
+	}
+
 private:
-	SlotParameter<f32_t> m_DriveDb = 0.0f;
-	SlotParameter<f32_t> m_MakeupDb = 0.0f;
-	SlotParameter<f32_t> m_Bias = 0.0f;
-	SlotParameter<f32_t> m_Wet = 0.0f;
+	SlotBlockParameter<f32_t> m_DriveDb = { 0.0f, 0.0f, 12.0f };
+	SlotBlockParameter<f32_t> m_MakeupDb = { 0.0f, -12.0f, 0.0f };
+	SlotBlockParameter<f32_t> m_Wet = { 1.0f, 0.0f, 1.0f };
+	SlotBlockParameter<f32_t> m_Shape = { 0.0f, -1.0f, 1.0f };
+	SlotBlockParameter<f32_t> m_Asym = { 1.0f, 1.0f, 4.0f };
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
 };
 
-NOIS_INTERFACE_IMPL(Distorter)
-NOIS_INTERFACE_PARAM_IMPL(Distorter, DriveDb, FloatParameter)
-NOIS_INTERFACE_PARAM_IMPL(Distorter, MakeupDb, FloatParameter)
-NOIS_INTERFACE_PARAM_IMPL(Distorter, Bias, FloatParameter)
-NOIS_INTERFACE_PARAM_IMPL(Distorter, Wet, FloatParameter)
+NOIS_INTERFACE_IMPL(DynamicTanhDistorter)
+NOIS_INTERFACE_PARAM_IMPL(DynamicTanhDistorter, DriveDb, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(DynamicTanhDistorter, MakeupDb, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(DynamicTanhDistorter, Wet, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(DynamicTanhDistorter, Shape, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(DynamicTanhDistorter, Asym, FloatBlockParameter)
 
 Ref_t<Distorter> Distorter::Create(Kind kind)
 {
 	switch (kind)
 	{
-	case nois::Distorter::k_Tanh:
-		return MakeRef<Distorter>(MakeOwn<TanhDistorterImpl>());
+	case nois::Distorter::k_DynamicTanh:
+		return DynamicTanhDistorter::Create();
 	default:
 		break;
 	}
 
 	return nullptr;
+}
+
+Ref_t<DynamicTanhDistorter> DynamicTanhDistorter::Create()
+{
+	return MakeRef<DynamicTanhDistorter>(MakeOwn<DynamicTanhDistorter::Impl>());
 }
 
 }

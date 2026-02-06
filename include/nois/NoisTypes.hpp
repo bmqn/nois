@@ -1,13 +1,7 @@
 #pragma once
 
 #include <cstdint>
-
-#include <atomic>
-#include <functional>
 #include <memory>
-#include <type_traits>
-#include <utility>
-#include <vector>
 
 namespace nois {
 

@@ -25,26 +25,26 @@ class Buffer
 {
 public:
 	Buffer()
-		: m_Size(0)
+		: m_Data(0, T{ 0 })
+		, m_Size(0)
 		, m_NumFrames(0)
 		, m_NumChannels(0)
-		, m_Data(0, T{ 0 })
 	{
 	}
 
 	Buffer(count_t numFrames, count_t numChannels)
-		: m_Size(numFrames * numChannels)
+		: m_Data(numFrames * numChannels, T{ 0 })
+		, m_Size(numFrames * numChannels)
 		, m_NumFrames(numFrames)
 		, m_NumChannels(numChannels)
-		, m_Data(numFrames * numChannels, T{ 0 })
 	{
 	}
 
 	Buffer(const T* data, count_t numFrames, count_t numChannels)
-		: m_Size(numFrames * numChannels)
+		: m_Data(numFrames * numChannels, T{ 0 })
+		, m_Size(numFrames * numChannels)
 		, m_NumFrames(numFrames)
 		, m_NumChannels(numChannels)
-		, m_Data(numFrames * numChannels, T{ 0 })
 	{
 		Copy(data, numFrames * numChannels);
 	}
@@ -136,7 +136,7 @@ public:
 			return;
 		}
 
-		SmallVector newData(size, T{ 0 });
+		SmallVector<T, k_MaxNumInplaceFrames> newData(size, T{ 0 });
 
 		if (m_Size > 0 && size > 0)
 		{
@@ -250,14 +250,15 @@ public:
 		}
 	}
 
-	void Multiply(const Parameter<T>& parameter)
+	void Multiply(const SlotParameter<T>& parameter)
 	{
 		// TODO: vectorize
 		// TODO: how can we validate size of parameters?
 
+		auto parameterBlock = parameter.Get();
 		for (count_t f = 0; f < m_NumFrames; ++f)
 		{
-			T value = parameter.Get(f);
+			T value = parameterBlock.Get(f);
 			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
 				(*this)(f, c) *= value;
@@ -334,10 +335,10 @@ public:
 	}
 
 private:
+	SmallVector<T, k_MaxNumInplaceFrames> m_Data;
 	count_t m_Size;
 	count_t m_NumFrames;
 	count_t m_NumChannels;
-	SmallVector<T> m_Data;
 };
 
 template<typename T>
@@ -345,10 +346,10 @@ class BufferView
 {
 public:
 	BufferView(T* data, count_t numFrames, count_t numChannels)
-		: m_Size(numFrames * numChannels)
+		: m_Data(data)
+		, m_Size(numFrames * numChannels)
 		, m_NumFrames(numFrames)
 		, m_NumChannels(numChannels)
-		, m_Data(data)
 	{
 	}
 
@@ -549,14 +550,15 @@ public:
 		}
 	}
 
-	void Multiply(const Parameter<T>& parameter)
+	void Multiply(const SlotParameter<T>& parameter)
 	{
 		// TODO: vectorize
 		// TODO: how can we validate size of parameters?
 
+		auto parameterBlock = parameter.Get();
 		for (count_t f = 0; f < m_NumFrames; ++f)
 		{
-			T value = parameter.Get(f);
+			T value = parameterBlock.Get(f);
 			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
 				(*this)(f, c) *= value;
@@ -638,10 +640,10 @@ public:
 	}
 
 private:
+	T* m_Data;
 	count_t m_Size;
 	count_t m_NumFrames;
 	count_t m_NumChannels;
-	T* m_Data;
 };
 
 }

@@ -19,11 +19,18 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
+		auto stretchActiveBlock = m_StretchActive.Get();
+		auto stretchFactorBlock = m_StretchFactor.Get();
+		auto grainSizeBlock = m_GrainSize.Get();
+		auto grainBlendBlock = m_GrainBlend.Get();
+		auto grainPhaseIncBlock = m_GrainPhaseInc.Get();
+		auto grainLockActiveBlock = m_GrainLockActive.Get();
+
 		for (count_t f = 0; f < m_NumFrames; ++f)
 		{
 			// Enable stretch if it became active this frame
 			if (!m_IsStretchActive &&
-				m_StretchActive.Get(f) > 0.0f)
+				stretchActiveBlock.Get(f) > 0.0f)
 			{
 				for (auto &phases : m_Phases)
 				{
@@ -53,20 +60,20 @@ public:
 			}
 			// Disable stretch if it became inactive this frame
 			else if (m_IsStretchActive &&
-				m_StretchActive.Get(f) <= 0.0f)
+				stretchActiveBlock.Get(f) <= 0.0f)
 			{
 				m_IsStretchActive = false;
 			}
 
 			// Enable grain phase lock if it became active this frame
 			if (!m_IsGrainLockActive &&
-				m_GrainLockActive.Get(f) > 0.0f)
+				grainLockActiveBlock.Get(f) > 0.0f)
 			{
 				m_IsGrainLockActive = true;
 			}
 			// Disable grain phase lock if it became inactive this frame
 			else if (m_IsGrainLockActive &&
-				m_GrainLockActive.Get(f) <= 0.0f)
+				grainLockActiveBlock.Get(f) <= 0.0f)
 			{
 				m_IsGrainLockActive = false;
 			}
@@ -78,10 +85,10 @@ public:
 				// Do stretch
 				if (m_IsStretchActive)
 				{
-					f32_t stretchFactor = m_StretchFactor.Get(f);
-					f32_t grainSize = m_GrainSize.Get(f);
-					f32_t grainBlend = m_GrainBlend.Get(f);
-					f32_t grainPhaseInc = m_GrainPhaseInc.Get(f);
+					f32_t stretchFactor = stretchFactorBlock.Get(f);
+					f32_t grainSize = grainSizeBlock.Get(f);
+					f32_t grainBlend = grainBlendBlock.Get(f);
+					f32_t grainPhaseInc = grainPhaseIncBlock.Get(f);
 
 					stretchFactor = std::max(stretchFactor, 1.0f);
 					grainSize = std::max(grainSize, 100.0f);
@@ -147,14 +154,14 @@ public:
 		m_SampleRate = sampleRate;
 	}
 
-	void SetStretchActive(Ref_t<FloatParameter> stretchActive)
-	{
-		m_StretchActive.Use(stretchActive);
-	}
-
 	void SetStretchTimeMs(Ref_t<FloatBlockParameter> stretchTimeMs)
 	{
 		m_StretchTimeMs.Use(stretchTimeMs);
+	}
+
+	void SetStretchActive(Ref_t<FloatParameter> stretchActive)
+	{
+		m_StretchActive.Use(stretchActive);
 	}
 
 	void SetStretchFactor(Ref_t<FloatParameter> stretchFactor)
@@ -303,9 +310,9 @@ private:
 	}
 
 private:
+	FloatSlotBlockParameter m_StretchTimeMs = { 10000.0f, 50.0f, 25000.0f };
 	FloatSlotParameter m_StretchActive = 0.0f;
 	FloatSlotParameter m_StretchFactor = 1.0f;
-	FloatSlotBlockParameter m_StretchTimeMs = 10000.0f;
 	FloatSlotParameter m_GrainSize = 2500.0f;
 	FloatSlotParameter m_GrainBlend = 0.4f;
 	FloatSlotParameter m_GrainPhaseInc = 1.0f;
@@ -331,8 +338,8 @@ Ref_t<TimeStretcher> TimeStretcher::Create()
 }
 
 NOIS_INTERFACE_IMPL(TimeStretcher)
-NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchActive, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchTimeMs, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchActive, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchFactor, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainSize, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainBlend, FloatParameter)

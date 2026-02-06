@@ -9,37 +9,31 @@
 
 namespace nois {
 
-template<typename T, std::size_t N = k_CacheOptimisedNumFrames>
+template<typename T, std::size_t N>
 class SmallVector
 {
 public:
 	using size_type = std::size_t;
 
 	SmallVector(size_type n = 0, const T &value = T{})
-		: m_Size(n)
+		: m_Size(0)
+		, m_Fallback()
 		, m_Data{T{}}
 	{
-		if (n > N)
-		{
-			MoveToFallback(n, value);
-		}
-		else
-		{
-			std::fill(begin(), end(), value);
-		}
+		resize(n, value);
 	}
 
 	SmallVector(const SmallVector& other)
 		: m_Size(other.m_Size)
-		, m_Data(other.m_Data)
 		, m_Fallback(other.m_Fallback)
+		, m_Data(other.m_Data)
 	{
 	}
 
 	SmallVector(SmallVector &&other) noexcept
 		: m_Size(other.m_Size)
-		, m_Data(std::move(other.m_Data))
 		, m_Fallback(std::move(other.m_Fallback))
+		, m_Data(std::move(other.m_Data))
 	{
 		other.m_Size = 0;
 		other.m_Data = {};
@@ -67,6 +61,11 @@ public:
 	inline bool empty() const
 	{
 		return m_Size == 0;
+	}
+
+	inline bool full() const
+	{
+		return m_Size == N;
 	}
 
 	inline size_type size() const
@@ -392,8 +391,8 @@ private:
 
 private:
 	size_type m_Size;
-	std::array<T, N> m_Data;
 	std::vector<T> m_Fallback;
+	alignas(kCacheLineSize) std::array<T, N> m_Data;
 };
 
 

@@ -63,3 +63,11 @@
 #define NOIS_INTERFACE_PARAM(_name, _type) \
 	public: \
 	void Set##_name(Ref_t<_type> value);
+
+#define NOIS_INTERFACE_VIRT_PARAM(_name, _type) \
+	public: \
+	virtual void Set##_name(Ref_t<_type> value) = 0;
+
+#define NOIS_INTERFACE_VIRT_PARAM_USE(_name, _type) \
+	public: \
+	virtual void Set##_name(Ref_t<_type> value) override;

@@ -7,7 +7,7 @@
 
 namespace nois {
 
-template<typename T, count_t C = 1, count_t F = k_CacheOptimisedNumFrames>
+template<typename T, count_t C = 1, count_t F = k_MaxNumInplaceFrames>
 struct Delay
 {
 	Delay(count_t numFrames = 0)
@@ -139,7 +139,7 @@ private:
 	std::array<SmallVector<T, F>, C> m_Buffers;
 };
 
-template<typename T, count_t C = 1, count_t F = k_CacheOptimisedNumFrames>
+template<typename T, count_t C = 1, count_t F = k_MaxNumInplaceFrames>
 struct DelayFeedback
 {
 	DelayFeedback(count_t numFrames = 0)

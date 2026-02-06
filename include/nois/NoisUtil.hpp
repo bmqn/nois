@@ -15,6 +15,8 @@
 
 namespace nois {
 
+constexpr f32_t k_DcOffset = 0.001f;
+
 inline f32_t ToDb(f32_t x)
 {
 	return 10.0f * std::log10(x - k_DcOffset);
@@ -23,6 +25,12 @@ inline f32_t ToDb(f32_t x)
 inline f32_t FromDb(f32_t db)
 {
 	return std::pow(10.0f, db / 10.0f) + k_DcOffset;
+}
+
+template<typename T>
+inline T FastTanh(T x)
+{
+	return x * (T{ 27.0 } + x * x) / (T{ 27.0 } + T{ 9.0 } * x * x);
 }
 
 template<typename T, count_t C = k_MaxChannels>

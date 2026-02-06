@@ -300,8 +300,8 @@ class Reverb::Impl
 
 public:	
 	Impl()
-		: m_Wet(0.0f)
-		, m_DecayMs(1000.0f)
+		: m_Wet(0.0f, 0.0f, 1.0f)
+		, m_DecayMs(1000.0f, 50.0f, 5000.0f)
 		, m_EarlyReflectionBuffer()
 		, m_DiffusionBuffer()
 		, m_NumDiffusionSteps(k_NumDiffusers)

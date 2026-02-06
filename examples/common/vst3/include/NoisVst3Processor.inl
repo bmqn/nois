@@ -2,6 +2,7 @@
 
 #include <pluginterfaces/vst/ivstaudioprocessor.h>
 #include <pluginterfaces/vst/ivstparameterchanges.h>
+#include <pluginterfaces/base/ibstream.h>
 #include <pluginterfaces/base/ustring.h>
 
 #include <algorithm>
@@ -41,12 +42,38 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::initialize(FUnknown* context)
 template<typename T, typename C>
 tresult PLUGIN_API NoisVstProcessor<T, C>::setState(IBStream* state)
 {
+	if (!state)
+	{
+		return kResultFalse;
+	}
+
+	for (size_t i = 0; i < mParameterLookup.size(); ++i)
+	{
+		nois::f32_t value = 0.0f;
+		if (state->read(&value, sizeof(value)) != kResultOk)
+		{
+			return kResultFalse;
+		}
+		mParameterLookup[i]->RequestPlainValue(value);
+	}
+
 	return kResultOk;
 }
 
 template<typename T, typename C>
 tresult PLUGIN_API NoisVstProcessor<T, C>::getState(IBStream* state)
 {
+	if (!state)
+	{
+		return kResultFalse;
+	}
+
+	for (size_t i = 0; i < mParameterLookup.size(); ++i)
+	{
+		nois::f32_t value = mParameterLookup[i]->GetLastPlain();
+		state->write(&value, sizeof(value));
+	}
+
 	return kResultOk;
 }
 

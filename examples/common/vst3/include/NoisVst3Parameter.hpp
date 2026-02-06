@@ -7,6 +7,8 @@
 #include <pluginterfaces/base/ustring.h>
 #include <public.sdk/source/vst/vstparameters.h>
 
+#include <optional>
+
 using namespace Steinberg;
 
 class NoisVstProcessorParameter
@@ -22,8 +24,8 @@ public:
 
 	virtual void Prepare(nois::count_t numFrames, nois::f32_t sampleRate) = 0;
 
-	virtual void WritePlain(nois::count_t frame, nois::f32_t value) = 0;
-	virtual void WritePlain(nois::count_t frame, nois::count_t count, nois::f32_t value) = 0;
+	virtual void WritePlain(nois::count_t frame, nois::f32_t valuePlain) = 0;
+	virtual void RequestPlainValue(nois::f32_t valuePlain) = 0;
 	virtual nois::f32_t GetLastPlain() const = 0;
 
 	virtual operator nois::Ref_t<nois::FloatParameter>() = 0;
@@ -41,6 +43,8 @@ public:
 
 	virtual Vst::ParamID GetPid() const = 0;
 
+	virtual void RequestPlainValue(nois::f32_t valuePlain) = 0;
+
 	virtual operator Vst::Parameter*() = 0;
 
 public:
@@ -54,35 +58,29 @@ namespace util
 template<typename Param>
 constexpr inline nois::f32_t ApplyStep(nois::f32_t valuePlain)
 {
+	valuePlain = std::clamp(valuePlain, Param::kMinValue, Param::kMaxValue);
 	nois::s32_t numSteps = Param::kNumSteps;
-
 	if (numSteps > 0)
 	{
 		nois::f32_t step = (Param::kMaxValue - Param::kMinValue) / nois::f32_t(numSteps);
 		nois::s32_t steps = nois::s32_t(std::round((valuePlain - Param::kMinValue) / step));
-
 		return Param::kMinValue + steps * step;
 	}
-
 	return valuePlain;
 }
 
 template<typename Param>
 constexpr inline nois::f32_t ToPlain(nois::f32_t valueNormalized)
 {
+	valueNormalized = std::clamp(valueNormalized, 0.0f, 1.0f);
 	return ApplyStep<Param>(valueNormalized * (Param::kMaxValue - Param::kMinValue) + Param::kMinValue);
 }
 
 template<typename Param>
 constexpr inline nois::f32_t ToNormalized(nois::f32_t valuePlain)
 {
+	valuePlain = std::clamp(valuePlain, Param::kMinValue, Param::kMaxValue);
 	return (ApplyStep<Param>(valuePlain) - Param::kMinValue) / (Param::kMaxValue - Param::kMinValue);
-}
-
-template<typename Param>
-constexpr inline nois::f32_t ToProcessor(nois::f32_t valuePlain, nois::count_t numSamples, nois::f32_t sampleRate)
-{
-	return Param::ToProcessor(valuePlain, numSamples, sampleRate);
 }
 
 template<typename Param>
@@ -186,6 +184,9 @@ private:
 template<typename Param>
 class NoisVstProcessorParameterImpl : public NoisVstProcessorParameter
 {
+	template<typename, typename>
+	friend class NoisVstProcessor;
+
 public:
 	NoisVstProcessorParameterImpl(nois::FloatParameterRegistry& registry)
 		: mParameter(nullptr)
@@ -193,13 +194,20 @@ public:
 		, mRegistry(registry)
 		, mNumFrames(0)
 		, mSampleRate(0.0f)
-		, mValues()
+		, mNextPlainValue(std::nullopt)
+		, mValuePlains()
 	{
 		mParameter = mRegistry.CreateBinder(
-			nois::ParamBind_t(&NoisVstProcessorParameterImpl<Param>::GetValue, this));
+			[this](nois::count_t f)
+			{
+				return GetValue(f);
+			});
 
 		mBlockParameter = mRegistry.CreateBlockBinder(
-			nois::ParamBlockBind_t(&NoisVstProcessorParameterImpl<Param>::GetBlockValue, this),
+			[this]()
+			{
+				return GetBlockValue();
+			},
 			Param::kMinValue,
 			Param::kMaxValue);
 	}
@@ -228,30 +236,34 @@ public:
 	{
 		mNumFrames = numFrames;
 		mSampleRate = sampleRate;
-		mValues.resize(numFrames, Param::kDefaultValue);
-	}
 
-	void WritePlain(nois::count_t frame, nois::f32_t value) override final
-	{
-		if (frame < mValues.size())
+		mValuePlains.resize(numFrames, Param::kDefaultValue);
+
+		if (mNextPlainValue)
 		{
-			mValues[frame] = value;
+			std::fill(mValuePlains.begin(), mValuePlains.end(), *mNextPlainValue);
+			mNextPlainValue = std::nullopt;
 		}
 	}
 
-	void WritePlain(nois::count_t frame, nois::count_t count, nois::f32_t value) override final
+	void WritePlain(nois::count_t frame, nois::f32_t valuePlain) override final
 	{
-		if (frame < mValues.size() && count <= mValues.size() - frame)
+		if (frame < mValuePlains.size())
 		{
-			std::fill(mValues.begin() + frame, mValues.begin() + frame + count, value);
+			mValuePlains[frame] = valuePlain;
 		}
+	}
+
+	void RequestPlainValue(nois::f32_t valuePlain) override final
+	{
+		mNextPlainValue = valuePlain;
 	}
 
 	nois::f32_t GetLastPlain() const override final
 	{
-		if (!mValues.empty())
+		if (!mValuePlains.empty())
 		{
-			return mValues.back();
+			return mValuePlains.back();
 		}
 
 		return 0.0f;
@@ -270,12 +282,12 @@ public:
 private:
 	nois::f32_t GetValue(nois::count_t f) const
 	{
-		return mValues[f];
+		return mValuePlains[f];
 	}
 
 	nois::f32_t GetBlockValue() const
 	{
-		return mValues.back();
+		return mValuePlains.back();
 	}
 
 private:
@@ -284,7 +296,8 @@ private:
 	nois::FloatParameterRegistry& mRegistry;
 	nois::count_t mNumFrames;
 	nois::f32_t mSampleRate;
-	nois::SmallVector<nois::f32_t> mValues;
+	std::optional<nois::f32_t> mNextPlainValue;
+	nois::SmallVector<nois::f32_t, nois::k_MaxNumInplaceFrames> mValuePlains;
 };
 
 template<typename Param>
@@ -299,6 +312,11 @@ public:
 	Vst::ParamID GetPid() const override final
 	{
 		return Param::kPid;
+	}
+
+	void RequestPlainValue(nois::f32_t valuePlain) override final
+	{
+		mParameter->setNormalized(util::ToNormalized<Param>(valuePlain));
 	}
 
 	operator Vst::Parameter*() override final

@@ -12,7 +12,9 @@ enum
 {
 	kSubFreq,
 	kDrive,
-	kWet
+	kMakeup,
+	kShape,
+	kWet,
 };
 
 
@@ -23,18 +25,40 @@ struct SubFreq
 	static constexpr Vst::ParamID kPid = kSubFreq;
 	static constexpr nois::f32_t kDefaultValue = 80.0f;
 	static constexpr nois::f32_t kMinValue = 50.0f;
-	static constexpr nois::f32_t kMaxValue = 140.0f;
+	static constexpr nois::f32_t kMaxValue = 180.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
 };
 
-struct Drive
+struct DriveDb
 {
 	static constexpr const char* kTitle = "Drive";
 	static constexpr const char* kUnits = "dB";
 	static constexpr Vst::ParamID kPid = kDrive;
 	static constexpr nois::f32_t kDefaultValue = 0.0f;
 	static constexpr nois::f32_t kMinValue = 0.0f;
-	static constexpr nois::f32_t kMaxValue = 16.0f;
+	static constexpr nois::f32_t kMaxValue = 12.0f;
+	static constexpr nois::s32_t kNumSteps = 0;
+};
+
+struct MakeupDb
+{
+	static constexpr const char* kTitle = "Makeup";
+	static constexpr const char* kUnits = "dB";
+	static constexpr Vst::ParamID kPid = kMakeup;
+	static constexpr nois::f32_t kDefaultValue = 0.0f;
+	static constexpr nois::f32_t kMinValue = -12.0f;
+	static constexpr nois::f32_t kMaxValue = 0.0f;
+	static constexpr nois::s32_t kNumSteps = 0;
+};
+
+struct Shape
+{
+	static constexpr const char* kTitle = "Shape";
+	static constexpr const char* kUnits = "";
+	static constexpr Vst::ParamID kPid = kShape;
+	static constexpr nois::f32_t kDefaultValue = 0.0f;
+	static constexpr nois::f32_t kMinValue = -1.0f;
+	static constexpr nois::f32_t kMaxValue = 1.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
 };
 
@@ -59,11 +83,15 @@ public:
 public:
 	NoisController()
 		: mSubFreq(nullptr)
-		, mDrive(nullptr)
+		, mDriveDb(nullptr)
+		, mMakeupDb(nullptr)
+		, mShape(nullptr)
 		, mWet(nullptr)
 	{
 		mSubFreq = NoisVstControllerParameter::Create<parameter::SubFreq>();
-		mDrive = NoisVstControllerParameter::Create<parameter::Drive>();
+		mDriveDb = NoisVstControllerParameter::Create<parameter::DriveDb>();
+		mMakeupDb = NoisVstControllerParameter::Create<parameter::MakeupDb>();
+		mShape = NoisVstControllerParameter::Create<parameter::Shape>();
 		mWet = NoisVstControllerParameter::Create<parameter::Wet>();
 	}
 
@@ -82,7 +110,9 @@ public:
 		}
 
 		parameters.addParameter(*mSubFreq);
-		parameters.addParameter(*mDrive);
+		parameters.addParameter(*mDriveDb);
+		parameters.addParameter(*mMakeupDb);
+		parameters.addParameter(*mShape);
 		parameters.addParameter(*mWet);
 
 		return result;
@@ -93,9 +123,48 @@ public:
 		return EditController::terminate();
 	}
 
+	tresult PLUGIN_API setComponentState(IBStream* state) SMTG_OVERRIDE
+	{
+		if (!state)
+		{
+			return kResultFalse;
+		}
+
+		for (size_t i = 0; i < 5; ++i)
+		{
+			nois::f32_t value = 0.0f;
+			if (state->read(&value, sizeof(value)) != kResultOk)
+			{
+				return kResultFalse;
+			}
+			switch (i)
+			{
+				case 0:
+					mSubFreq->RequestPlainValue(value);
+					break;
+				case 1:
+					mDriveDb->RequestPlainValue(value);
+					break;
+				case 2:
+					mMakeupDb->RequestPlainValue(value);
+					break;
+				case 3:
+					mShape->RequestPlainValue(value);
+					break;
+				case 4:
+					mWet->RequestPlainValue(value);
+					break;
+			}
+		}
+
+		return kResultOk;
+	}
+
 private:
 	nois::Own_t<NoisVstControllerParameter> mSubFreq;
-	nois::Own_t<NoisVstControllerParameter> mDrive;
+	nois::Own_t<NoisVstControllerParameter> mDriveDb;
+	nois::Own_t<NoisVstControllerParameter> mMakeupDb;
+	nois::Own_t<NoisVstControllerParameter> mShape;
 	nois::Own_t<NoisVstControllerParameter> mWet;
 };
 
@@ -107,10 +176,13 @@ public:
 public:
 	VstDistort()
 		: mHpBuffer()
+		, mLpBuffer()
 		, mDistBuffer()
 		, mRegistry()
 		, mSubFreq(nullptr)
-		, mDrive(nullptr)
+		, mDriveDb(nullptr)
+		, mMakeupDb(nullptr)
+		, mShape(nullptr)
 		, mWet(nullptr)
 		, mHpFilter(nullptr)
 		, mLpFilter(nullptr)
@@ -120,35 +192,40 @@ public:
 		, mLpDistFilter(nullptr)
 	{
 		mSubFreq = NoisVstProcessorParameter::Create<parameter::SubFreq>(mRegistry);
-		mDrive = NoisVstProcessorParameter::Create<parameter::Drive>(mRegistry);
+		mDriveDb = NoisVstProcessorParameter::Create<parameter::DriveDb>(mRegistry);
+		mMakeupDb = NoisVstProcessorParameter::Create<parameter::MakeupDb>(mRegistry);
+		mShape = NoisVstProcessorParameter::Create<parameter::Shape>(mRegistry);
 		mWet = NoisVstProcessorParameter::Create<parameter::Wet>(mRegistry);
 
 		Register(mSubFreq.get());
-		Register(mDrive.get());
+		Register(mDriveDb.get());
+		Register(mMakeupDb.get());
+		Register(mShape.get());
 		Register(mWet.get());
 
 		auto subFreqRatio = 
 			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[this](float x) { return x / (mSampleRate * 0.5f); });
+				[this](float x) -> float { return x / (mSampleRate * 0.5f); });
 		auto ap1CutoffRatio =
 			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[this](float x) { return std::clamp(x * 0.7f, 0.002f, 0.02f) / (mSampleRate * 0.5f); });
+				[this](float x) -> float { return std::clamp(x * 0.7f, 0.002f, 0.02f) / (mSampleRate * 0.5f); });
 		auto ap2CutoffRatio =
 			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[this](float x) { return std::clamp(x * 1.2f, 0.002f, 0.03f) / (mSampleRate * 0.5f); });
+				[this](float x) -> float { return std::clamp(x * 1.2f, 0.002f, 0.03f) / (mSampleRate * 0.5f); });
 		auto apQ =
 			mRegistry.CreateBlockConstant(0.67f);
-		auto distWet =
-			mRegistry.CreateConstant(1.0f);
+		auto distAsym =
+			mRegistry.CreateBlockTransformer(*mShape,
+				[](float x) -> float { return x > 0.5f ? 1.0f + (x - 0.5) : 1.0f; });
 		auto lpDistCutoffRatio =
 			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[](nois::f32_t x) { return x * 2.0f; });
+				[](nois::f32_t x) -> float { return x * 2.0f; });
 
 		mHpFilter = nois::Filter::Create(nois::Filter::k_LR4High);
-		mHpFilter->SetCutoffRatio(*mSubFreq);
+		mHpFilter->SetCutoffRatio(subFreqRatio);
 
 		mLpFilter = nois::Filter::Create(nois::Filter::k_LR4Low);
-		mLpFilter->SetCutoffRatio(*mSubFreq);
+		mLpFilter->SetCutoffRatio(subFreqRatio);
 
 		mAp1Filter = nois::AllpassFilter::Create(nois::AllpassFilter::k_RBJBiquad);
 		mAp1Filter->SetCutoffRatio(ap1CutoffRatio);
@@ -158,9 +235,11 @@ public:
 		mAp2Filter->SetCutoffRatio(ap2CutoffRatio);
 		mAp2Filter->SetQ(apQ);
 
-		mDist = nois::Distorter::Create(nois::Distorter::k_Tanh);
-		mDist->SetDriveDb(*mDrive);
-		mDist->SetWet(distWet);
+		mDist = nois::DynamicTanhDistorter::Create();
+		mDist->SetDriveDb(*mDriveDb);
+		mDist->SetMakeupDb(*mMakeupDb);
+		mDist->SetShape(*mShape);
+		mDist->SetAsym(distAsym);
 
 		mLpDistFilter = nois::Filter::Create(nois::Filter::k_LR4Low);
 		mLpDistFilter->SetCutoffRatio(lpDistCutoffRatio);
@@ -172,6 +251,7 @@ protected:
 		nois::FloatBufferView sinkBuffer) override
 	{
 		mHpBuffer.Resize(sourceBuffer.GetNumFrames(), sourceBuffer.GetNumChannels());
+		mLpBuffer.Resize(sourceBuffer.GetNumFrames(), sourceBuffer.GetNumChannels());
 		mDistBuffer.Resize(sourceBuffer.GetNumFrames(), sourceBuffer.GetNumChannels());
 
 		{
@@ -184,7 +264,7 @@ protected:
 			NOIS_PROFILE_SCOPE_NAMED("Prepare processors");
 
 			mHpFilter->Prepare(mHpBuffer.GetNumFrames(), mHpBuffer.GetNumChannels(), mSampleRate);
-			mLpFilter->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
+			mLpFilter->Prepare(mLpBuffer.GetNumFrames(), mLpBuffer.GetNumChannels(), mSampleRate);
 			mAp1Filter->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
 			mAp2Filter->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
 			mDist->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
@@ -197,20 +277,21 @@ protected:
 			nois::ScopedNoDenorms noDenorms;
 
 			mHpFilter->Process(sourceBuffer, mHpBuffer);
-			mLpFilter->Process(sourceBuffer, mDistBuffer);
-			mAp1Filter->Process(mDistBuffer, mDistBuffer);
+			mLpFilter->Process(sourceBuffer, mLpBuffer);
+			mAp1Filter->Process(mLpBuffer, mDistBuffer);
 			mAp2Filter->Process(mDistBuffer, mDistBuffer);
 			mDist->Process(mDistBuffer, mDistBuffer);
 			mLpDistFilter->Process(mDistBuffer, mDistBuffer);
 
+			nois::f32_t wet = mWet->GetLastPlain();
 			for (int c = 0; c < sinkBuffer.GetNumChannels(); ++c)
 			{
 				for (int f = 0; f < sinkBuffer.GetNumFrames(); ++f)
 				{
-					nois::f32_t wet = mWet->GetLastPlain();
-					nois::f32_t x = sourceBuffer(f, c);
-					nois::f32_t z = mHpBuffer(f, c) + mDistBuffer(f, c);
-					sinkBuffer(f, c) = x * (1.0f - wet) + z * wet;
+					nois::f32_t high = mHpBuffer(f, c);
+					nois::f32_t lowClean = mLpBuffer(f, c);
+					nois::f32_t lowDist  = mDistBuffer(f, c);
+					sinkBuffer(f, c) = high + lowClean * (1.0f - wet) + lowDist * wet;
 				}
 			}
 		}
@@ -218,19 +299,22 @@ protected:
 
 private:
 	nois::FloatBuffer mHpBuffer;
+	nois::FloatBuffer mLpBuffer;
 	nois::FloatBuffer mDistBuffer;
 
 	nois::FloatParameterRegistry mRegistry;
 
 	nois::Own_t<NoisVstProcessorParameter> mSubFreq;
-	nois::Own_t<NoisVstProcessorParameter> mDrive;
+	nois::Own_t<NoisVstProcessorParameter> mDriveDb;
+	nois::Own_t<NoisVstProcessorParameter> mMakeupDb;
+	nois::Own_t<NoisVstProcessorParameter> mShape;
 	nois::Own_t<NoisVstProcessorParameter> mWet;
 
 	nois::Ref_t<nois::Filter> mHpFilter;
 	nois::Ref_t<nois::Filter> mLpFilter;
 	nois::Ref_t<nois::AllpassFilter> mAp1Filter;
 	nois::Ref_t<nois::AllpassFilter> mAp2Filter;
-	nois::Ref_t<nois::Distorter> mDist;
+	nois::Ref_t<nois::DynamicTanhDistorter> mDist;
 	nois::Ref_t<nois::Filter> mLpDistFilter;
 };
 

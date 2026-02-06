@@ -27,10 +27,9 @@ public:
 	{
 	}
 
-	void SetGainDb(Ref_t<FloatParameter> gainDb)
+	void SetGain(Ref_t<FloatParameter> gainDb)
 	{
 		m_Gain.Use(gainDb);
-		m_Gain.Transform([](f32_t x, count_t) { return FromDb(x); });
 	}
 
 private:
@@ -38,7 +37,7 @@ private:
 };
 
 NOIS_INTERFACE_IMPL(Gainer)
-NOIS_INTERFACE_PARAM_IMPL(Gainer, GainDb, FloatParameter)
+NOIS_INTERFACE_PARAM_IMPL(Gainer, Gain, FloatParameter)
 
 Ref_t<Gainer> Gainer::Create()
 {

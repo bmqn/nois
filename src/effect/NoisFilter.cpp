@@ -39,7 +39,6 @@ class N2ButterworthFilterLowImpl : public Filter::Impl
 public:
 	N2ButterworthFilterLowImpl()
 	{
-		m_Biquad.MakeButterworthLow(m_CutoffRatio.Default());
 	}
 
 	Stream::Result Process(
@@ -63,7 +62,9 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
-		if (m_CutoffRatio.Changed())
+		if (m_NumFrames != numFrames ||
+			m_NumChannels != numChannels ||
+			m_CutoffRatio.Changed())
 		{
 			m_Biquad.MakeButterworthLow(m_CutoffRatio.Get());
 		}
@@ -83,7 +84,7 @@ public:
 	}
 
 private:
-	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
+	SlotBlockParameter<f32_t> m_CutoffRatio = {1.0f, 0.0, 1.0f};
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
 	Biquad<f32_t> m_Biquad;
@@ -95,7 +96,6 @@ class N2ButterworthFilterHighImpl : public Filter::Impl
 public:
 	N2ButterworthFilterHighImpl()
 	{
-		m_Biquad.MakeButterworthHigh(m_CutoffRatio.Default());
 	}
 
 	Stream::Result Process(
@@ -119,7 +119,9 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
-		if (m_CutoffRatio.Changed())
+		if (m_NumFrames != numFrames ||
+			m_NumChannels != numChannels ||
+			m_CutoffRatio.Changed())
 		{
 			m_Biquad.MakeButterworthHigh(m_CutoffRatio.Get());
 		}
@@ -139,7 +141,7 @@ public:
 	}
 
 private:
-	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
+	SlotBlockParameter<f32_t> m_CutoffRatio = {1.0f, 0.0, 1.0f};
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
 	Biquad<f32_t> m_Biquad;
@@ -150,8 +152,6 @@ class LR4FilterLowImpl : public Filter::Impl
 public:
 	LR4FilterLowImpl()
 	{
-		m_Biquad1.MakeButterworthLow(m_CutoffRatio.Default());
-		m_Biquad2.MakeButterworthLow(m_CutoffRatio.Default());
 	}
 
 	Stream::Result Process(
@@ -178,7 +178,9 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
-		if (m_CutoffRatio.Changed())
+		if (m_NumFrames != numFrames ||
+			m_NumChannels != numChannels ||
+			m_CutoffRatio.Changed())
 		{
 			f32_t cutoffRatio = m_CutoffRatio.Get();
 			m_Biquad1.MakeButterworthLow(cutoffRatio);
@@ -200,7 +202,7 @@ public:
 	}
 
 private:
-	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
+	SlotBlockParameter<f32_t> m_CutoffRatio = {1.0f, 0.0, 1.0f};
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
 	Biquad<f32_t> m_Biquad1;
@@ -212,8 +214,6 @@ class LR4FilterHighImpl : public Filter::Impl
 public:
 	LR4FilterHighImpl()
 	{
-		m_Biquad1.MakeButterworthHigh(m_CutoffRatio.Default());
-		m_Biquad2.MakeButterworthHigh(m_CutoffRatio.Default());
 	}
 
 	Stream::Result Process(
@@ -240,7 +240,9 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
-		if (m_CutoffRatio.Changed())
+		if (m_NumFrames != numFrames ||
+			m_NumChannels != numChannels ||
+			m_CutoffRatio.Changed())
 		{
 			f32_t cutoffRatio = m_CutoffRatio.Get();
 			m_Biquad1.MakeButterworthHigh(cutoffRatio);
@@ -262,7 +264,7 @@ public:
 	}
 
 private:
-	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
+	SlotBlockParameter<f32_t> m_CutoffRatio = {1.0f, 0.0, 1.0f};
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
 	Biquad<f32_t> m_Biquad1;
@@ -274,7 +276,6 @@ class RBJBiquadAllpassFilterImpl : public AllpassFilter::Impl
 public:
 	RBJBiquadAllpassFilterImpl()
 	{
-		m_Biquad.MakeAllpass(m_CutoffRatio.Default(), m_Q.Default());
 	}
 
 	Stream::Result Process(
@@ -298,7 +299,9 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
-		if (m_CutoffRatio.Changed() ||
+		if (m_NumFrames != numFrames ||
+			m_NumChannels != numChannels ||
+			m_CutoffRatio.Changed() ||
 			m_Q.Changed())
 		{
 			m_Biquad.MakeAllpass(m_CutoffRatio.Get(), m_Q.Get());
@@ -324,8 +327,8 @@ public:
 	}
 
 private:
-	SlotBlockParameter<f32_t> m_CutoffRatio = 1.0f;
-	SlotBlockParameter<f32_t> m_Q = 1.0f / std::numbers::sqrt2;
+	SlotBlockParameter<f32_t> m_CutoffRatio = {1.0f, 0.0, 1.0f};
+	SlotBlockParameter<f32_t> m_Q = {1.0f / std::numbers::sqrt2, 0.0f, 16.0f};
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
 	Biquad<f32_t> m_Biquad;
