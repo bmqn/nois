@@ -3,8 +3,6 @@
 #include "nois/NoisTypes.hpp"
 #include "nois/core/NoisStream.hpp"
 
-#include <memory>
-
 namespace nois {
 
 class Combiner

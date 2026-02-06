@@ -1,14 +1,21 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
-
-#include <vector>
+#include "nois/util/NoisSmallVector.hpp"
 
 namespace nois {
 
 class MidiMessage
 {
 public:
+	MidiMessage()
+		: m_Status(0)
+		, m_Data1(0)
+		, m_Data2(0)
+		, m_FrameOffset(0)
+	{
+	}
+
 	MidiMessage(uint8_t status, uint8_t data1, uint8_t data2, count_t frameOffset)
 		: m_Status(status)
 		, m_Data1(data1)
@@ -71,9 +78,12 @@ private:
 
 class MidiMessageBuffer
 {
-public:
-	using MidiMessageBufferIterator = std::vector<MidiMessage>::iterator;
+	using MidiMessageBuffer_t = SmallVector<MidiMessage, 32>;
 
+public:
+	using iterator = MidiMessageBuffer_t::iterator;
+
+public:
 	MidiMessageBuffer(count_t numFrames, count_t numChannels)
 		: m_NumFrames(numFrames)
 		, m_NumChannels(numChannels)
@@ -95,12 +105,12 @@ public:
 		m_Messages.push_back(message);
 	}
 
-	MidiMessageBufferIterator Begin()
+	iterator Begin()
 	{
 		return m_Messages.begin();
 	}
 
-	MidiMessageBufferIterator End()
+	iterator End()
 	{
 		return m_Messages.end();
 	}
@@ -109,7 +119,7 @@ private:
 	count_t m_NumFrames;
 	count_t m_NumChannels;
 
-	std::vector<MidiMessage> m_Messages;
+	MidiMessageBuffer_t m_Messages;
 };
 
 }

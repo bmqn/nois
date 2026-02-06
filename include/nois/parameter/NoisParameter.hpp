@@ -4,6 +4,7 @@
 #include "nois/util/NoisSmallVector.hpp"
 
 #include <unordered_map>
+#include <vector>
 
 namespace nois {
 

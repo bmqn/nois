@@ -1,9 +1,10 @@
 #pragma once
 
 #include "nois/NoisConfig.hpp"
-#include "nois/NoisMacros.hpp"
 #include "nois/NoisTypes.hpp"
 #include "nois/util/NoisSmallVector.hpp"
+
+#include <array>
 
 namespace nois {
 

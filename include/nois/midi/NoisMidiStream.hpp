@@ -3,8 +3,6 @@
 #include "nois/NoisTypes.hpp"
 #include "nois/midi/NoisMidiBuffer.hpp"
 
-#include <vector>
-
 namespace nois {
 
 class MidiStream

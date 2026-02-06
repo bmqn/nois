@@ -63,6 +63,7 @@ set(NOIS_HSPSRC
 	"${NOIS_INC_DIR}/nois/route/NoisCombiner.hpp"
 	"${NOIS_INC_DIR}/nois/route/NoisSplitter.hpp"
 
+	"${NOIS_INC_DIR}/nois/util/NoisBiquad.hpp"
 	"${NOIS_INC_DIR}/nois/util/NoisDelay.hpp"
 	"${NOIS_INC_DIR}/nois/util/NoisSmallVector.hpp"
 )
