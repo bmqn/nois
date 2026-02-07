@@ -572,7 +572,7 @@ public:
 
 private:
 	Ref_t<Parameter<T>> m_Used;
-	ParameterBlock<T>::Frame m_Default;
+	typename ParameterBlock<T>::Frame m_Default;
 };
 
 template<typename T>
