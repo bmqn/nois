@@ -21,6 +21,7 @@ smtg_target_configure_version_file(
 
 target_link_libraries(
 	verb-vst3
+	PRIVATE
 		nois-common-vst3
 )
 
