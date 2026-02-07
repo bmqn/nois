@@ -1,6 +1,7 @@
 #include "nois/analysis/NoisFilterBank.hpp"
 
 #include "nois/effect/NoisFilter.hpp"
+#include "nois/util/NoisBiquad.hpp"
 
 #include <chrono>
 #include <future>
