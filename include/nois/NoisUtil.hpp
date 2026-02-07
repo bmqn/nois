@@ -34,20 +34,17 @@ class ScopedNoDenorms
 {
 public:
 	ScopedNoDenorms()
-#if NOIS_ARCH_X64
-		: m_State(_mm_getcsr())
-#elif NOIS_ARCH_ARM64
-		: m_State(__builtin_aarch64_get_fpcr())
-#endif // NOIS_ARCH_X64 + NOIS_ARCH_ARM64
 	{
 #if NOIS_ARCH_X64
+		m_State = _mm_getcsr();
 		// Set DAZ (bit 6) and FTZ (bit 15)
 		u32_t mxcsr = m_State | (1u << 6) | (1u << 15);
 		_mm_setcsr(mxcsr);
 #elif NOIS_ARCH_ARM64
-		// Set DAZ (bit 19) and FTZ (bit 24)
-		u32_t fpcr = m_State | (1u << 24) | (1u << 19);
-		__builtin_aarch64_set_fpcr(fpcr);
+		asm volatile("mrs %0, fpcr" : "=r"(m_State));
+		// Set FTZ (bit 24)
+		u64_t fpcr = m_State | (1ul << 24);
+		asm volatile("msr fpcr, %0" :: "r"(fpcr));
 #endif // NOIS_ARCH_X64 + NOIS_ARCH_ARM64
 	}
 
@@ -57,12 +54,16 @@ public:
 		// Restore old state
 		_mm_setcsr(m_State);
 #elif NOIS_ARCH_ARM64
-		__builtin_aarch64_set_fpcr(m_State);
+		asm volatile("msr fpcr, %0" :: "r"(m_State));
 #endif // NOIS_ARCH_X64 + NOIS_ARCH_ARM64
 	}
 
 private:
-	u32_t m_State;
+#if NOIS_ARCH_X64
+        u32_t m_State;
+#elif NOIS_ARCH_ARM64
+	u64_t m_State;
+#endif // NOIS_ARCH_X64 + NOIS_ARCH_ARM64
 };
 
 
