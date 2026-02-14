@@ -37,6 +37,9 @@
 #define NOIS_ENABLE_AVX_SIMD 1
 #endif // NOIS_ARCH_X64
 
+#define NOIS_ALIGN_TO(_ptr, _align) (reinterpret_cast<uintptr_t>(_ptr) + (_align - 1)) & ~static_cast<uintptr_t>((_align - 1))
+#define NOIS_ALIGNED_TO(_ptr, _alignment) ((reinterpret_cast<uintptr_t>(_ptr) % (_alignment)) == 0)
+
 #if NOIS_ENABLE_PROFILING
 #define NOIS_PROFILE_MARK() FrameMark
 #define NOIS_PROFILE_SCOPE() ZoneScoped

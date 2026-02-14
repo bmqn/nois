@@ -30,5 +30,7 @@
 #include "route/NoisSplitter.hpp"
 #include "route/NoisCombiner.hpp"
 
+#include "util/NoisBiquad.hpp"
 #include "util/NoisDelay.hpp"
 #include "util/NoisSmallVector.hpp"
+#include "util/NoisSpanAllocator.hpp"

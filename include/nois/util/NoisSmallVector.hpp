@@ -126,7 +126,7 @@ public:
 		m_Size = n;
 	}
 
-	inline void push_back(T value)
+	inline void push_back(const T& value)
 	{
 		if (m_Size < N)
 		{
@@ -139,6 +139,23 @@ public:
 				MoveToFallback();
 			}
 			m_Fallback.push_back(value);
+		}
+		++m_Size;
+	}
+
+	inline void push_back(T&& value)
+	{
+		if (m_Size < N)
+		{
+			m_Data[m_Size] = std::move(value);
+		}
+		else
+		{
+			if (m_Fallback.empty())
+			{
+				MoveToFallback();
+			}
+			m_Fallback.push_back(std::forward<T>(value));
 		}
 		++m_Size;
 	}
@@ -166,6 +183,10 @@ public:
 		if (m_Size > N)
 		{
 			m_Fallback.pop_back();
+		}
+		else
+		{
+			m_Data[m_Size - 1].~T();
 		}
 		--m_Size;
 	}
@@ -241,6 +262,8 @@ public:
 	template<bool Const>
 	class Iterator
 	{
+		friend class SmallVector;
+
 	private:
 		using vector = std::conditional_t<Const, const SmallVector*, SmallVector*>;
 
@@ -301,6 +324,18 @@ public:
 		inline Iterator operator-(difference_type n) const
 		{
 			return Iterator(m_SmallVector, m_Index - n);
+		}
+
+		inline Iterator& operator+=(difference_type n)
+		{
+			m_Index += n;
+			return *this;
+		}
+
+		inline Iterator& operator-=(difference_type n)
+		{
+			m_Index -= n;
+			return *this;
 		}
 
 		inline difference_type operator-(const Iterator &other) const
@@ -364,6 +399,96 @@ public:
 	inline const_iterator end() const
 	{
 		return const_iterator(this, m_Size);
+	}
+
+	inline iterator insert(iterator it, const T& value)
+	{
+		size_type index = it.m_Index;
+
+		if (index > m_Size)
+		{
+			index = m_Size;
+		}
+
+		if (m_Size < N)
+		{
+			if (m_Size > 0)
+			{
+				std::move_backward(m_Data.begin() + index, m_Data.begin() + m_Size, m_Data.begin() + m_Size + 1);
+			}
+			m_Data[index] = value;
+		}
+		else
+		{
+			if (m_Fallback.empty())
+			{
+				MoveToFallback();
+			}
+			m_Fallback.insert(m_Fallback.begin() + index, value);
+		}
+
+		++m_Size;
+		return iterator(this, index);
+	}
+
+	inline iterator insert(iterator it, T&& value)
+	{
+		size_type index = it.m_Index;
+
+		if (index > m_Size)
+		{
+			index = m_Size;
+		}
+
+		if (m_Size < N)
+		{
+			if (m_Size > 0)
+			{
+				std::move_backward(m_Data.begin() + index, m_Data.begin() + m_Size, m_Data.begin() + m_Size + 1);
+			}
+			m_Data[index] = std::move(value);
+		}
+		else
+		{
+			if (m_Fallback.empty())
+			{
+				MoveToFallback();
+			}
+			m_Fallback.insert(m_Fallback.begin() + index, std::forward<T>(value));
+		}
+
+		++m_Size;
+		return iterator(this, index);
+	}
+
+	inline iterator erase(iterator it)
+	{
+		size_type index = it.m_Index;
+
+		if (index >= m_Size)
+		{
+			return end();
+		}
+
+		if (m_Size <= N)
+		{
+			m_Data[index].~T();
+			if (m_Size > 0)
+			{
+				std::move(m_Data.begin() + index + 1, m_Data.begin() + m_Size, m_Data.begin() + index);
+			}
+		}
+		else
+		{
+			m_Fallback.erase(m_Fallback.begin() + index);
+			if (m_Size - 1 == N)
+			{
+				MoveFromFallback();
+			}
+		}
+
+		--m_Size;
+		return iterator(this, index);
 	}
 
 private:

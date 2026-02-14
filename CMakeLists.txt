@@ -66,6 +66,7 @@ set(NOIS_HSPSRC
 	"${NOIS_INC_DIR}/nois/util/NoisBiquad.hpp"
 	"${NOIS_INC_DIR}/nois/util/NoisDelay.hpp"
 	"${NOIS_INC_DIR}/nois/util/NoisSmallVector.hpp"
+	"${NOIS_INC_DIR}/nois/util/NoisSpanAllocator.hpp"
 )
 
 set(NOIS_SRC
@@ -90,6 +91,8 @@ set(NOIS_SRC
 
 	"${NOIS_SRC_DIR}/route/NoisCombiner.cpp"
 	"${NOIS_SRC_DIR}/route/NoisSplitter.cpp"
+
+	"${NOIS_SRC_DIR}/util/NoisSpanAllocator.cpp"
 )
 
 source_group(
@@ -234,6 +237,9 @@ endif()
 
 # examples
 add_subdirectory("${NOIS_ROOT_DIR}/examples")
+
+# tests
+add_subdirectory("${NOIS_ROOT_DIR}/tests")
 
 
 #-------------------------------------------------------------------------------------------------

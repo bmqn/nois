@@ -32,3 +32,4 @@
 	{ \
 		m_Impl->Set##_name(value); \
 	}
+
