@@ -2,8 +2,6 @@
 
 #include "NoisTypes.hpp"
 
-#include <new>
-
 namespace nois {
 
 // Size of a cache line
