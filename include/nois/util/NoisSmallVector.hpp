@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <new>
 #include <vector>
 
 namespace nois {
@@ -12,49 +13,89 @@ namespace nois {
 template<typename T, std::size_t N>
 class SmallVector
 {
+	static_assert(std::is_nothrow_move_constructible_v<T>);
+
 public:
 	using size_type = std::size_t;
 
 	SmallVector(size_type n = 0, const T &value = T{})
 		: m_Size(0)
-		, m_Fallback()
-		, m_Data{T{}}
 	{
 		resize(n, value);
 	}
 
 	SmallVector(const SmallVector& other)
 		: m_Size(other.m_Size)
-		, m_Fallback(other.m_Fallback)
-		, m_Data(other.m_Data)
 	{
+		if (other.m_Size <= N)
+		{
+			for (size_type i = 0; i < m_Size; ++i)
+			{
+				new (DataPtr(i)) T(*other.DataPtr(i));
+			}
+		}
+		else
+		{
+			m_Fallback = other.m_Fallback;
+		}
 	}
 
 	SmallVector(SmallVector &&other) noexcept
 		: m_Size(other.m_Size)
-		, m_Fallback(std::move(other.m_Fallback))
-		, m_Data(std::move(other.m_Data))
 	{
+		if (other.m_Size <= N)
+		{
+			for (size_type i = 0; i < m_Size; ++i)
+			{
+				new (DataPtr(i)) T(std::move(*other.DataPtr(i)));
+			}
+		}
+		else
+		{
+			m_Fallback = std::move(other.m_Fallback);
+		}
 		other.m_Size = 0;
-		other.m_Data = {};
-		other.m_Fallback = {};
+	}
+
+	~SmallVector()
+	{
+		clear();
 	}
 
 	SmallVector& operator=(const SmallVector& other)
 	{
+		clear();
 		m_Size = other.m_Size;
-		m_Data = other.m_Data;
-		m_Fallback = other.m_Fallback;
+		if (other.m_Size <= N)
+		{
+			for (size_type i = 0; i < m_Size; ++i)
+			{
+				new (DataPtr(i)) T(*other.DataPtr(i));
+			}
+		}
+		else
+		{
+			m_Fallback = other.m_Fallback;
+		}
+		return *this;
 	}
 
 	SmallVector &operator=(SmallVector &&other) noexcept
 	{
+		clear();
 		m_Size = other.m_Size;
-		m_Data = std::move(other.m_Data);
-		m_Fallback = std::move(other.m_Fallback);
+		if (other.m_Size <= N)
+		{
+			for (size_type i = 0; i < m_Size; ++i)
+			{
+				new (DataPtr(i)) T(std::move(*other.DataPtr(i)));
+			}
+		}
+		else
+		{
+			m_Fallback = std::move(other.m_Fallback);
+		}
 		other.m_Size = 0;
-		other.m_Data = {};
-		other.m_Fallback = {};
 		return *this;
 	}
 
@@ -87,14 +128,11 @@ public:
 
 	inline void reserve(size_type n)
 	{
-		if (n <= N)
+		if (n > N && m_Fallback.empty())
 		{
-			return;
+			MoveToFallback();
 		}
-		else
-		{
-			ReserveFallback(n);
-		}
+		ReserveFallback(n);
 	}
 
 	inline void resize(size_type n, const T &value = T{})
@@ -108,29 +146,65 @@ public:
 		{
 			if (!m_Fallback.empty())
 			{
-				MoveFromFallback();
+				// Move first n elements
+				for (size_type i = 0; i < std::min(n, m_Size); ++i)
+				{
+					new (DataPtr(i)) T(std::move(m_Fallback[i]));
+				}
+
+				// Fallback is now empty
+				m_Fallback.clear();
 			}
+
+			// Expanding inline
 			if (n > m_Size)
 			{
-				std::fill_n(m_Data.begin() + m_Size, n - m_Size, value);
+				for (size_type i = m_Size; i < n; ++i)
+				{
+					new (DataPtr(i)) T(value);
+				}
+			}
+			// Shrinking inline
+			else
+			{
+				for (size_type i = n; i < m_Size; ++i)
+				{
+					DataPtr(i)->~T();
+				}
 			}
 		}
 		else
 		{
 			if (m_Fallback.empty())
 			{
-				MoveToFallback(n, value);
+				MoveToFallback();
 			}
-			m_Fallback.resize(n);
+			m_Fallback.resize(n, value);
 		}
 		m_Size = n;
+	}
+
+	inline void clear()
+	{
+		if (m_Size <= N)
+		{
+			for (size_type i = 0; i < m_Size; ++i)
+			{
+				DataPtr(i)->~T();
+			}
+		}
+		else
+		{
+			m_Fallback.clear();
+		}
+		m_Size = 0;
 	}
 
 	inline void push_back(const T& value)
 	{
 		if (m_Size < N)
 		{
-			m_Data[m_Size] = value;
+			new (DataPtr(m_Size)) T(value);
 		}
 		else
 		{
@@ -147,7 +221,7 @@ public:
 	{
 		if (m_Size < N)
 		{
-			m_Data[m_Size] = std::move(value);
+			new (DataPtr(m_Size)) T(std::move(value));
 		}
 		else
 		{
@@ -165,7 +239,7 @@ public:
 	{
 		if (m_Size < N)
 		{
-			new (&m_Data[m_Size]) T(std::forward<Args>(args)...);
+			new (DataPtr(m_Size)) T(std::forward<Args>(args)...);
 		}
 		else
 		{
@@ -183,12 +257,17 @@ public:
 		if (m_Size > N)
 		{
 			m_Fallback.pop_back();
+			--m_Size;
+			if (m_Size == N)
+			{
+				MoveFromFallback();
+			}
 		}
 		else
 		{
-			m_Data[m_Size - 1].~T();
+			DataPtr(m_Size - 1)->~T();
+			--m_Size;
 		}
-		--m_Size;
 	}
 
 	inline const T& front() const
@@ -215,7 +294,7 @@ public:
 	{
 		if (m_Size <= N)
 		{
-			return m_Data[index];
+			return *DataPtr(index);
 		}
 		else
 		{
@@ -227,7 +306,7 @@ public:
 	{
 		if (m_Size <= N)
 		{
-			return m_Data[index];
+			return *DataPtr(index);
 		}
 		else
 		{
@@ -239,7 +318,7 @@ public:
 	{
 		if (m_Size <= N)
 		{
-			return m_Data.data();
+			return DataPtr(0);
 		}
 		else
 		{
@@ -251,7 +330,7 @@ public:
 	{
 		if (m_Size <= N)
 		{
-			return m_Data.data();
+			return DataPtr(0);
 		}
 		else
 		{
@@ -410,13 +489,33 @@ public:
 			index = m_Size;
 		}
 
+		if (m_Size == 0)
+		{
+			push_back(value);
+			return iterator(this, 0);
+		}
+
+		if (index == m_Size)
+		{
+			push_back(value);
+			return iterator(this, index);
+		}
+
 		if (m_Size < N)
 		{
-			if (m_Size > 0)
+			// Construct the new tail
+			new (DataPtr(m_Size)) T(std::move(*DataPtr(m_Size - 1)));
+
+			// Move-assign backward
+			for (size_type i = m_Size - 1; i > index; --i)
 			{
-				std::move_backward(m_Data.begin() + index, m_Data.begin() + m_Size, m_Data.begin() + m_Size + 1);
+				*DataPtr(i) = std::move(*DataPtr(i - 1));
 			}
-			m_Data[index] = value;
+
+			// Assign or construct index
+			*DataPtr(index) = value;
+
+			++m_Size;
 		}
 		else
 		{
@@ -425,9 +524,9 @@ public:
 				MoveToFallback();
 			}
 			m_Fallback.insert(m_Fallback.begin() + index, value);
+			++m_Size;
 		}
 
-		++m_Size;
 		return iterator(this, index);
 	}
 
@@ -435,18 +534,33 @@ public:
 	{
 		size_type index = it.m_Index;
 
-		if (index > m_Size)
+		if (m_Size == 0)
 		{
-			index = m_Size;
+			push_back(std::move(value));
+			return iterator(this, 0);
+		}
+
+		if (index == m_Size)
+		{
+			push_back(std::move(value));
+			return iterator(this, index);
 		}
 
 		if (m_Size < N)
 		{
-			if (m_Size > 0)
+			// Construct the new tail
+			new (DataPtr(m_Size)) T(std::move(*DataPtr(m_Size - 1)));
+
+			// Move-assign backward
+			for (size_type i = m_Size - 1; i > index; --i)
 			{
-				std::move_backward(m_Data.begin() + index, m_Data.begin() + m_Size, m_Data.begin() + m_Size + 1);
+				*DataPtr(i) = std::move(*DataPtr(i - 1));
 			}
-			m_Data[index] = std::move(value);
+
+			// Assign or construct index
+			*DataPtr(index) = std::move(value);
+
+			++m_Size;
 		}
 		else
 		{
@@ -455,9 +569,9 @@ public:
 				MoveToFallback();
 			}
 			m_Fallback.insert(m_Fallback.begin() + index, std::forward<T>(value));
+			++m_Size;
 		}
 
-		++m_Size;
 		return iterator(this, index);
 	}
 
@@ -472,22 +586,27 @@ public:
 
 		if (m_Size <= N)
 		{
-			m_Data[index].~T();
-			if (m_Size > 0)
+			// Shift elements left
+			for (size_type i = index; i + 1 < m_Size; ++i)
 			{
-				std::move(m_Data.begin() + index + 1, m_Data.begin() + m_Size, m_Data.begin() + index);
+				*DataPtr(i) = std::move(*DataPtr(i + 1));
 			}
+
+			// Destroy old tail
+			DataPtr(m_Size - 1)->~T();
+
+			--m_Size;
 		}
 		else
 		{
 			m_Fallback.erase(m_Fallback.begin() + index);
-			if (m_Size - 1 == N)
+			--m_Size;
+			if (m_Size == N)
 			{
 				MoveFromFallback();
 			}
 		}
 
-		--m_Size;
 		return iterator(this, index);
 	}
 
@@ -502,22 +621,39 @@ private:
 		m_Fallback.reserve(n);
 	}
 
-	inline void MoveToFallback(size_type n = N, const T &value = T{})
+	inline void MoveToFallback()
 	{
-		m_Fallback.resize(n, value);
-		std::copy_n(m_Data.begin(), N, m_Fallback.begin());
+		m_Fallback.reserve(m_Size);
+		for (size_type i = 0; i < m_Size; ++i)
+		{
+			m_Fallback.emplace_back(std::move(*DataPtr(i)));
+			DataPtr(i)->~T();
+		}
 	}
 
 	inline void MoveFromFallback()
 	{
-		std::copy_n(m_Fallback.begin(), N, m_Data.begin());
+		for (size_type i = 0; i < m_Size; ++i)
+		{
+			new (DataPtr(i)) T(std::move(m_Fallback[i]));
+		}
 		m_Fallback.clear();
+	}
+
+	inline T* DataPtr(size_type i = 0)
+	{
+		return std::launder(reinterpret_cast<T*>(&m_Data[i]));
+	}
+
+	inline const T* DataPtr(size_type i = 0) const
+	{
+		return std::launder(reinterpret_cast<const T*>(&m_Data[i]));
 	}
 
 private:
 	size_type m_Size;
 	std::vector<T> m_Fallback;
-	alignas(kCacheLineSize) std::array<T, N> m_Data;
+	alignas(kCacheLineSize) std::array<std::aligned_storage_t<sizeof(T), alignof(T)>, N> m_Data;
 };
 
 
