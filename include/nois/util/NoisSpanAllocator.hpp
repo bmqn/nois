@@ -6,12 +6,13 @@
 
 #include <algorithm>
 #include <array>
+#include <mutex>
 #include <vector>
 
 namespace nois {
 
-static constexpr size_t k_PageSize = 64 * 1024 * 1024;
-static constexpr size_t k_MinBlockSize = 4 * 1024;
+static constexpr size_t k_MinSpanSize = 512 * 1024 * 1024;
+static constexpr size_t k_MinBlockSize = 8 * 1024 * 1024;
 
 struct SpanAllocatorStats
 {
@@ -43,14 +44,14 @@ private:
 	{
 		void* ptr;
 		size_t size;
-		SmallVector<Block, 512> blocks;
+		SmallVector<Block, 256> blocks;
 	};
 
 public:
 	SpanAllocator();
 
 	void* Allocate(size_t size);
-	void Deallocate(void* ptr);
+	bool Deallocate(void* ptr);
 
 	void CoalesceFreeBlocks();
 
@@ -59,17 +60,19 @@ public:
 
 private:
 	Span* AllocateSpan(size_t size);
-	void DeallocateSpan(void* ptr);
+	bool DeallocateSpan(void* ptr);
 
 	void* AllocateBlock(Span& span, size_t size);
 	bool DeallocateBlock(Span& span, void* ptr);
 
 	void* AllocateVmAnon(size_t size) const;
+	void DeallocateVm(void* ptr, size_t size) const;
 	void AcquireVm(void* ptr, size_t size) const;
 	void RelieveVm(void* ptr, size_t size) const;
 
 private:
 	SmallVector<Span, 64> m_Spans;
+	mutable std::mutex m_Mutex;
 };
 
 }

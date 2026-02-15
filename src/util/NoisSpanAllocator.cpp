@@ -16,6 +16,8 @@ void* SpanAllocator::Allocate(size_t size)
 		return nullptr;
 	}
 
+	std::lock_guard<std::mutex> m_Lock(m_Mutex);
+
 	// Try to find a block in the existing spans
 	for (auto& span : m_Spans)
 	{
@@ -25,7 +27,13 @@ void* SpanAllocator::Allocate(size_t size)
 		}
 	}
 
-	size_t spanSize = NOIS_ALIGN_TO(size, k_PageSize);
+	size_t spanSize = size;
+	if (spanSize < k_MinSpanSize)
+	{
+		spanSize = k_MinSpanSize;
+	}
+
+	spanSize = NOIS_ALIGN_TO(spanSize, k_MinBlockSize);
 
 	// Allocate new span if we don't have space
 	if (Span* spanPtr = AllocateSpan(spanSize))
@@ -39,12 +47,14 @@ void* SpanAllocator::Allocate(size_t size)
 	return nullptr;
 }
 
-void SpanAllocator::Deallocate(void* ptr)
+bool SpanAllocator::Deallocate(void* ptr)
 {
 	if (!ptr)
 	{
-		return;
+		return false;
 	}
+
+	std::lock_guard<std::mutex> m_Lock(m_Mutex);
 
 	bool didDeallocate = false;
 
@@ -63,12 +73,7 @@ void SpanAllocator::Deallocate(void* ptr)
 					if (itNext->state == BlockState::Free)
 					{
 						itNext->startAddr = it->startAddr;
-						auto blockNextStartAddr = itNext->startAddr;
-						auto blockNextEndAddr = itNext->endAddr;
 						it = span.blocks.erase(it);
-						NZ_ASSERT(
-							it->startAddr == blockNextStartAddr &&
-							it->endAddr == blockNextEndAddr);
 						continue;
 					}
 				}
@@ -83,11 +88,19 @@ void SpanAllocator::Deallocate(void* ptr)
 		}
 	}
 
-	NZ_ASSERT(didDeallocate, "Could not deallocate %p", ptr);
+	// Try to dealloate the span
+	if (didDeallocate)
+	{
+		DeallocateSpan(ptr);
+	}
+
+	return didDeallocate;
 }
 
 void SpanAllocator::CoalesceFreeBlocks()
 {
+	std::lock_guard<std::mutex> m_Lock(m_Mutex);
+
 	for (auto& span : m_Spans)
 	{
 		for (auto it = span.blocks.begin(); it != span.blocks.end();)
@@ -96,15 +109,11 @@ void SpanAllocator::CoalesceFreeBlocks()
 			{
 				if (auto itNext = std::next(it); itNext != span.blocks.end())
 				{
+					NZ_ASSERT(it->endAddr == itNext->startAddr);
 					if (itNext->state == BlockState::Free)
 					{
 						itNext->startAddr = it->startAddr;
-						auto blockNextStartAddr = itNext->startAddr;
-						auto blockNextEndAddr = itNext->endAddr;
 						it = span.blocks.erase(it);
-						NZ_ASSERT(
-							it->startAddr == blockNextStartAddr &&
-							it->endAddr == blockNextEndAddr);
 						continue;
 					}
 				}
@@ -116,6 +125,8 @@ void SpanAllocator::CoalesceFreeBlocks()
 
 SpanAllocatorStats SpanAllocator::GetStats() const
 {
+	std::lock_guard<std::mutex> m_Lock(m_Mutex);
+
 	SpanAllocatorStats stats;
 
 	stats.totalSpans = m_Spans.size();
@@ -143,29 +154,42 @@ SpanAllocatorStats SpanAllocator::GetStats() const
 
 std::string SpanAllocator::DumpSpanMap(size_t width) const
 {
+	std::lock_guard<std::mutex> m_Lock(m_Mutex);
+
 	std::string result;
 
 	size_t spanIndex = 0;
 	for (const Span& span : m_Spans)
 	{
+		size_t spanSize = span.size;
+		size_t usedBytes = 0;
+		size_t totalBytes = 0;
 		std::string line(width, '?');
 
 		for (const Block& block : span.blocks)
 		{
-			size_t spanSize = span.size;
+			size_t blockSize = block.endAddr - block.startAddr;
+			totalBytes += blockSize;
+			if (block.state == BlockState::Allocated)
+			{
+				usedBytes += blockSize;
+			}
+
 			size_t blockStart = block.startAddr - reinterpret_cast<uintptr_t>(span.ptr);
 			size_t blockEnd   = block.endAddr   - reinterpret_cast<uintptr_t>(span.ptr);
-
 			size_t startCol = (blockStart * width) / spanSize;
 			size_t endCol   = (blockEnd   * width) / spanSize;
-
 			for (size_t i = startCol; i < endCol && i < width; ++i)
 			{
 				line[i] = (block.state == BlockState::Free) ? '.' : '#';
 			}
 		}
 
-		result += std::format("Span {} | {}\n", spanIndex++, line);
+		result += std::format("Span {} | {} | {} / {} MB\n",
+			spanIndex++,
+			line,
+			static_cast<float>(usedBytes) / (1024.0f * 1024.0f),
+			static_cast<float>(totalBytes) / (1024.0f * 1024.0f));
 	}
 
 	return result;
@@ -174,7 +198,7 @@ std::string SpanAllocator::DumpSpanMap(size_t width) const
 
 SpanAllocator::Span* SpanAllocator::AllocateSpan(size_t size)
 {
-	NZ_ASSERT(NOIS_ALIGNED_TO(size, k_PageSize));
+	NZ_ASSERT(size >= k_MinSpanSize);
 
 	void* ptr = AllocateVmAnon(size);
 
@@ -191,7 +215,7 @@ SpanAllocator::Span* SpanAllocator::AllocateSpan(size_t size)
 		{
 			// Start with one big free block
 			Block block;
-			block.startAddr = reinterpret_cast<uintptr_t>(ptr);
+			block.startAddr = NOIS_ALIGN_TO(ptr, k_MinBlockSize);
 			block.endAddr = block.startAddr + size;
 			block.state = BlockState::Free;
 			span.blocks.push_back(std::move(block));
@@ -204,9 +228,35 @@ SpanAllocator::Span* SpanAllocator::AllocateSpan(size_t size)
 	return &m_Spans.back();
 }
 
+bool SpanAllocator::DeallocateSpan(void* ptr)
+{
+	bool didDeallocate = false;
+
+	uintptr_t ptrAddr = reinterpret_cast<uintptr_t>(ptr);
+	for (auto it = m_Spans.begin(); it != m_Spans.end(); ++it)
+	{
+		uintptr_t spanStartAddr = reinterpret_cast<uintptr_t>(it->ptr);
+		uintptr_t spanEndAddr = spanStartAddr + it->size;
+		if (ptrAddr >= spanStartAddr && ptrAddr <= spanEndAddr)
+		{
+			if (it->blocks.size() == 1 && it->blocks.back().state == BlockState::Free)
+			{
+				DeallocateVm(it->ptr, it->size);
+				m_Spans.erase(it);
+
+				didDeallocate = true;
+
+				break;
+			}
+		}
+	}
+
+	return didDeallocate;
+}
+
 void* SpanAllocator::AllocateBlock(Span& span, size_t size)
 {
-	size_t allocSize = std::max(NOIS_ALIGN_TO(size, k_MinBlockSize), k_MinBlockSize);
+	size_t allocSize = NOIS_ALIGN_TO(size, k_MinBlockSize);
 	for (auto it = span.blocks.begin(); it != span.blocks.end(); ++it)
 	{
 		size_t blockSize = it->endAddr - it->startAddr;
@@ -215,43 +265,53 @@ void* SpanAllocator::AllocateBlock(Span& span, size_t size)
 			// If block is bigger than needed, split it
 			if (blockSize > allocSize)
 			{
+				uintptr_t blockStartAddr = it->startAddr;
+				uintptr_t blockEndAddr = it->endAddr;
+				uintptr_t newBlockStartAddr = blockStartAddr + allocSize;
+				uintptr_t newBlockEndAddr = blockEndAddr;
+
 				{
 					// The new block is the remainder
 					Block newBlock;
-					newBlock.startAddr = it->startAddr + allocSize;
-					newBlock.endAddr = it->endAddr;
+					newBlock.startAddr = newBlockStartAddr;
+					newBlock.endAddr = newBlockEndAddr;
 					newBlock.state = BlockState::Free;
 					it = std::prev(span.blocks.insert(std::next(it), std::move(newBlock)));
 				}
 
+				NZ_ASSERT(
+					it->startAddr == blockStartAddr &&
+					it->endAddr == blockEndAddr);
+
 				// The existing block is start
-				it->endAddr = it->startAddr + allocSize;
+				it->endAddr = newBlockStartAddr;
 			}
 
-			void* blockPtr = reinterpret_cast<void*>(it->startAddr);
-			size_t blockSize = it->endAddr - it->startAddr;
-			AcquireVm(blockPtr, blockSize);
+			void* newBlockPtr = reinterpret_cast<void*>(it->startAddr);
+			size_t newBlockSize = it->endAddr - it->startAddr;
+			AcquireVm(newBlockPtr, newBlockSize);
 			it->state = BlockState::Allocated;
 
-			return blockPtr;
+			return newBlockPtr;
 		}
 	}
+
+	NZ_ASSERT(!span.blocks.empty());
 
 	return nullptr;
 }
 
 bool SpanAllocator::DeallocateBlock(Span& span, void* ptr)
 {
-	uintptr_t ptrAddr = reinterpret_cast<uintptr_t>(ptr);
-
 	bool didDeallocate = false;
 
+	uintptr_t ptrAddr = reinterpret_cast<uintptr_t>(ptr);
 	for (auto it = span.blocks.begin(); it != span.blocks.end(); ++it)
 	{
 		if (ptrAddr >= it->startAddr && ptrAddr < it->endAddr)
 		{
-			void* blockPtr = reinterpret_cast<void*>(it->startAddr);
 			size_t blockSize = it->endAddr - it->startAddr;
+			void* blockPtr = reinterpret_cast<void*>(it->startAddr);
 			RelieveVm(blockPtr, blockSize);
 			it->state = BlockState::Free;
 
@@ -261,36 +321,44 @@ bool SpanAllocator::DeallocateBlock(Span& span, void* ptr)
 		}
 	}
 
+	NZ_ASSERT(!span.blocks.empty());
+
 	return didDeallocate;
 }
 
 void* SpanAllocator::AllocateVmAnon(size_t size) const
 {
 	void* ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	NZ_POSIX_ASSERT(ptr != MAP_FAILED, "mmap of %zu bytes failed", size);
 	if (ptr == MAP_FAILED)
 	{
-		NZ_LOG("mmap of %zu bytes failed: %s (errno=%d)", size, strerror(errno), errno);
 		return nullptr;
 	}
 	if (ptr)
 	{
-		int err = madvise(ptr, size, MADV_DONTNEED);
-		NZ_ASSERT(err == 0, "madvise of %p with %zu bytes failed: %s (errno=%d)", ptr, size, strerror(errno), errno);
+		int sysErr = madvise(ptr, size, MADV_DONTNEED);
+		NZ_POSIX_ASSERT(sysErr == 0, "madvise of %p with %zu bytes failed", ptr, size);
 	}
 
 	return ptr;
 }
 
+void SpanAllocator::DeallocateVm(void* ptr, size_t size) const
+{
+	int sysErr = munmap(ptr, size);
+	NZ_POSIX_ASSERT(sysErr != -1, "munmap of %p with %zu bytes failed", ptr, size);
+}
+
 void SpanAllocator::AcquireVm(void* ptr, size_t size) const
 {
-	int err = madvise(ptr, size, MADV_NORMAL);
-	NZ_ASSERT(err == 0, "madvise of %p with %zu bytes failed: %s (errno=%d)", ptr, size, strerror(errno), errno);
+	int sysErr = madvise(ptr, size, MADV_NORMAL);
+	NZ_POSIX_ASSERT(sysErr == 0, "madvise of %p with %zu bytes failed", ptr, size);
 }
 
 void SpanAllocator::RelieveVm(void* ptr, size_t size) const
 {
-	int err = madvise(ptr, size, MADV_DONTNEED);
-	NZ_ASSERT(err == 0, "madvise of %p with %zu bytes failed: %s (errno=%d)", ptr, size, strerror(errno), errno);
+	int sysErr = madvise(ptr, size, MADV_DONTNEED);
+	NZ_POSIX_ASSERT(sysErr == 0, "madvise of %p with %zu bytes failed", ptr, size);
 }
 
 }

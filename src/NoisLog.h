@@ -143,9 +143,57 @@ _NZ_ASSERT3, _NZ_ASSERT2, _NZ_ASSERT1)                                          
 
 #define NZ_ASSERT(...) _NZ_EXPAND(_NZ_ASSERT_CHOOSER(__VA_ARGS__)(__VA_ARGS__))
 
+#define _NZ_POSIX_ASSERT1(condition)                                                              \
+do                                                                                                \
+{                                                                                                 \
+	if (!(condition))                                                                             \
+	{                                                                                             \
+		fprintf(stdout, "[Assertion Failed (%d = %s)]", errno, strerror(errno));                  \
+		fprintf(stdout, "[%s:%d][%s]", __FILENAME__, __LINE__, __FUNCTION_NAME__);                \
+		fprintf(stdout, "\n");                                                                    \
+		debug_break();                                                                            \
+	}                                                                                             \
+} while(0)
+
+#define _NZ_POSIX_ASSERT2(condition, format)                                                      \
+do                                                                                                \
+{                                                                                                 \
+	if (!(condition))                                                                             \
+	{                                                                                             \
+		fprintf(stdout, "[Assertion Failed (%d = %s)]", errno, strerror(errno));                  \
+		fprintf(stdout, "[%s:%d][%s] ", __FILENAME__, __LINE__, __FUNCTION_NAME__);               \
+		fprintf(stdout, format);                                                                  \
+		fprintf(stdout, "\n");                                                                    \
+		debug_break();                                                                            \
+	}                                                                                             \
+} while (0)
+
+#define _NZ_POSIX_ASSERT3(condition, format, ...)                                                 \
+do                                                                                                \
+{                                                                                                 \
+	if (!(condition))                                                                             \
+	{                                                                                             \
+		fprintf(stdout, "[Assertion Failed (%d = %s)]", errno, strerror(errno));                  \
+		fprintf(stdout, "[%s:%d][%s] ", __FILENAME__, __LINE__, __FUNCTION_NAME__);               \
+		fprintf(stdout, format, __VA_ARGS__);                                                     \
+		fprintf(stdout, "\n");                                                                    \
+		debug_break();                                                                            \
+	}                                                                                             \
+} while (0)
+
+#define _NZ_POSIX_ASSERT_CHOOSER(...) _NZ_EXPAND(                                                 \
+_NZ_VARGS(__VA_ARGS__,                                                                            \
+_NZ_POSIX_ASSERT3, _NZ_POSIX_ASSERT3, _NZ_POSIX_ASSERT3,                                          \
+_NZ_POSIX_ASSERT3, _NZ_POSIX_ASSERT3, _NZ_POSIX_ASSERT3,                                          \
+_NZ_POSIX_ASSERT3, _NZ_POSIX_ASSERT2, _NZ_POSIX_ASSERT1)                                          \
+)
+
+#define NZ_POSIX_ASSERT(...) _NZ_EXPAND(_NZ_POSIX_ASSERT_CHOOSER(__VA_ARGS__)(__VA_ARGS__))
+
 #else
 
-#define NZ_ASSERT(condition, ...)
+#define NZ_ASSERT(...)
+#define NZ_POSIX_ASSERT(...)
 
 #endif  // NOIS_ENABLE_ASSERTIONS
 
