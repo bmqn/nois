@@ -8,9 +8,9 @@ namespace nois {
 //
 // We use this to align data for faster access.
 #ifndef __cpp_lib_hardware_interference_size
-constexpr count_t kCacheLineSize = 64;
+constexpr std::size_t kCacheLineSize = 64;
 #else
-constexpr count_t kCacheLineSize = std::hardware_destructive_interference_size;
+constexpr std::size_t kCacheLineSize = std::hardware_destructive_interference_size;
 #endif
 
 // Max number of supported channels

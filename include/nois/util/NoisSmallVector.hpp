@@ -128,11 +128,14 @@ public:
 
 	inline void reserve(size_type n)
 	{
-		if (n > N && m_Fallback.empty())
+		if (n > N)
 		{
-			MoveToFallback();
+			if (m_Fallback.empty())
+			{
+				MoveToFallback();
+			}
+			ReserveFallback(n);
 		}
-		ReserveFallback(n);
 	}
 
 	inline void resize(size_type n, const T &value = T{})
@@ -636,18 +639,18 @@ private:
 
 	inline T* DataPtr(size_type i = 0)
 	{
-		return std::launder(reinterpret_cast<T*>(&m_Data[i]));
+		return std::launder(reinterpret_cast<T*>(m_Data.data() + i * sizeof(T)));
 	}
 
 	inline const T* DataPtr(size_type i = 0) const
 	{
-		return std::launder(reinterpret_cast<const T*>(&m_Data[i]));
+		return std::launder(reinterpret_cast<const T*>(m_Data.data() + i * sizeof(T)));
 	}
 
 private:
 	size_type m_Size;
 	std::vector<T> m_Fallback;
-	alignas(kCacheLineSize) std::array<std::aligned_storage_t<sizeof(T), alignof(T)>, N> m_Data;
+	alignas(std::max(kCacheLineSize, alignof(T))) std::array<std::byte, N * sizeof(T)> m_Data;
 };
 
 }
