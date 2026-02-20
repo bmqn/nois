@@ -232,6 +232,9 @@ set(TRACY_LTO ON)
 add_subdirectory("${NOIS_LIB_DIR}/tracy")
 endif()
 
+# tests
+add_subdirectory("${NOIS_ROOT_DIR}/tests")
+
 # examples
 add_subdirectory("${NOIS_ROOT_DIR}/examples")
 
