@@ -33,6 +33,12 @@
 #endif
 #endif
 
+#if NOIS_TARGET_WINDOWS
+#define NOIS_ALWAYS_INLINE inline __forceinline
+#else
+#define NOIS_ALWAYS_INLINE inline __attribute__((always_inline))
+#endif // NOIS_TARGET_WINDOWS
+
 #if NOIS_ARCH_X64
 #define NOIS_ENABLE_AVX_SIMD 1
 #endif // NOIS_ARCH_X64

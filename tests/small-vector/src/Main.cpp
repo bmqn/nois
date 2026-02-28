@@ -8,24 +8,40 @@
 
 struct Trackable
 {
-	static int constructions;
-	static int destructions;
+	static inline int constructions = 0;
+	static inline int destructions = 0;
 	int value;
 
-	Trackable(int v = 0) : value(v) { ++constructions; }
-	Trackable(const Trackable &other) : value(other.value) { ++constructions; }
-	Trackable(Trackable &&other) noexcept : value(other.value)
+	Trackable(int v = 0)
+		: value(v)
+	{
+		++constructions;
+	}
+
+	Trackable(const Trackable &other)
+		: value(other.value)
+	{
+		++constructions;
+	}
+
+	Trackable(Trackable &&other) noexcept
+		: value(other.value)
 	{
 		++constructions;
 		other.value = -1;
 	}
-	~Trackable() { ++destructions; }
+
+	~Trackable()
+	{
+		++destructions;
+	}
 
 	Trackable &operator=(const Trackable &other)
 	{
 		value = other.value;
 		return *this;
 	}
+
 	Trackable &operator=(Trackable &&other) noexcept
 	{
 		value = other.value;
@@ -33,11 +49,11 @@ struct Trackable
 		return *this;
 	}
 
-	operator int() const { return value; }
+	operator int() const
+	{
+		return value;
+	}
 };
-
-int Trackable::constructions = 0;
-int Trackable::destructions = 0;
 
 template <typename T, std::size_t N>
 void test_smallvector_basic()
@@ -158,7 +174,9 @@ void test_smallvector_iterators()
 
 	int sum = 0;
 	for (auto &v : vec)
+	{
 		sum += v;
+	}
 	int expected = 0;
 	for (int i = 0; i < static_cast<int>(N + 2); ++i)
 		expected += i;
@@ -178,6 +196,7 @@ void test_benchmark(const std::string &name, size_t iterations = 1000000)
 	using Clock = std::chrono::high_resolution_clock;
 
 	Clock::time_point start = Clock::now();
+
 	size_t counter = 0;
 	for (size_t i = 0; i < iterations; ++i)
 	{
@@ -186,12 +205,14 @@ void test_benchmark(const std::string &name, size_t iterations = 1000000)
 		for (int j = 0; j < 32; ++j)
 		{
 			vec.push_back(j);
-			counter += (vec[j]);
-		};
-		for (int j = 0; j < 16; ++j)
+			counter += (vec[j] * (vec[j] > 0 ? (typename Vec::value_type(vec[1])) : (typename Vec::value_type(0))));
+		}
+		for (int j = 0; j < 32; ++j)
 			vec.pop_back();
 	}
+
 	assert(counter == (32 * (32 - 1) / 2) * iterations);
+
 	Clock::time_point end = Clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 	std::cout << name << ": " << duration << " µs" << ", counter: " << counter << std::endl;
@@ -212,11 +233,14 @@ int main()
 	test_smallvector_insert_erase<Trackable, 3>();
 	test_smallvector_copy_move<Trackable, 3>();
 	test_smallvector_iterators<Trackable, 3>();
-	assert(Trackable::constructions == Trackable::destructions);
 
 	std::cout << "Testing performance..." << std::endl;
-	test_benchmark<nois::SmallVector<int, 64>>("SmallVector<int, 64>");
+	test_benchmark<nois::SmallVector<int, 32>>("SmallVector<int, 32>");
 	test_benchmark<std::vector<int>>("std::vector<int>");
+	test_benchmark<nois::SmallVector<Trackable, 32>>("SmallVector<Trackable, 32>");
+	test_benchmark<std::vector<Trackable>>("std::vector<Trackable>");
+
+	assert(Trackable::constructions == Trackable::destructions);
 
 	std::cout << "All tests passed!" << std::endl;
 
