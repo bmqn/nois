@@ -102,7 +102,10 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::setupProcessing(Vst::ProcessSetup& se
 template<typename T, typename C>
 tresult PLUGIN_API NoisVstProcessor<T, C>::process(Vst::ProcessData& data)
 {
-	if (data.numInputs == 0 || data.numOutputs == 0 || mSampleRate == 0.0)
+	if (data.numInputs == 0 ||
+		data.numOutputs == 0 ||
+		data.numSamples == 0 ||
+		mSampleRate == 0.0)
 	{
 		return kResultOk;
 	}
