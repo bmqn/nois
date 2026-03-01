@@ -807,14 +807,11 @@ private:
 	}
 
 private:
-	static constexpr size_t k_InlineAlignment = std::max(kCacheLineSize, alignof(value_type));
-
-private:
 	size_type m_Size;
 	value_type* m_Data;
 	bool m_FallbackActive;
 
-	alignas(k_InlineAlignment) std::byte m_Inline[N * sizeof(value_type)];
+	alignas(alignof(value_type)) std::byte m_Inline[N * sizeof(value_type)];
 
 	std::vector<value_type> m_Fallback;
 };
