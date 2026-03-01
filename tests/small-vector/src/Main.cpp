@@ -72,7 +72,6 @@ void test_smallvector_basic()
 		assert(vec.size() == i + 1);
 	}
 	assert(!vec.empty());
-	assert(vec.full());
 
 	// Push back beyond inline → fallback
 	vec.push_back(N);

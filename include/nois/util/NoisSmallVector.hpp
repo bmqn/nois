@@ -153,14 +153,14 @@ public:
 		return m_Size == 0;
 	}
 
-	[[nodiscard]] inline bool full() const
-	{
-		return m_Size == N;
-	}
-
 	[[nodiscard]] inline size_type size() const
 	{
 		return m_Size;
+	}
+
+	[[nodiscard]] inline size_type capacity() const
+	{
+		return m_FallbackActive ? m_Fallback.capacity() : N;
 	}
 
 	inline void shrink_to_fit()
