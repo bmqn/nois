@@ -206,23 +206,26 @@ public:
 
 		if (n <= N)
 		{
+			size_type inlineSize = m_Size;
+
 			if (m_FallbackActive)
 			{
-				MoveFromFallback(std::min(n, m_Size));
+				inlineSize = std::min(n, m_Size);
+				MoveFromFallback(inlineSize);
 			}
 
 			// Expanding inline
-			if (n > m_Size)
+			if (inlineSize < n)
 			{
-				for (size_type i = m_Size; i < n; ++i)
+				for (size_type i = inlineSize; i < n; ++i)
 				{
 					new (InlinePtr(i)) T(value);
 				}
 			}
 			// Shrinking inline
-			else if (n < N)
+			else
 			{
-				for (size_type i = n; i < m_Size; ++i)
+				for (size_type i = n; i < inlineSize; ++i)
 				{
 					InlinePtr(i)->~T();
 				}
