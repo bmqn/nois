@@ -127,7 +127,7 @@ public:
 			m_Fallback = std::move(other.m_Fallback);
 
 			m_Size = other.m_Size;
-			m_Data = reinterpret_cast<T*>(m_Fallback.data());
+			m_Data = m_Fallback.data();
 			m_FallbackActive = true;
 		}
 		else
