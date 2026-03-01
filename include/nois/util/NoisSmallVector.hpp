@@ -754,7 +754,7 @@ private:
 
 	inline const_iterator MakeIt(size_type i) const
 	{
-		return iterator(m_Data, i);
+		return const_iterator(m_Data, i);
 	}
 
 	inline void MoveToFallback()
