@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cassert>
 #include <chrono>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -190,7 +191,7 @@ void test_smallvector_iterators()
 }
 
 template <typename Vec>
-void test_benchmark(const std::string &name, size_t iterations = 1000000)
+void test_predictable_benchmark(const std::string &name, size_t iterations = 100000, size_t max_size = 32)
 {
 	using Clock = std::chrono::high_resolution_clock;
 
@@ -200,44 +201,102 @@ void test_benchmark(const std::string &name, size_t iterations = 1000000)
 	for (size_t i = 0; i < iterations; ++i)
 	{
 		Vec vec;
-		vec.reserve(32);
-		for (int j = 0; j < 32; ++j)
+		vec.reserve(max_size);
+		for (int j = 0; j < max_size; ++j)
 		{
-			vec.push_back(j);
-			counter += (vec[j] * (vec[j] > 0 ? (typename Vec::value_type(vec[1])) : (typename Vec::value_type(0))));
+			if (j == 16)
+			{
+				vec.insert(vec.begin(), 100);
+			}
+			else
+			{
+				vec.push_back(j);
+			}
 		}
-		for (int j = 0; j < 32; ++j)
-			vec.pop_back();
+		assert(vec.size() == max_size);
+		for (int j = 0; j < 16; ++j)
+		{
+			vec.erase(vec.begin() + 16);
+		}
+		assert(vec.size() == 16);
+		for (int j = 0; j < vec.size(); ++j)
+		{
+			counter += (vec[j] * (vec[j] > 0 ? (typename Vec::value_type(vec[2])) : (typename Vec::value_type(0))));
+		}
+		assert(counter == (100 + 15 * (15 - 1) / 2) * (i + 1));
 	}
-
-	assert(counter == (32 * (32 - 1) / 2) * iterations);
 
 	Clock::time_point end = Clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 	std::cout << name << ": " << duration << " µs" << ", counter: " << counter << std::endl;
 }
 
+template <typename Vec>
+void test_random_benchmark(const std::string &name, size_t iterations = 100000, size_t max_size = 32)
+{
+	using Clock = std::chrono::high_resolution_clock;
+
+	std::mt19937 rng(12345);
+	std::uniform_int_distribution<int> dist_value(0, 100);
+	std::uniform_real_distribution<float> dist_op(0.0f, 1.0f);
+
+	Clock::time_point start = Clock::now();
+
+	Vec vec;
+	vec.reserve(max_size);
+	size_t counter = 0;
+	for (size_t it = 0; it < iterations; ++it)
+	{
+		float op = dist_op(rng);
+		if ((op < 0.5f && !vec.empty()) || vec.size() == max_size)
+		{
+			size_t pos = std::uniform_int_distribution<size_t>(0, vec.size() - 1)(rng);
+			vec.erase(vec.begin() + pos);
+		}
+		else
+		{
+			size_t pos = std::uniform_int_distribution<size_t>(0, vec.size())(rng);
+			vec.insert(vec.begin() + pos, dist_value(rng));
+		}
+		for (size_t j = 0; j < vec.size(); ++j)
+		{
+			counter += vec[j];
+		}
+	}
+
+	Clock::time_point end = Clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+	std::cout << name << ": " << duration << " µs, counter: " << counter << std::endl;
+}
+
 int main()
 {
+	Trackable::constructions = 0;
+	Trackable::destructions = 0;
+
 	std::cout << "Testing nois::SmallVector<int, 4>..." << std::endl;
 	test_smallvector_basic<int, 4>();
 	test_smallvector_insert_erase<int, 4>();
 	test_smallvector_copy_move<int, 4>();
 	test_smallvector_iterators<int, 4>();
 
-	std::cout << "Testing nois::SmallVector<Trackable, 3>..." << std::endl;
-	Trackable::constructions = 0;
-	Trackable::destructions = 0;
-	test_smallvector_basic<Trackable, 3>();
-	test_smallvector_insert_erase<Trackable, 3>();
-	test_smallvector_copy_move<Trackable, 3>();
-	test_smallvector_iterators<Trackable, 3>();
+	std::cout << "Testing nois::SmallVector<Trackable, 4>..." << std::endl;
+	test_smallvector_basic<Trackable, 4>();
+	test_smallvector_insert_erase<Trackable, 4>();
+	test_smallvector_copy_move<Trackable, 4>();
+	test_smallvector_iterators<Trackable, 4>();
 
-	std::cout << "Testing performance..." << std::endl;
-	test_benchmark<nois::SmallVector<int, 32>>("SmallVector<int, 32>");
-	test_benchmark<std::vector<int>>("std::vector<int>");
-	test_benchmark<nois::SmallVector<Trackable, 32>>("SmallVector<Trackable, 32>");
-	test_benchmark<std::vector<Trackable>>("std::vector<Trackable>");
+	std::cout << "Testing performance (predictable)..." << std::endl;
+	test_predictable_benchmark<nois::SmallVector<int, 32>>("SmallVector<int, 32>");
+	test_predictable_benchmark<std::vector<int>>("std::vector<int>");
+	test_predictable_benchmark<nois::SmallVector<Trackable, 32>>("SmallVector<Trackable, 32>");
+	test_predictable_benchmark<std::vector<Trackable>>("std::vector<Trackable>");
+
+	std::cout << "Testing performance (random)..." << std::endl;
+	test_random_benchmark<nois::SmallVector<int, 32>>("SmallVector<int, 32>");
+	test_random_benchmark<std::vector<int>>("std::vector<int>");
+	test_random_benchmark<nois::SmallVector<Trackable, 32>>("SmallVector<Trackable, 32>");
+	test_random_benchmark<std::vector<Trackable>>("std::vector<Trackable>");
 
 	assert(Trackable::constructions == Trackable::destructions);
 
