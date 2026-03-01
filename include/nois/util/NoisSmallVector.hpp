@@ -592,10 +592,21 @@ public:
 			// Construct new tail
 			new (InlinePtr(m_Size)) T(std::move(*InlinePtr(m_Size - 1)));
 
-			// Move-assign backward
-			for (size_type i = m_Size - 1; i > index; --i)
+			if constexpr (std::is_trivially_copyable_v<T>)
 			{
-				*InlinePtr(i) = std::move(*InlinePtr(i - 1));
+				// Shift right
+				std::memmove(
+					InlinePtr(index + 1),
+					InlinePtr(index),
+					(m_Size - index) * sizeof(T));
+			}
+			else
+			{
+				// Move-assign backward
+				for (size_type i = m_Size - 1; i > index; --i)
+				{
+					*InlinePtr(i) = std::move(*InlinePtr(i - 1));
+				}
 			}
 
 			// Assign new value
@@ -651,10 +662,21 @@ public:
 			// Construct new tail
 			new (InlinePtr(m_Size)) T(std::move(*InlinePtr(m_Size - 1)));
 
-			// Move-assign backward
-			for (size_type i = m_Size - 1; i > index; --i)
+			if constexpr (std::is_trivially_copyable_v<T>)
 			{
-				*InlinePtr(i) = std::move(*InlinePtr(i - 1));
+				// Shift right
+				std::memmove(
+					InlinePtr(index + 1),
+					InlinePtr(index),
+					(m_Size - index) * sizeof(T));
+			}
+			else
+			{
+				// Move-assign backward
+				for (size_type i = m_Size - 1; i > index; --i)
+				{
+					*InlinePtr(i) = std::move(*InlinePtr(i - 1));
+				}
 			}
 
 			// Move-assign new value
@@ -685,10 +707,21 @@ public:
 		}
 		else
 		{
-			// Move-assign forward
-			for (size_type i = index; i + 1 < m_Size; ++i)
+			if constexpr (std::is_trivially_copyable_v<T>)
 			{
-				*InlinePtr(i) = std::move(*InlinePtr(i + 1));
+				// Shift left
+				std::memmove(
+					InlinePtr(index),
+					InlinePtr(index + 1),
+					(m_Size - index) * sizeof(T));
+			}
+			else
+			{
+				// Move-assign forward
+				for (size_type i = index; i + 1 < m_Size; ++i)
+				{
+					*InlinePtr(i) = std::move(*InlinePtr(i + 1));
+				}
 			}
 
 			// Erase old tail
