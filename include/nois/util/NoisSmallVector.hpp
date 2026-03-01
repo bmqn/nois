@@ -758,11 +758,22 @@ private:
 	{
 		assert(m_Size <= N);
 
-		m_Fallback.reserve(m_Size);
-		for (size_type i = 0; i < m_Size; ++i)
+		if constexpr (std::is_trivially_copyable_v<T>)
 		{
-			m_Fallback.push_back(std::move(*InlinePtr(i)));
-			InlinePtr(i)->~T();
+			m_Fallback.resize(m_Size);
+			std::memcpy(
+				m_Fallback.data(),
+				InlinePtr(0),
+				m_Size * sizeof(T));
+		}
+		else
+		{
+			m_Fallback.reserve(m_Size);
+			for (size_type i = 0; i < m_Size; ++i)
+			{
+				m_Fallback.push_back(std::move(*InlinePtr(i)));
+				InlinePtr(i)->~T();
+			}
 		}
 
 		m_Data = m_Fallback.data();
@@ -777,10 +788,21 @@ private:
 		m_Data = std::launder(reinterpret_cast<T*>(m_Inline));
 		m_FallbackActive = false;
 
-		for (size_type i = 0; i < n; ++i)
+		if constexpr (std::is_trivially_copyable_v<T>)
 		{
-			new (InlinePtr(i)) T(std::move(m_Fallback[i]));
+			std::memcpy(
+				InlinePtr(0),
+				m_Fallback.data(),
+				n * sizeof(T));
 		}
+		else
+		{
+			for (size_type i = 0; i < n; ++i)
+			{
+				new (InlinePtr(i)) T(std::move(m_Fallback[i]));
+			}
+		}
+
 		m_Fallback.clear();
 	}
 
