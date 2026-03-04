@@ -601,7 +601,7 @@ public:
 				std::memmove(
 					InlinePtr(index + 1),
 					InlinePtr(index),
-					(m_Size - index) * sizeof(T));
+					(m_Size - index - 1) * sizeof(T));
 			}
 			else
 			{
@@ -671,7 +671,7 @@ public:
 				std::memmove(
 					InlinePtr(index + 1),
 					InlinePtr(index),
-					(m_Size - index) * sizeof(T));
+					(m_Size - index - 1) * sizeof(T));
 			}
 			else
 			{
