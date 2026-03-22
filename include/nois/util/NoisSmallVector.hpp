@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
+#include <cstring>
 #include <new>
 #include <vector>
 
@@ -402,6 +404,7 @@ public:
 	{
 		assert(index < m_Size);
 		assert(m_FallbackActive || index < N);
+
 		return m_Data[index];
 	}
 
@@ -409,6 +412,7 @@ public:
 	{
 		assert(index < m_Size);
 		assert(m_FallbackActive || index < N);
+
 		return m_Data[index];
 	}
 
