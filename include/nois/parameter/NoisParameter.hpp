@@ -397,6 +397,10 @@ public:
 	{
 		return false;
 	}
+	
+	void Prepare(f32_t sampleRate) override final
+	{
+	}
 
 private:
 	T m_Value;
