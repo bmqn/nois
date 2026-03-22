@@ -178,4 +178,3 @@ DEF_CLASS(
 	nullptr)
 
 END_FACTORY
-

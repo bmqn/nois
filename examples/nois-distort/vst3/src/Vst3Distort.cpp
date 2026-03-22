@@ -140,19 +140,19 @@ public:
 			switch (i)
 			{
 				case 0:
-					mSubFreq->RequestPlainValue(value);
+					mSubFreq->RequestPlain(value);
 					break;
 				case 1:
-					mDriveDb->RequestPlainValue(value);
+					mDriveDb->RequestPlain(value);
 					break;
 				case 2:
-					mMakeupDb->RequestPlainValue(value);
+					mMakeupDb->RequestPlain(value);
 					break;
 				case 3:
-					mShape->RequestPlainValue(value);
+					mShape->RequestPlain(value);
 					break;
 				case 4:
-					mWet->RequestPlainValue(value);
+					mWet->RequestPlain(value);
 					break;
 			}
 		}

@@ -25,7 +25,7 @@ public:
 	virtual void Prepare(nois::count_t numFrames, nois::f32_t sampleRate) = 0;
 
 	virtual void WritePlain(nois::count_t frame, nois::f32_t valuePlain) = 0;
-	virtual void RequestPlainValue(nois::f32_t valuePlain) = 0;
+	virtual void RequestPlain(nois::f32_t valuePlain) = 0;
 	virtual nois::f32_t GetLastPlain() const = 0;
 
 	virtual operator nois::Ref_t<nois::FloatParameter>() = 0;
@@ -43,7 +43,7 @@ public:
 
 	virtual Vst::ParamID GetPid() const = 0;
 
-	virtual void RequestPlainValue(nois::f32_t valuePlain) = 0;
+	virtual void RequestPlain(nois::f32_t valuePlain) = 0;
 
 	virtual operator Vst::Parameter*() = 0;
 
@@ -244,17 +244,25 @@ public:
 			std::fill(mValuePlains.begin(), mValuePlains.end(), *mNextPlainValue);
 			mNextPlainValue = std::nullopt;
 		}
-	}
-
-	void WritePlain(nois::count_t frame, nois::f32_t valuePlain) override final
-	{
-		if (frame < mValuePlains.size())
+		else
 		{
-			mValuePlains[frame] = valuePlain;
+			nois::f32_t lastPlain = GetLastPlain();
+			for (nois::count_t f = 0; f < mValuePlains.size(); ++f)
+			{
+				mValuePlains[f] = lastPlain;
+			}
 		}
 	}
 
-	void RequestPlainValue(nois::f32_t valuePlain) override final
+	void WritePlain(nois::count_t f, nois::f32_t valuePlain) override final
+	{
+		if (f < mValuePlains.size())
+		{
+			mValuePlains[f] = valuePlain;
+		}
+	}
+
+	void RequestPlain(nois::f32_t valuePlain) override final
 	{
 		mNextPlainValue = valuePlain;
 	}
@@ -314,7 +322,7 @@ public:
 		return Param::kPid;
 	}
 
-	void RequestPlainValue(nois::f32_t valuePlain) override final
+	void RequestPlain(nois::f32_t valuePlain) override final
 	{
 		mParameter->setNormalized(util::ToNormalized<Param>(valuePlain));
 	}

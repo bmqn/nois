@@ -12,9 +12,7 @@ set(NOIS_STRETCH_SRC_DIR "${NOIS_STRETCH_ROOT_DIR}/src")
 #--------------------------------------------------------------------------------------------------
 smtg_add_vst3plugin(
 	nois-stretch-vst3
-	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Plugin.cpp"
-	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Plugin.hpp"
-	"${NOIS_STRETCH_SRC_DIR}/NoisVst3Factory.cpp"
+	"${NOIS_STRETCH_SRC_DIR}/Vst3Stretch.cpp"
 )
 
 smtg_target_configure_version_file(

@@ -47,14 +47,14 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::setState(IBStream* state)
 		return kResultFalse;
 	}
 
-	for (size_t i = 0; i < mParameterLookup.size(); ++i)
+	for (auto& [pid, parameter] : mParameterLookup)
 	{
 		nois::f32_t value = 0.0f;
 		if (state->read(&value, sizeof(value)) != kResultOk)
 		{
 			return kResultFalse;
 		}
-		mParameterLookup[i]->RequestPlainValue(value);
+		parameter->RequestPlain(value);
 	}
 
 	return kResultOk;
@@ -68,10 +68,13 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::getState(IBStream* state)
 		return kResultFalse;
 	}
 
-	for (size_t i = 0; i < mParameterLookup.size(); ++i)
+	for (const auto& [pid, parameter] : mParameterLookup)
 	{
-		nois::f32_t value = mParameterLookup[i]->GetLastPlain();
-		state->write(&value, sizeof(value));
+		nois::f32_t value = parameter->GetLastPlain();
+		if (state->write(&value, sizeof(value)) != kResultOk)
+		{
+			return kResultFalse;
+		}
 	}
 
 	return kResultOk;
