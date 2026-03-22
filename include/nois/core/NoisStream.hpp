@@ -27,6 +27,10 @@ public:
 		Starved,
 		Failure
 	};
+	
+	virtual ~Stream()
+	{
+	}
 
 	virtual void Prepare(
 		count_t numFrames,
@@ -42,8 +46,7 @@ class ProcessStream : public Stream
 
 	virtual Result Process(
 		ConstFloatBufferView inBuffer,
-		FloatBufferView outBuffer)
-	= 0;
+		FloatBufferView outBuffer) = 0;
 };
 
 class SourceStream : public Stream
