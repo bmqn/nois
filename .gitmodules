@@ -9,4 +9,4 @@
 	url = git@github.com:wolfpld/tracy.git
 [submodule "examples/libs/libDaisy"]
 	path = examples/libs/libDaisy
-	url = https://github.com/electro-smith/libDaisy.git
+	url = git@github.com:electro-smith/libDaisy.git
