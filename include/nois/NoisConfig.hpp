@@ -21,8 +21,8 @@ constexpr count_t k_MaxChannels = 2;
 // Max size of in-place data
 //
 // We use in-place small vectors to store a fixed number of frames.
-// The vectors will dynamically move to heap allocated vectors if exceeded.
+// The vectors dynamically move to heap allocations if exceeded.
 // Using buffer sizes equal or less than give faster access.
-constexpr count_t k_MaxNumInplaceFrames = 1024;
+constexpr count_t k_MaxNumInplaceFrames = 256;
 
 }

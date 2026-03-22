@@ -89,11 +89,11 @@ public:
 	}
 
 private:
-	FloatSlotBlockParameter m_ThresholdDb = 0.0f;
-	FloatSlotBlockParameter m_Ratio = 1.0f;
-	FloatSlotBlockParameter m_AttackMs = 5.0f;
-	FloatSlotBlockParameter m_ReleaseMs = 50.0f;
-	FloatSlotBlockParameter m_Smoothing = 0.0f;
+	FloatSlotBlockParameter m_ThresholdDb = { 0.0f, -12.0f, 0.0f };
+	FloatSlotBlockParameter m_Ratio = { 1.0f, 1.0f, 16.0f };
+	FloatSlotBlockParameter m_AttackMs = { 5.0f, 500.0f, 5.0f };
+	FloatSlotBlockParameter m_ReleaseMs = { 50.0f, 500.0f, 50.0f };
+	FloatSlotBlockParameter m_Smoothing = { 0.0f, 0.0f, 1.0f };
 
 	f32_t m_EnvelopeDb = 0.0f;
 	f32_t m_Gain = 1.0f;

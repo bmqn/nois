@@ -10,7 +10,6 @@ class SignalDelayer::Impl
 {
 public:
 	Impl()
-		: m_DelayMs(0.0f)
 	{
 	}
 
@@ -62,7 +61,7 @@ public:
 	}
 
 private:
-	SlotBlockParameter<f32_t> m_DelayMs;
+	SlotBlockParameter<f32_t> m_DelayMs = { 0.0f, 0.0f, 5000.0f };
 
 	Delay<f32_t, k_MaxChannels> m_Delay;
 

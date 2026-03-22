@@ -74,7 +74,7 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/NoisLog.h"
 	"${NOIS_SRC_DIR}/NoisMacros.hpp"
 
-	"${NOIS_SRC_DIR}/analysis/NoisFilterBank.cpp"
+	# "${NOIS_SRC_DIR}/analysis/NoisFilterBank.cpp"
 
 	"${NOIS_SRC_DIR}/dynamic/NoisExpander.cpp"
 	"${NOIS_SRC_DIR}/dynamic/NoisTransientShaper.cpp"
@@ -89,7 +89,7 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/parameter/NoisParameter.cpp"
 
 	"${NOIS_SRC_DIR}/route/NoisCombiner.cpp"
-	"${NOIS_SRC_DIR}/route/NoisSplitter.cpp"
+    "${NOIS_SRC_DIR}/route/NoisSplitter.cpp"
 )
 
 source_group(
@@ -185,7 +185,7 @@ if(NOT NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
 target_compile_options(
 	nois
 	PUBLIC
-		-mavx
+		# -mavx
 )
 endif()
 endif()

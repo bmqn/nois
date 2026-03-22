@@ -1,6 +1,7 @@
 #include "nois/dynamic/NoisTransientShaper.hpp"
 
 #include "nois/effect/NoisFilter.hpp"
+#include "nois/util/NoisBiquad.hpp"
 
 namespace nois {
 
@@ -92,11 +93,11 @@ public:
 	}
 
 private:
-	FloatSlotBlockParameter m_AttackRatio = 1.0f;
-	FloatSlotBlockParameter m_SustainRatio = 1.0f;
-	FloatSlotBlockParameter m_AttackMs = 5.0f;
-	FloatSlotBlockParameter m_ReleaseMs = 50.0;
-	FloatSlotBlockParameter m_Smoothing = 0.0f;
+	FloatSlotBlockParameter m_AttackRatio = { 1.0f, 1.0f, 16.0f };
+	FloatSlotBlockParameter m_SustainRatio = { 1.0f, 1.0f, 16.0f };
+	FloatSlotBlockParameter m_AttackMs = { 5.0f, 5.0f, 500.0f };
+	FloatSlotBlockParameter m_ReleaseMs = { 5.0f, 5.0f, 500.0f };
+	FloatSlotBlockParameter m_Smoothing = { 0.0f, 0.0f, 1.0f };
 
 	f32_t m_EnvelopeDb = 0.0f;
 	f32_t m_Gain = 1.0f;
@@ -231,14 +232,14 @@ public:
 	}
 
 private:
-	FloatSlotBlockParameter m_AttackRatio = 1.0f;
-	FloatSlotBlockParameter m_SustainRatio = 1.0f;
-	FloatSlotBlockParameter m_AttackMs = 5.0f;
-	FloatSlotBlockParameter m_ReleaseMs = 50.0;
-	FloatSlotBlockParameter m_Smoothing = 0.0f;
-	FloatSlotBlockParameter m_LowCutoffRatio = 0.006f;
-	FloatSlotBlockParameter m_HighCutoffRatio = 0.1f;
-	FloatSlotBlockParameter m_BandCutoffRatio = 0.47f;
+	FloatSlotBlockParameter m_AttackRatio = { 1.0f, 1.0f, 16.0f };
+	FloatSlotBlockParameter m_SustainRatio = { 1.0f, 1.0f, 16.0f };
+	FloatSlotBlockParameter m_AttackMs = { 5.0f, 5.0f, 500.0f };
+	FloatSlotBlockParameter m_ReleaseMs = { 5.0f, 5.0f, 500.0f };
+	FloatSlotBlockParameter m_Smoothing = { 0.0f, 0.0f, 1.0f };
+	FloatSlotBlockParameter m_LowCutoffRatio = { 0.006f, 0.001f, 0.1f };
+	FloatSlotBlockParameter m_HighCutoffRatio = { 0.1f, 0.01f, 0.5f };
+	FloatSlotBlockParameter m_BandCutoffRatio = { 0.47f, 0.1f, 1.0f };
 
 	std::array<f32_t, 3> m_EnvelopeDbs = { 0.0f, 0.0f, 0.0f };
 	std::array<f32_t, 3> m_Gains = { 1.0f, 1.0f, 1.0f };

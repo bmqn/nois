@@ -12,6 +12,7 @@ static float scratch[2 * kBlockSize] = { 0.0f };
 static float stretchActiveValue = 0.0f;
 static float stretchFactorValue = 0.0f;
 
+static nois::ParameterRegistry<nois::f32_t> registry;
 static nois::Ref_t<nois::FloatParameter> stretchActive = nullptr;
 static nois::Ref_t<nois::FloatParameter> stretchFactor = nullptr;
 static nois::Ref_t<nois::TimeStretcher> timeStretcher = nullptr;
@@ -38,13 +39,13 @@ int main(void)
 	hw.Init();
 	hw.SetAudioBlockSize(kBlockSize);
 
-	stretchActive = nois::MakeRef<nois::FloatBinderParameter>(
+	stretchActive = registry.CreateBinder(
 		[](nois::count_t)
 		{
 			return stretchActiveValue;
 		});
 
-	stretchFactor = nois::MakeRef<nois::FloatBinderParameter>(
+	stretchFactor = registry.CreateBinder(
 		[](nois::count_t)
 		{
 			return 1.0f + stretchFactorValue * (16.0f - 1.0f);

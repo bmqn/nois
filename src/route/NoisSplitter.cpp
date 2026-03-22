@@ -146,4 +146,4 @@ Ref_t<Splitter> CreateSplitter(Ref_t<Stream> stream)
 
 #endif
 
-};
+}
