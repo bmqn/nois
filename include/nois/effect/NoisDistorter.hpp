@@ -17,6 +17,7 @@ public:
 
 	static Ref_t<Distorter> Create(Kind kind);
 
+	NOIS_INTERFACE_VIRT(Distorter)
 	NOIS_INTERFACE_VIRT_PARAM(DriveDb, FloatBlockParameter)
 	NOIS_INTERFACE_VIRT_PARAM(MakeupDb, FloatBlockParameter)
 	NOIS_INTERFACE_VIRT_PARAM(Wet, FloatBlockParameter)
@@ -27,7 +28,7 @@ class DynamicTanhDistorter : public Distorter
 public:
 	static Ref_t<DynamicTanhDistorter> Create();
 
-	NOIS_INTERFACE(DynamicTanhDistorter)
+	NOIS_INTERFACE_VIRT_USE(DynamicTanhDistorter)
 	NOIS_INTERFACE_VIRT_PARAM_USE(DriveDb, FloatBlockParameter)
 	NOIS_INTERFACE_VIRT_PARAM_USE(MakeupDb, FloatBlockParameter)
 	NOIS_INTERFACE_VIRT_PARAM_USE(Wet, FloatBlockParameter)
