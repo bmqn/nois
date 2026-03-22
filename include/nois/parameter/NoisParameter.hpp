@@ -69,41 +69,31 @@ private:
 	struct Node
 	{
 		Ref_t<P> parameter = nullptr;
-		std::vector<Node<P>*> dependencies;
+		std::vector<size_t> dependencies;
 		NodeState state = NodeState::Unvisited;
 	};
 
 public:
 	Ref_t<Parameter<T>> CreateConstant(T value)
 	{
-		if (m_ParameterNodes.full())
-		{
-			return nullptr;
-		}
-
 		auto parameter = MakeRef<ConstantParameter<T>>(value);
 		
 		Node<Parameter<T>> node;
 		node.parameter = parameter;
 		m_ParameterNodes.emplace_back(node);
-		m_ParameterLookup.emplace(parameter, &m_ParameterNodes.back());
+		m_ParameterLookup.emplace(parameter, m_ParameterNodes.size() - 1);
 
 		return parameter;
 	}
 
 	Ref_t<BlockParameter<T>> CreateBlockConstant(T value)
 	{
-		if (m_BlockParameterNodes.full())
-		{
-			return nullptr;
-		}
-
 		auto parameter = MakeRef<ConstantBlockParameter<T>>(value);
 		
 		Node<BlockParameter<T>> node;
 		node.parameter = parameter;
 		m_BlockParameterNodes.emplace_back(node);
-		m_BlockParameterLookup.emplace(parameter, &m_BlockParameterNodes.back());
+		m_BlockParameterLookup.emplace(parameter, m_BlockParameterNodes.size() - 1);
 
 		return parameter;
 	}
@@ -111,17 +101,12 @@ public:
 	template<typename F>
 	Ref_t<Parameter<T>> CreateBinder(F&& binder)
 	{
-		if (m_ParameterNodes.full())
-		{
-			return nullptr;
-		}
-
 		auto parameter = MakeRef<BinderParameter<T, F>>(std::move(binder));
 		
 		Node<Parameter<T>> node;
 		node.parameter = parameter;
 		m_ParameterNodes.emplace_back(node);
-		m_ParameterLookup.emplace(parameter, &m_ParameterNodes.back());
+		m_ParameterLookup.emplace(parameter, m_ParameterNodes.size() - 1);
 
 		return parameter;
 	}
@@ -129,17 +114,12 @@ public:
 	template<typename F>
 	Ref_t<BlockParameter<T>> CreateBlockBinder(F&& binder, T min, T max)
 	{
-		if (m_BlockParameterNodes.full())
-		{
-			return nullptr;
-		}
-
 		auto parameter = MakeRef<BinderBlockParameter<T, F>>(std::move(binder), min, max);
 		
 		Node<BlockParameter<T>> node;
 		node.parameter = parameter;
 		m_BlockParameterNodes.emplace_back(node);
-		m_BlockParameterLookup.emplace(parameter, &m_BlockParameterNodes.back());
+		m_BlockParameterLookup.emplace(parameter, m_BlockParameterNodes.size() - 1);
 
 		return parameter;
 	}
@@ -147,18 +127,13 @@ public:
 	template<typename F>
 	Ref_t<Parameter<T>> CreateTransformer(Ref_t<Parameter<T>> transformee, F&& transformer)
 	{
-		if (m_ParameterNodes.full())
-		{
-			return nullptr;
-		}
-
 		auto parameter = MakeRef<TransformerParameter<T, F>>(transformee, std::move(transformer));
 		
 		Node<Parameter<T>> node;
 		node.dependencies.emplace_back(m_ParameterLookup[transformee]);
 		node.parameter = parameter;
 		m_ParameterNodes.emplace_back(node);
-		m_ParameterLookup.emplace(parameter, &m_ParameterNodes.back());
+		m_ParameterLookup.emplace(parameter, m_ParameterNodes.size() - 1);
 
 		return parameter;
 	}
@@ -166,18 +141,13 @@ public:
 	template<typename F>
 	Ref_t<BlockParameter<T>> CreateBlockTransformer(Ref_t<BlockParameter<T>> transformee, F&& transformer)
 	{
-		if (m_BlockParameterNodes.full())
-		{
-			return nullptr;
-		}
-
 		auto parameter = MakeRef<TransformerBlockParameter<T, F>>(transformee, std::move(transformer));
-	
+
 		Node<BlockParameter<T>> node;
 		node.dependencies.emplace_back(m_BlockParameterLookup[transformee]);
 		node.parameter = parameter;
 		m_BlockParameterNodes.emplace_back(node);
-		m_BlockParameterLookup.emplace(parameter, &m_BlockParameterNodes.back());
+		m_BlockParameterLookup.emplace(parameter, m_BlockParameterNodes.size() - 1);
 
 		return parameter;
 	}
@@ -189,9 +159,9 @@ public:
 			return;
 		}
 
-		for (auto* depNode : node->dependencies)
+		for (auto index : node->dependencies)
 		{
-			PrepareParameterVisit(depNode, numFrames, sampleRate);
+			PrepareParameterVisit(&m_ParameterNodes[index], numFrames, sampleRate);
 		}
 
 		node->parameter->Prepare(numFrames, sampleRate);
@@ -205,9 +175,9 @@ public:
 			return;
 		}
 
-		for (auto* depNode : node->dependencies)
+		for (auto index : node->dependencies)
 		{
-			PrepareBlockParameterVisit(depNode, sampleRate);
+			PrepareBlockParameterVisit(&m_BlockParameterNodes[index], sampleRate);
 		}
 
 		node->parameter->Prepare(sampleRate);
@@ -239,10 +209,10 @@ public:
 
 private:
 	SmallVector<Node<Parameter<T>>, 64> m_ParameterNodes;
-	std::unordered_map<Ref_t<Parameter<T>>, Node<Parameter<T>>*> m_ParameterLookup;
+	std::unordered_map<Ref_t<Parameter<T>>, size_t> m_ParameterLookup;
 
 	SmallVector<Node<BlockParameter<T>>, 64> m_BlockParameterNodes;
-	std::unordered_map<Ref_t<BlockParameter<T>>, Node<BlockParameter<T>>*> m_BlockParameterLookup;
+	std::unordered_map<Ref_t<BlockParameter<T>>, size_t> m_BlockParameterLookup;
 };
 
 template<typename T>
@@ -286,10 +256,7 @@ public:
 	virtual ~Parameter() {}
 
 	virtual ParameterBlock<T> Get() const = 0;
-
-	virtual void Prepare(count_t numFrames, f32_t sampleRate)
-	{
-	}
+	virtual void Prepare(count_t numFrames, f32_t sampleRate) = 0;
 };
 
 template<typename T>
@@ -297,39 +264,28 @@ class ConstantParameter : public Parameter<T>
 {
 public:
 	ConstantParameter(T value)
-		: m_Value(value)
-		, m_Frames()
+		: m_Frame{value, false}
 	{
 	}
 
 	ParameterBlock<T> Get() const final
 	{
-		return ParameterBlock<T>(m_Frames.data(), m_Frames.size());
+		return ParameterBlock<T>(&m_Frame);
 	}
 
 	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
-		m_Frames.resize(numFrames);
-
-		for (count_t f = 0; f < numFrames; ++f)
-		{
-			auto& frame = m_Frames[f];
-			frame.value = m_Value;
-			frame.changed = false;
-		}
 	}
 
 private:
-	T m_Value;
-	SmallVector<typename ParameterBlock<T>::Frame, k_MaxNumInplaceFrames> m_Frames;
+	ParameterBlock<T>::Frame m_Frame;
 };
 
 template<typename T, typename F>
 class BinderParameter : public Parameter<T>
 {
 public:
-	BinderParameter(
-		F&& binder)
+	BinderParameter(F&& binder)
 		: m_Binder(std::forward<F>(binder))
 		, m_Frames()
 	{
@@ -410,10 +366,7 @@ public:
 	virtual T Min() const = 0;
 	virtual T Max() const = 0;
 	virtual bool Changed() const = 0;
-
-	virtual void Prepare(f32_t sampleRate)
-	{
-	}
+	virtual void Prepare(f32_t sampleRate) = 0;
 };
 
 template<typename T>
