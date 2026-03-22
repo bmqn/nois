@@ -50,7 +50,7 @@ struct Delay
 		ucount_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
 
 		// Interpolate read & write
-		T factor = indexReadFrac - T{ indexReadFrac0 };
+		T factor = indexReadFrac - static_cast<T>(indexReadFrac0);
 		T y0 = buffer[indexReadFrac0];
 		T y1 = buffer[indexReadFrac1];
 		T y = y0 + (y1 - y0) * factor;
@@ -106,7 +106,7 @@ struct Delay
 		ucount_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
 
 		// Interpolate read & write
-		T factor = indexReadFrac - T{ indexReadFrac0 };
+		T factor = indexReadFrac - static_cast<T>(indexReadFrac0);
 		T y0 = buffer[indexReadFrac0];
 		T y1 = buffer[indexReadFrac1];
 		T y = y0 + (y1 - y0) * factor;
@@ -116,7 +116,7 @@ struct Delay
 
 	inline void SetDelay(T numDelayFrames)
 	{
-		m_NumDelayFrames = std::clamp(numDelayFrames, T{ 0 }, T{ m_NumFrames - 1 });
+		m_NumDelayFrames = std::clamp(numDelayFrames, T{ 0 }, static_cast<T>(m_NumFrames - 1));
 	}
 
 private:
@@ -182,7 +182,7 @@ struct DelayFeedback
 		ucount_t indexReadFrac1 = (indexReadFrac0 + 1) & m_ModuloMask;
 
 		// Interpolate read & write
-		T factor = indexReadFrac - T{ indexReadFrac0 };
+		T factor = indexReadFrac - static_cast<T>(indexReadFrac0);
 		T y0 = buffer[indexReadFrac0];
 		T y1 = buffer[indexReadFrac1];
 		T y = y0 + (y1 - y0) * factor;
@@ -203,7 +203,7 @@ struct DelayFeedback
 
 	inline void SetDelay(T numDelayFrames)
 	{
-		m_NumDelayFrames = std::clamp(numDelayFrames, T{ 0 }, T{ m_NumFrames - 1 });
+		m_NumDelayFrames = std::clamp(numDelayFrames, T{ 0 }, static_cast<T>(m_NumFrames - 1));
 	}
 
 private:
