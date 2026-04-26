@@ -174,6 +174,7 @@ public:
 		, mDist(nullptr)
 		, mLpDistFilter(nullptr)
 		, mCompressor(nullptr)
+		, mLpMixFilter(nullptr)
 	{
 		mSubFreq = CreateParameter<parameter::SubFreq>();
 		mDriveDb = CreateParameter<parameter::DriveDb>();
@@ -243,6 +244,13 @@ public:
 					return 150.0f - x * 80.0f;
 				});
 
+		auto lpMixCutoffRatio =
+			subFreqRatio->TransformBlock(
+				[](float x, float sampleRate) -> float
+				{
+					return 0.95f + x;
+				});
+
 		mHpFilter = nois::Filter::Create(nois::Filter::k_LR4High);
 		mHpFilter->SetCutoffRatio(subFreqRatio);
 
@@ -271,6 +279,9 @@ public:
 		mCompressor->SetThresholdDb(compThresholdDb);
 		mCompressor->SetAttackMs(compAttackMs);
 		mCompressor->SetReleaseMs(compReleaseMs);
+
+		mLpMixFilter = nois::Filter::Create(nois::Filter::k_LR4Low);
+		mLpMixFilter->SetCutoffRatio(lpMixCutoffRatio);
 	}
 
 protected:
@@ -292,6 +303,7 @@ protected:
 			mDist->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
 			mLpDistFilter->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
 			mCompressor->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
+			mLpMixFilter->Prepare(sinkBuffer.GetNumFrames(), sinkBuffer.GetNumChannels(), mSampleRate);
 		}
 
 		{
@@ -318,6 +330,8 @@ protected:
 					sinkBuffer(f, c) = high + lowClean * (1.0f - wet) + lowDist * wet;
 				}
 			}
+
+			mLpMixFilter->Process(sinkBuffer, sinkBuffer);
 		}
 	}
 
@@ -340,6 +354,7 @@ private:
 	nois::Ref_t<nois::DynamicTanhDistorter> mDist;
 	nois::Ref_t<nois::Filter> mLpDistFilter;
 	nois::Ref_t<nois::Compressor> mCompressor;
+	nois::Ref_t<nois::Filter> mLpMixFilter;
 };
 
 using AudioEffectClass = NoisVstProcessor<VstDistort, NoisController>;
