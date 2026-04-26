@@ -1,9 +1,6 @@
 #pragma once
 
 #if NOIS_ENABLE_PROFILING
-#if !defined(TRACY_ENABLE)
-#define TRACY_ENABLE
-#endif // !defined(TRACY_ENABLE)
 #define TracyFunction __PRETTY_FUNCTION__
 #include <tracy/Tracy.hpp>
 #endif // NOIS_ENABLE_PROFILING
