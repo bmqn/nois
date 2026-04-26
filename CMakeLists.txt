@@ -46,6 +46,7 @@ set(NOIS_HSPSRC
 	"${NOIS_INC_DIR}/nois/core/NoisBuffer.hpp"
 	"${NOIS_INC_DIR}/nois/core/NoisStream.hpp"
 
+	"${NOIS_INC_DIR}/nois/dynamic/NoisCompressor.hpp"
 	"${NOIS_INC_DIR}/nois/dynamic/NoisExpander.hpp"
 	"${NOIS_INC_DIR}/nois/dynamic/NoisTransientShaper.hpp"
 
@@ -80,6 +81,7 @@ set(NOIS_SRC
 
 	# "${NOIS_SRC_DIR}/analysis/NoisFilterBank.cpp"
 
+	"${NOIS_SRC_DIR}/dynamic/NoisCompressor.cpp"
 	"${NOIS_SRC_DIR}/dynamic/NoisExpander.cpp"
 	"${NOIS_SRC_DIR}/dynamic/NoisTransientShaper.cpp"
 

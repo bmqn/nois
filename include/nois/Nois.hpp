@@ -10,6 +10,7 @@
 #include "core/NoisBuffer.hpp"
 #include "core/NoisStream.hpp"
 
+#include "dynamic/NoisCompressor.hpp"
 #include "dynamic/NoisExpander.hpp"
 #include "dynamic/NoisTransientShaper.hpp"
 
