@@ -146,6 +146,8 @@ public:
 	template<typename F>
 	Ref_t<BlockParameter<T>> CreateBlockTransformer(Ref_t<BlockParameter<T>> transformee, F&& transformer)
 	{
+		// TODO: type the transformer function to also provide min/max etc.
+
 		auto parameter = MakeRef<TransformerBlockParameter<T, F>>(transformee, std::move(transformer));
 		parameter->mRegistry = this;
 
@@ -269,9 +271,7 @@ public:
 	{
 		if (mRegistry)
 		{
-			return mRegistry->CreateTransformer(
-				this->shared_from_this(),
-				std::move(transformer));
+			return mRegistry->CreateTransformer(this->shared_from_this(), std::move(transformer));
 		}
 
 		return nullptr;
@@ -361,12 +361,18 @@ public:
 
 		for (count_t f = 0; f < numFrames; ++f)
 		{
+			T value = 0.0f;
 			auto& frame = m_Frames[f];
-			T value = m_Transformer(block.Get(f), f);
+			if constexpr (std::is_invocable_v<F, T, count_t, f32_t>)
+			{
+				value = std::invoke(std::forward<F>(m_Transformer), block.Get(f), f, sampleRate);
+			}
+			else if constexpr (std::is_invocable_v<F, T, count_t>)
+			{
+				value = std::invoke(std::forward<F>(m_Transformer), block.Get(f), f);
+			}
 			frame.value = value;
-			frame.changed = f > 0
-				? value != m_Frames[f - 1].value
-				: value != m_Frames.back().value;
+			frame.changed = f > 0 ? value != m_Frames[f - 1].value : value != m_Frames.back().value;
 		}
 	}
 
@@ -395,9 +401,7 @@ public:
 	{
 		if (mRegistry)
 		{
-			return mRegistry->CreateBlockTransformer(
-				this->shared_from_this(),
-				std::move(transformer));
+			return mRegistry->CreateBlockTransformer(this->shared_from_this(), std::move(transformer));
 		}
 
 		return nullptr;
@@ -528,10 +532,39 @@ public:
 
 	void Prepare(f32_t sampleRate) override final
 	{
-		T value = std::clamp(m_Transformer(m_Used->Get()), m_Min, m_Max);
-		// TODO: this new min/max isn't always true, make user specify it
-		m_Min = m_Transformer(m_Used->Min());
-		m_Max = m_Transformer(m_Used->Max());
+		if constexpr (std::is_invocable_v<F, T, f32_t>)
+		{
+			m_Min = std::invoke(std::forward<F>(m_Transformer), m_Used->Min(), sampleRate);
+		}
+		else if constexpr (std::is_invocable_v<F, T>)
+		{
+			m_Min = std::invoke(std::forward<F>(m_Transformer), m_Used->Min());
+		}
+
+		if constexpr (std::is_invocable_v<F, T, f32_t>)
+		{
+			m_Max = std::invoke(std::forward<F>(m_Transformer), m_Used->Max(), sampleRate);
+		}
+		else if constexpr (std::is_invocable_v<F, T>)
+		{
+			m_Max = std::invoke(std::forward<F>(m_Transformer), m_Used->Max());
+		}
+		
+		if (m_Min > m_Max)
+		{
+			std::swap(m_Min, m_Max);
+		}
+
+		T value = 0.0f;
+		if constexpr (std::is_invocable_v<F, T, f32_t>)
+		{
+			value = std::invoke(std::forward<F>(m_Transformer), m_Used->Get(), sampleRate);
+		}
+		else if constexpr (std::is_invocable_v<F, T>)
+		{
+			value = std::invoke(std::forward<F>(m_Transformer), m_Used->Get());
+		}
+		value = std::clamp(value, m_Min, m_Max);
 		m_Changed = m_Value != value;
 		m_Value = value;
 	}
