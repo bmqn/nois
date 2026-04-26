@@ -397,7 +397,7 @@ public:
 	virtual void Prepare(f32_t sampleRate) = 0;
 
 	template<typename F>
-	Ref_t<BlockParameter<T>> Transform(F&& transformer)
+	Ref_t<BlockParameter<T>> TransformBlock(F&& transformer)
 	{
 		if (mRegistry)
 		{

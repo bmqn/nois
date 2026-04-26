@@ -40,7 +40,7 @@ public:
 	template<typename F>
 	nois::Ref_t<nois::FloatBlockParameter> TransformBlock(F&& transformer)
 	{
-		return operator nois::Ref_t<nois::FloatBlockParameter>()->Transform(std::move(transformer));
+		return operator nois::Ref_t<nois::FloatBlockParameter>()->TransformBlock(std::move(transformer));
 	}
 
 public:
