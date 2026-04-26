@@ -12,16 +12,14 @@
 
 namespace nois {
 
-constexpr f32_t k_DcOffset = 0.001f;
-
 inline f32_t ToDb(f32_t x)
 {
-	return 10.0f * std::log10(x - k_DcOffset);
+	return x <= 1e-12f ? 20.0f * std::log10(1e-12f) : 20.0f * std::log10(x);
 }
 
 inline f32_t FromDb(f32_t db)
 {
-	return std::pow(10.0f, db / 10.0f) + k_DcOffset;
+	return std::pow(10.0f, db / 20.0f);
 }
 
 template<typename T>
