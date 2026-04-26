@@ -27,9 +27,9 @@ public:
 	{
 	}
 
-	void SetGain(Ref_t<FloatParameter> gainDb)
+	void SetGain(Ref_t<FloatParameter> gain)
 	{
-		m_Gain.Use(gainDb);
+		m_Gain.Use(gain);
 	}
 
 private:
