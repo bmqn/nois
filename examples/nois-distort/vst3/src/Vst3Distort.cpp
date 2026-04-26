@@ -188,28 +188,31 @@ public:
 				{
 					return x / (sampleRate * 0.5f);
 				});
+
 		auto ap1CutoffRatio =
-			mSubFreq->TransformBlock(
-				[](float x, float sampleRate) -> float
+			subFreqRatio->TransformBlock(
+				[](float x) -> float
 				{
-					return std::clamp(x * 0.7f, 0.002f, 0.02f) / (sampleRate * 0.5f);
+					return std::clamp(x * 0.7f, 0.002f, 0.02f);
 				});
 		auto ap2CutoffRatio =
-			mSubFreq->TransformBlock(
-				[](float x, float sampleRate) -> float
+			subFreqRatio->TransformBlock(
+				[](float x) -> float
 				{
-					return std::clamp(x * 1.2f, 0.002f, 0.03f) / (sampleRate * 0.5f);
+					return std::clamp(x * 1.2f, 0.002f, 0.03f);
 				});
 		auto apQ =
 			CreateBlockConstant(0.67f);
+
 		auto distAsym =
 			mShape->TransformBlock(
 				[](float x) -> float
 				{
 					return x > 0.5f ? 1.0f + (x - 0.5) : 1.0f;
 				});
+
 		auto lpDistCutoffRatio =
-			mSubFreq->TransformBlock(
+			subFreqRatio->TransformBlock(
 				[](float x) -> float
 				{
 					return x * 2.0f;
