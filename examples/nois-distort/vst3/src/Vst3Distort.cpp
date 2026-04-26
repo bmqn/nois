@@ -14,13 +14,14 @@ enum
 	kDrive,
 	kMakeup,
 	kShape,
+	kGlue,
 	kWet,
 };
 
 
 struct SubFreq
 {
-	static constexpr const char* kTitle = "Sub Frequency";
+	static constexpr const char* kTitle = "Cutoff";
 	static constexpr const char* kUnits = "Hz";
 	static constexpr Vst::ParamID kPid = kSubFreq;
 	static constexpr nois::f32_t kDefaultValue = 80.0f;
@@ -36,7 +37,7 @@ struct DriveDb
 	static constexpr Vst::ParamID kPid = kDrive;
 	static constexpr nois::f32_t kDefaultValue = 0.0f;
 	static constexpr nois::f32_t kMinValue = 0.0f;
-	static constexpr nois::f32_t kMaxValue = 12.0f;
+	static constexpr nois::f32_t kMaxValue = 16.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
 };
 
@@ -56,8 +57,19 @@ struct Shape
 	static constexpr const char* kTitle = "Shape";
 	static constexpr const char* kUnits = "";
 	static constexpr Vst::ParamID kPid = kShape;
-	static constexpr nois::f32_t kDefaultValue = 0.0f;
-	static constexpr nois::f32_t kMinValue = -1.0f;
+	static constexpr nois::f32_t kDefaultValue = 0.6f;
+	static constexpr nois::f32_t kMinValue = 0.0f;
+	static constexpr nois::f32_t kMaxValue = 1.0f;
+	static constexpr nois::s32_t kNumSteps = 0;
+};
+
+struct Glue
+{
+	static constexpr const char* kTitle = "Glue";
+	static constexpr const char* kUnits = "";
+	static constexpr Vst::ParamID kPid = kGlue;
+	static constexpr nois::f32_t kDefaultValue = 0.5f;
+	static constexpr nois::f32_t kMinValue = 0.0f;
 	static constexpr nois::f32_t kMaxValue = 1.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
 };
@@ -92,6 +104,7 @@ public:
 		mDriveDb = NoisVstControllerParameter::Create<parameter::DriveDb>();
 		mMakeupDb = NoisVstControllerParameter::Create<parameter::MakeupDb>();
 		mShape = NoisVstControllerParameter::Create<parameter::Shape>();
+		mGlue = NoisVstControllerParameter::Create<parameter::Glue>();
 		mWet = NoisVstControllerParameter::Create<parameter::Wet>();
 	}
 
@@ -113,6 +126,7 @@ public:
 		parameters.addParameter(*mDriveDb);
 		parameters.addParameter(*mMakeupDb);
 		parameters.addParameter(*mShape);
+		parameters.addParameter(*mGlue);
 		parameters.addParameter(*mWet);
 
 		return result;
@@ -125,38 +139,6 @@ public:
 
 	tresult PLUGIN_API setComponentState(IBStream* state) SMTG_OVERRIDE
 	{
-		if (!state)
-		{
-			return kResultFalse;
-		}
-
-		for (size_t i = 0; i < 5; ++i)
-		{
-			nois::f32_t value = 0.0f;
-			if (state->read(&value, sizeof(value)) != kResultOk)
-			{
-				return kResultFalse;
-			}
-			switch (i)
-			{
-				case 0:
-					mSubFreq->RequestPlain(value);
-					break;
-				case 1:
-					mDriveDb->RequestPlain(value);
-					break;
-				case 2:
-					mMakeupDb->RequestPlain(value);
-					break;
-				case 3:
-					mShape->RequestPlain(value);
-					break;
-				case 4:
-					mWet->RequestPlain(value);
-					break;
-			}
-		}
-
 		return kResultOk;
 	}
 
@@ -165,6 +147,7 @@ private:
 	nois::Own_t<NoisVstControllerParameter> mDriveDb;
 	nois::Own_t<NoisVstControllerParameter> mMakeupDb;
 	nois::Own_t<NoisVstControllerParameter> mShape;
+	nois::Own_t<NoisVstControllerParameter> mGlue;
 	nois::Own_t<NoisVstControllerParameter> mWet;
 };
 
@@ -182,6 +165,7 @@ public:
 		, mDriveDb(nullptr)
 		, mMakeupDb(nullptr)
 		, mShape(nullptr)
+		, mGlue(nullptr)
 		, mWet(nullptr)
 		, mHpFilter(nullptr)
 		, mLpFilter(nullptr)
@@ -189,30 +173,32 @@ public:
 		, mAp2Filter(nullptr)
 		, mDist(nullptr)
 		, mLpDistFilter(nullptr)
+		, mCompressor(nullptr)
 	{
 		mSubFreq = CreateParameter<parameter::SubFreq>();
 		mDriveDb = CreateParameter<parameter::DriveDb>();
 		mMakeupDb = CreateParameter<parameter::MakeupDb>();
 		mShape = CreateParameter<parameter::Shape>();
+		mGlue = CreateParameter<parameter::Glue>();
 		mWet = CreateParameter<parameter::Wet>();
 
 		auto subFreqRatio = 
 			mSubFreq->TransformBlock(
-				[this](float x) -> float
+				[](float x, float sampleRate) -> float
 				{
-					return x / (mSampleRate * 0.5f);
+					return x / (sampleRate * 0.5f);
 				});
 		auto ap1CutoffRatio =
 			mSubFreq->TransformBlock(
-				[this](float x) -> float
+				[](float x, float sampleRate) -> float
 				{
-					return std::clamp(x * 0.7f, 0.002f, 0.02f) / (mSampleRate * 0.5f);
+					return std::clamp(x * 0.7f, 0.002f, 0.02f) / (sampleRate * 0.5f);
 				});
 		auto ap2CutoffRatio =
 			mSubFreq->TransformBlock(
-				[this](float x) -> float
+				[](float x, float sampleRate) -> float
 				{
-					return std::clamp(x * 1.2f, 0.002f, 0.03f) / (mSampleRate * 0.5f);
+					return std::clamp(x * 1.2f, 0.002f, 0.03f) / (sampleRate * 0.5f);
 				});
 		auto apQ =
 			CreateBlockConstant(0.67f);
@@ -224,9 +210,34 @@ public:
 				});
 		auto lpDistCutoffRatio =
 			mSubFreq->TransformBlock(
-				[](nois::f32_t x) -> float
+				[](float x) -> float
 				{
 					return x * 2.0f;
+				});
+
+		auto compRatio =
+			mGlue->TransformBlock(
+				[](float x) -> float
+				{
+					return 1.5f + x * 4.0f;
+				});
+		auto compThresholdDb =
+			mGlue->TransformBlock(
+				[](float x) -> float
+				{
+					return -40.0f + x * 30.0f;
+				});
+		auto compAttackMs =
+			mGlue->TransformBlock(
+				[](float x) -> float
+				{
+					return 30.0f - x * 20.0f;
+				});
+		auto compReleaseMs =
+			mGlue->TransformBlock(
+				[](float x) -> float
+				{
+					return 150.0f - x * 80.0f;
 				});
 
 		mHpFilter = nois::Filter::Create(nois::Filter::k_LR4High);
@@ -251,6 +262,12 @@ public:
 
 		mLpDistFilter = nois::Filter::Create(nois::Filter::k_LR4Low);
 		mLpDistFilter->SetCutoffRatio(lpDistCutoffRatio);
+
+		mCompressor = nois::Compressor::Create();
+		mCompressor->SetRatio(compRatio);
+		mCompressor->SetThresholdDb(compThresholdDb);
+		mCompressor->SetAttackMs(compAttackMs);
+		mCompressor->SetReleaseMs(compReleaseMs);
 	}
 
 protected:
@@ -271,6 +288,7 @@ protected:
 			mAp2Filter->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
 			mDist->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
 			mLpDistFilter->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
+			mCompressor->Prepare(mDistBuffer.GetNumFrames(), mDistBuffer.GetNumChannels(), mSampleRate);
 		}
 
 		{
@@ -284,6 +302,7 @@ protected:
 			mAp2Filter->Process(mDistBuffer, mDistBuffer);
 			mDist->Process(mDistBuffer, mDistBuffer);
 			mLpDistFilter->Process(mDistBuffer, mDistBuffer);
+			mCompressor->Process(mDistBuffer, mDistBuffer);
 
 			nois::f32_t wet = mWet->GetLastPlain();
 			for (int c = 0; c < sinkBuffer.GetNumChannels(); ++c)
@@ -308,6 +327,7 @@ private:
 	nois::Own_t<NoisVstProcessorParameter> mDriveDb;
 	nois::Own_t<NoisVstProcessorParameter> mMakeupDb;
 	nois::Own_t<NoisVstProcessorParameter> mShape;
+	nois::Own_t<NoisVstProcessorParameter> mGlue;
 	nois::Own_t<NoisVstProcessorParameter> mWet;
 
 	nois::Ref_t<nois::Filter> mHpFilter;
@@ -316,6 +336,7 @@ private:
 	nois::Ref_t<nois::AllpassFilter> mAp2Filter;
 	nois::Ref_t<nois::DynamicTanhDistorter> mDist;
 	nois::Ref_t<nois::Filter> mLpDistFilter;
+	nois::Ref_t<nois::Compressor> mCompressor;
 };
 
 using AudioEffectClass = NoisVstProcessor<VstDistort, NoisController>;
