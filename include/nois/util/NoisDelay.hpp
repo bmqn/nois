@@ -114,6 +114,11 @@ struct Delay
 		return y;
 	}
 
+	inline count_t GetMaxDelay() const
+	{
+		return m_NumFrames;
+	}
+
 	inline void SetDelay(T numDelayFrames)
 	{
 		m_NumDelayFrames = std::clamp(numDelayFrames, T{ 0 }, static_cast<T>(m_NumFrames - 1));

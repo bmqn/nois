@@ -135,35 +135,26 @@ public:
 
 public:
 	Vst3StretchProcessor()
-		: mRegistry()
-		, mStretchActive(nullptr)
+		: mStretchActive(nullptr)
 		, mStretchFactor(nullptr)
 		, mGrainBlend(nullptr)
 		, mGrainLockActive(nullptr)
 		, mTimeStretcher(nullptr)
 	{
-		mStretchActive = NoisVstProcessorParameter::Create<parameter::StretchActive>(mRegistry);
-		mStretchFactor = NoisVstProcessorParameter::Create<parameter::StretchFactor>(mRegistry);
-		mGrainSize = NoisVstProcessorParameter::Create<parameter::GrainSize>(mRegistry);
-		mGrainBlend = NoisVstProcessorParameter::Create<parameter::GrainBlend>(mRegistry);
-		mGrainLockActive = NoisVstProcessorParameter::Create<parameter::GrainLockActive>(mRegistry);
-		
-		Register(mStretchActive.get());
-		Register(mStretchFactor.get());
-		Register(mGrainSize.get());
-		Register(mGrainBlend.get());
-		Register(mGrainLockActive.get());
+		mStretchActive = CreateParameter<parameter::StretchActive>();
+		mStretchFactor = CreateParameter<parameter::StretchFactor>();
+		mGrainSize = CreateParameter<parameter::GrainSize>();
+		mGrainBlend = CreateParameter<parameter::GrainBlend>();
+		mGrainLockActive = CreateParameter<parameter::GrainLockActive>();
 
 		auto grainSize =
-			mRegistry.CreateTransformer(
-				*mGrainSize,
+			mGrainSize->Transform(
 				[this](nois::f32_t x, nois::count_t)
 				{
 					return (x / 1000.0f) * mSampleRate;
 				});
 		auto grainBlendNormalized =
-			mRegistry.CreateTransformer(
-				*mGrainBlend,
+			mGrainBlend->Transform(
 				[](nois::f32_t x, nois::count_t)
 				{
 					return x / 2.0f;
@@ -183,12 +174,6 @@ protected:
 		nois::FloatBufferView sinkBuffer) override
 	{
 		{
-			NOIS_PROFILE_SCOPE_NAMED("Prepare parameters");
-
-			mRegistry.Prepare(sourceBuffer.GetNumFrames(), mSampleRate);
-		}
-
-		{
 			NOIS_PROFILE_SCOPE_NAMED("Prepare processors");
 
 			mTimeStretcher->Prepare(sourceBuffer.GetNumFrames(), sourceBuffer.GetNumChannels(), mSampleRate);
@@ -204,7 +189,6 @@ protected:
 	}
 
 private:
-	nois::FloatParameterRegistry mRegistry;
 	nois::Own_t<NoisVstProcessorParameter> mStretchActive;
 	nois::Own_t<NoisVstProcessorParameter> mStretchFactor;
 	nois::Own_t<NoisVstProcessorParameter> mGrainSize;

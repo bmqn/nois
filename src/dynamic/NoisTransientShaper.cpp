@@ -3,6 +3,8 @@
 #include "nois/effect/NoisFilter.hpp"
 #include "nois/util/NoisBiquad.hpp"
 
+#include <array>
+
 namespace nois {
 
 class TransientShaper::Impl
@@ -40,9 +42,7 @@ public:
 			f32_t signalDb = ToDb(signal);
 			f32_t envMultiplier = (signalDb > m_EnvelopeDb) ? attackFactor : releaseFactor;
 			m_EnvelopeDb += (signalDb - m_EnvelopeDb) * envMultiplier;
-			m_EnvelopeDb = std::clamp(m_EnvelopeDb, -36.0f, 24.0f);
 			f32_t transientDb = signalDb - m_EnvelopeDb;
-			transientDb = std::clamp(transientDb, -36.0f, 24.0f);
 			f32_t targetGain = (transientDb > 0.0f) ? FromDb(transientDb * attackRatio) : FromDb(transientDb * sustainRatio);
 			m_Gain += (targetGain - m_Gain) * (1.0f - smoothing);
 
@@ -148,9 +148,7 @@ public:
 				f32_t signalDb = ToDb(signal);
 				f32_t envMultiplier = (signalDb > envelopeDb) ? attackFactor : releaseFactor;
 				envelopeDb += (signalDb - envelopeDb) * envMultiplier;
-				envelopeDb = std::clamp(envelopeDb, -36.0f, 24.0f);
 				f32_t transientDb = signalDb - envelopeDb;
-				transientDb = std::clamp(transientDb, -36.0f, 24.0f);
 				f32_t targetGain = (transientDb > 0.0f) ? FromDb(transientDb * attackRatio) : FromDb(transientDb * sustainRatio);
 				gain += (targetGain - gain) * (1.0f - smoothing);
 

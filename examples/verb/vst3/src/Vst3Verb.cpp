@@ -89,21 +89,19 @@ public:
 
 public:
 	VstVerb()
-		: mRegistry()
-		, mWet(nullptr)
+		: mWet(nullptr)
 		, mDecayMs(nullptr)
 		, mReverb()
 	{
-		mWet = NoisVstProcessorParameter::Create<parameter::Wet>(mRegistry);
-		mDecayMs = NoisVstProcessorParameter::Create<parameter::DecayMs>(mRegistry);
-
-		Register(mWet.get());
-		Register(mDecayMs.get());
+		mWet = CreateParameter<parameter::Wet>();
+		mDecayMs = CreateParameter<parameter::DecayMs>();
 
 		auto wetNormalized =
-			mRegistry.CreateBlockTransformer(
-				*mWet,
-				[](nois::f32_t x) { return x / 100.0f; });
+			mWet->TransformBlock(
+				[](nois::f32_t x)
+				{
+					return x / 100.0f;
+				});
 		
 		mReverb = nois::Reverb::Create();
 		mReverb->SetWet(wetNormalized);
@@ -115,12 +113,6 @@ protected:
 		nois::ConstFloatBufferView sourceBuffer,
 		nois::FloatBufferView sinkBuffer) override
 	{
-		{
-			NOIS_PROFILE_SCOPE_NAMED("Prepare parameters");
-
-			mRegistry.Prepare(sourceBuffer.GetNumFrames(), mSampleRate);
-		}
-
 		{
 			NOIS_PROFILE_SCOPE_NAMED("Prepare processors");
 
@@ -137,7 +129,6 @@ protected:
 	}
 
 private:
-	nois::FloatParameterRegistry mRegistry;
 	nois::Own_t<NoisVstProcessorParameter> mWet;
 	nois::Own_t<NoisVstProcessorParameter> mDecayMs;
 

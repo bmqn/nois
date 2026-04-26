@@ -33,21 +33,20 @@ public:
 		count_t numChannels,
 		f32_t sampleRate)
 	{
-		if (m_SampleRate != sampleRate)
-		{
-			const f32_t maxDelayMs = m_DelayMs.Max();
-			count_t maxDelayNumFrames = static_cast<count_t>((maxDelayMs * sampleRate) / 1000.0f);
-			NZ_ASSERT(maxDelayNumFrames != 0);
-			m_Delay.Reset(maxDelayNumFrames);
-		}
-
 		if (m_SampleRate != sampleRate ||
 			m_DelayMs.Changed())
 		{
 			const f32_t delayMs = m_DelayMs.Get();
 			count_t numDelayFrames = static_cast<count_t>((delayMs * sampleRate) / 1000.0f);
 			NZ_ASSERT(numDelayFrames != 0);
-			m_Delay.SetDelay(numDelayFrames);
+			if (delayMs < m_Delay.GetMaxDelay())
+			{
+				m_Delay.SetDelay(numDelayFrames);
+			}
+			else
+			{
+				m_Delay.Reset(numDelayFrames);
+			}
 		}
 
 		m_NumFrames = numFrames;

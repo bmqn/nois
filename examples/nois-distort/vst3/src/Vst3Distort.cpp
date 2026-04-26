@@ -178,7 +178,6 @@ public:
 		: mHpBuffer()
 		, mLpBuffer()
 		, mDistBuffer()
-		, mRegistry()
 		, mSubFreq(nullptr)
 		, mDriveDb(nullptr)
 		, mMakeupDb(nullptr)
@@ -191,35 +190,44 @@ public:
 		, mDist(nullptr)
 		, mLpDistFilter(nullptr)
 	{
-		mSubFreq = NoisVstProcessorParameter::Create<parameter::SubFreq>(mRegistry);
-		mDriveDb = NoisVstProcessorParameter::Create<parameter::DriveDb>(mRegistry);
-		mMakeupDb = NoisVstProcessorParameter::Create<parameter::MakeupDb>(mRegistry);
-		mShape = NoisVstProcessorParameter::Create<parameter::Shape>(mRegistry);
-		mWet = NoisVstProcessorParameter::Create<parameter::Wet>(mRegistry);
-
-		Register(mSubFreq.get());
-		Register(mDriveDb.get());
-		Register(mMakeupDb.get());
-		Register(mShape.get());
-		Register(mWet.get());
+		mSubFreq = CreateParameter<parameter::SubFreq>();
+		mDriveDb = CreateParameter<parameter::DriveDb>();
+		mMakeupDb = CreateParameter<parameter::MakeupDb>();
+		mShape = CreateParameter<parameter::Shape>();
+		mWet = CreateParameter<parameter::Wet>();
 
 		auto subFreqRatio = 
-			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[this](float x) -> float { return x / (mSampleRate * 0.5f); });
+			mSubFreq->TransformBlock(
+				[this](float x) -> float
+				{
+					return x / (mSampleRate * 0.5f);
+				});
 		auto ap1CutoffRatio =
-			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[this](float x) -> float { return std::clamp(x * 0.7f, 0.002f, 0.02f) / (mSampleRate * 0.5f); });
+			mSubFreq->TransformBlock(
+				[this](float x) -> float
+				{
+					return std::clamp(x * 0.7f, 0.002f, 0.02f) / (mSampleRate * 0.5f);
+				});
 		auto ap2CutoffRatio =
-			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[this](float x) -> float { return std::clamp(x * 1.2f, 0.002f, 0.03f) / (mSampleRate * 0.5f); });
+			mSubFreq->TransformBlock(
+				[this](float x) -> float
+				{
+					return std::clamp(x * 1.2f, 0.002f, 0.03f) / (mSampleRate * 0.5f);
+				});
 		auto apQ =
-			mRegistry.CreateBlockConstant(0.67f);
+			CreateBlockConstant(0.67f);
 		auto distAsym =
-			mRegistry.CreateBlockTransformer(*mShape,
-				[](float x) -> float { return x > 0.5f ? 1.0f + (x - 0.5) : 1.0f; });
+			mShape->TransformBlock(
+				[](float x) -> float
+				{
+					return x > 0.5f ? 1.0f + (x - 0.5) : 1.0f;
+				});
 		auto lpDistCutoffRatio =
-			mRegistry.CreateBlockTransformer(*mSubFreq,
-				[](nois::f32_t x) -> float { return x * 2.0f; });
+			mSubFreq->TransformBlock(
+				[](nois::f32_t x) -> float
+				{
+					return x * 2.0f;
+				});
 
 		mHpFilter = nois::Filter::Create(nois::Filter::k_LR4High);
 		mHpFilter->SetCutoffRatio(subFreqRatio);
@@ -253,12 +261,6 @@ protected:
 		mHpBuffer.Resize(sourceBuffer.GetNumFrames(), sourceBuffer.GetNumChannels());
 		mLpBuffer.Resize(sourceBuffer.GetNumFrames(), sourceBuffer.GetNumChannels());
 		mDistBuffer.Resize(sourceBuffer.GetNumFrames(), sourceBuffer.GetNumChannels());
-
-		{
-			NOIS_PROFILE_SCOPE_NAMED("Prepare parameters");
-
-			mRegistry.Prepare(mHpBuffer.GetNumFrames(), mSampleRate);
-		}
 
 		{
 			NOIS_PROFILE_SCOPE_NAMED("Prepare processors");
@@ -301,8 +303,6 @@ private:
 	nois::FloatBuffer mHpBuffer;
 	nois::FloatBuffer mLpBuffer;
 	nois::FloatBuffer mDistBuffer;
-
-	nois::FloatParameterRegistry mRegistry;
 
 	nois::Own_t<NoisVstProcessorParameter> mSubFreq;
 	nois::Own_t<NoisVstProcessorParameter> mDriveDb;

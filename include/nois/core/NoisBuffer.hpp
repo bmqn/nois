@@ -550,7 +550,7 @@ public:
 		}
 	}
 
-	void Multiply(const SlotParameter<T>& parameter)
+	void Multiply(SlotParameter<T>& parameter)
 	{
 		// TODO: vectorize
 		// TODO: how can we validate size of parameters?

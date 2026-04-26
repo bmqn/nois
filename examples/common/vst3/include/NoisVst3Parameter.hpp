@@ -22,7 +22,7 @@ public:
 	virtual Vst::ParamValue ToPlain(Vst::ParamValue valueNormalized) const = 0;
 	virtual Vst::ParamValue ToNormalized(Vst::ParamValue valuePlain) const = 0;
 
-	virtual void Prepare(nois::count_t numFrames, nois::f32_t sampleRate) = 0;
+	virtual void Setup(nois::count_t numFrames, nois::f32_t sampleRate) = 0;
 
 	virtual void WritePlain(nois::count_t frame, nois::f32_t valuePlain) = 0;
 	virtual void RequestPlain(nois::f32_t valuePlain) = 0;
@@ -30,6 +30,18 @@ public:
 
 	virtual operator nois::Ref_t<nois::FloatParameter>() = 0;
 	virtual operator nois::Ref_t<nois::FloatBlockParameter>() = 0;
+
+	template<typename F>
+	nois::Ref_t<nois::FloatParameter> Transform(F&& transformer)
+	{
+		return operator nois::Ref_t<nois::FloatParameter>()->Transform(std::move(transformer));
+	}
+
+	template<typename F>
+	nois::Ref_t<nois::FloatBlockParameter> TransformBlock(F&& transformer)
+	{
+		return operator nois::Ref_t<nois::FloatBlockParameter>()->Transform(std::move(transformer));
+	}
 
 public:
 	template<typename Param>
@@ -44,6 +56,7 @@ public:
 	virtual Vst::ParamID GetPid() const = 0;
 
 	virtual void RequestPlain(nois::f32_t valuePlain) = 0;
+	virtual nois::f32_t GetLastPlain() const = 0;
 
 	virtual operator Vst::Parameter*() = 0;
 
@@ -119,17 +132,17 @@ public:
 		return util::ApplyStep<Param>(valuePlain);
 	}
 
-	Vst::ParamValue toPlain(Vst::ParamValue valueNormalized) const SMTG_OVERRIDE
+	Vst::ParamValue toPlain(Vst::ParamValue valueNormalized) const override final
 	{
 		return util::ToPlain<Param>(valueNormalized);
 	}
 
-	Vst::ParamValue toNormalized(Vst::ParamValue valuePlain) const SMTG_OVERRIDE
+	Vst::ParamValue toNormalized(Vst::ParamValue valuePlain) const override final
 	{
 		return util::ToNormalized<Param>(valuePlain);
 	}
 
-	void toString(Vst::ParamValue valueNormalized, Vst::String128 string) const SMTG_OVERRIDE
+	void toString(Vst::ParamValue valueNormalized, Vst::String128 string) const override final
 	{
 		UString wrapper(string, USTRINGSIZE(Vst::String128));
 
@@ -143,7 +156,7 @@ public:
 		}
 	}
 
-	bool fromString(const Vst::TChar* string, Vst::ParamValue& valueNormalized) const SMTG_OVERRIDE
+	bool fromString(const Vst::TChar* string, Vst::ParamValue& valueNormalized) const override final
 	{
 		UString wrapper(const_cast<Vst::TChar*>(string), USTRINGSIZE(Vst::String128));
 
@@ -189,13 +202,13 @@ class NoisVstProcessorParameterImpl : public NoisVstProcessorParameter
 
 public:
 	NoisVstProcessorParameterImpl(nois::FloatParameterRegistry& registry)
-		: mParameter(nullptr)
-		, mBlockParameter(nullptr)
-		, mRegistry(registry)
-		, mNumFrames(0)
+		: mNumFrames(0)
 		, mSampleRate(0.0f)
-		, mNextPlainValue(std::nullopt)
-		, mValuePlains()
+		, mRegistry(registry)
+		, mParameter(nullptr)
+		, mBlockParameter(nullptr)
+		, mNextValue(std::nullopt)
+		, mValues()
 	{
 		mParameter = mRegistry.CreateBinder(
 			[this](nois::count_t f)
@@ -232,46 +245,36 @@ public:
 		return util::ToNormalized<Param>(valuePlain);
 	}
 
-	void Prepare(nois::count_t numFrames, nois::f32_t sampleRate) override final
+	void Setup(nois::count_t numFrames, nois::f32_t sampleRate) override final
 	{
 		mNumFrames = numFrames;
 		mSampleRate = sampleRate;
 
-		mValuePlains.resize(numFrames, Param::kDefaultValue);
+		nois::f32_t valuePlain = mNextValue.value_or(GetLastPlain());
+		mNextValue = std::nullopt;
 
-		if (mNextPlainValue)
-		{
-			std::fill(mValuePlains.begin(), mValuePlains.end(), *mNextPlainValue);
-			mNextPlainValue = std::nullopt;
-		}
-		else
-		{
-			nois::f32_t lastPlain = GetLastPlain();
-			for (nois::count_t f = 0; f < mValuePlains.size(); ++f)
-			{
-				mValuePlains[f] = lastPlain;
-			}
-		}
+		mValues.resize(numFrames, Param::kDefaultValue);
+		std::fill(mValues.begin(), mValues.end(), valuePlain);
 	}
 
 	void WritePlain(nois::count_t f, nois::f32_t valuePlain) override final
 	{
-		if (f < mValuePlains.size())
+		if (f < mValues.size())
 		{
-			mValuePlains[f] = valuePlain;
+			mValues[f] = valuePlain;
 		}
 	}
 
 	void RequestPlain(nois::f32_t valuePlain) override final
 	{
-		mNextPlainValue = valuePlain;
+		mNextValue = valuePlain;
 	}
 
 	nois::f32_t GetLastPlain() const override final
 	{
-		if (!mValuePlains.empty())
+		if (!mValues.empty())
 		{
-			return mValuePlains.back();
+			return mValues.back();
 		}
 
 		return 0.0f;
@@ -290,22 +293,22 @@ public:
 private:
 	nois::f32_t GetValue(nois::count_t f) const
 	{
-		return mValuePlains[f];
+		return mValues[f];
 	}
 
 	nois::f32_t GetBlockValue() const
 	{
-		return mValuePlains.back();
+		return mValues.back();
 	}
 
 private:
-	nois::Ref_t<nois::FloatParameter> mParameter;
-	nois::Ref_t<nois::FloatBlockParameter> mBlockParameter;
-	nois::FloatParameterRegistry& mRegistry;
 	nois::count_t mNumFrames;
 	nois::f32_t mSampleRate;
-	std::optional<nois::f32_t> mNextPlainValue;
-	nois::SmallVector<nois::f32_t, nois::k_MaxNumInplaceFrames> mValuePlains;
+	nois::FloatParameterRegistry& mRegistry;
+	nois::Ref_t<nois::FloatParameter> mParameter;
+	nois::Ref_t<nois::FloatBlockParameter> mBlockParameter;
+	std::optional<nois::f32_t> mNextValue;
+	nois::SmallVector<nois::f32_t, nois::k_MaxNumInplaceFrames> mValues;
 };
 
 template<typename Param>
@@ -327,6 +330,11 @@ public:
 		mParameter->setNormalized(util::ToNormalized<Param>(valuePlain));
 	}
 
+	nois::f32_t GetLastPlain() const override final
+	{
+		return util::ToPlain<Param>(mParameter->getNormalized());
+	}
+
 	operator Vst::Parameter*() override final
 	{
 		return mParameter;
@@ -337,13 +345,13 @@ private:
 };
 
 template<typename Param>
-nois::Own_t<NoisVstProcessorParameter> NoisVstProcessorParameter::Create(nois::FloatParameterRegistry& registry)
+auto NoisVstProcessorParameter::Create(nois::FloatParameterRegistry& registry) -> nois::Own_t<NoisVstProcessorParameter>
 {
 	return nois::MakeOwn<NoisVstProcessorParameterImpl<Param>>(registry);
 }
 
 template<typename Param>
-nois::Own_t<NoisVstControllerParameter> NoisVstControllerParameter::Create()
+auto NoisVstControllerParameter::Create() -> nois::Own_t<NoisVstControllerParameter>
 {
 	return nois::MakeOwn<NoisVstControllerParameterImpl<Param>>();
 }

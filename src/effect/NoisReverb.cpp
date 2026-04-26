@@ -133,7 +133,7 @@ public:
 		// TODO: replace simple modulation...
 		static float mod = 0.0f;
 		static int modx = 0;
-		mod = 5.0f * std::sin(2.0f * M_PI * (float)modx / (float)(1 << 10));
+		mod = 5.0f * std::sin(2.0f * std::numbers::pi * (float)modx / (float)(1 << 10));
 		modx = (modx + 1) & ((1 << 10) - 1);
 
 		for (count_t c = 0; c < m_NumChannels; ++c)
@@ -244,7 +244,7 @@ public:
 		// TODO: replace simple modulation...
 		static float mod = 0.0f;
 		static int modx = 0;
-		mod = 5.0f * std::sin(2.0f * M_PI * (float)modx / (float)(1 << 10));
+		mod = 5.0f * std::sin(2.0f * std::numbers::pi * (float)modx / (float)(1 << 10));
 		modx = (modx + 1) & ((1 << 10) - 1);
 
 		for (count_t c = 0; c < m_NumChannels; ++c)

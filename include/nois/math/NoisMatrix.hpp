@@ -167,7 +167,7 @@ public:
 private:
 	count_t m_M;
 	count_t m_N;
-	SmallVector<T, 128> m_Data;
+	SmallVector<T, 16> m_Data;
 };
 
 template<typename T>

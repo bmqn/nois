@@ -24,6 +24,10 @@ if(NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
 include(${NOIS_ROOT_DIR}/examples/libs/libDaisy/cmake/toolchains/autodetect.cmake)
 endif()
 
+if(MSVC)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 project(nois VERSION 1.0.0)
 
 
@@ -89,7 +93,7 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/parameter/NoisParameter.cpp"
 
 	"${NOIS_SRC_DIR}/route/NoisCombiner.cpp"
-    "${NOIS_SRC_DIR}/route/NoisSplitter.cpp"
+	"${NOIS_SRC_DIR}/route/NoisSplitter.cpp"
 )
 
 source_group(
@@ -229,6 +233,9 @@ endif()
 if(NOIS_ENABLE_PROFILING)
 # tracy
 set(TRACY_LTO ON)
+set(TRACY_ON_DEMAND ON)
+set(TRACY_DELAYED_INIT ON)
+set(TRACY_MANUAL_LIFETIME ON)
 add_subdirectory("${NOIS_LIB_DIR}/tracy")
 endif()
 

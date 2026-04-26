@@ -12,7 +12,7 @@ NoisVstProcessor<T, C>::NoisVstProcessor()
 	: mSampleRate(0.0)
 	, mSourceBuffer()
 	, mSinkBuffer()
-	, mParameterLookup()
+	, mParameters()
 {
 	setControllerClass(C::kUid);
 }
@@ -47,7 +47,7 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::setState(IBStream* state)
 		return kResultFalse;
 	}
 
-	for (auto& [pid, parameter] : mParameterLookup)
+	for (auto& [pid, parameter] : mParameters)
 	{
 		nois::f32_t value = 0.0f;
 		if (state->read(&value, sizeof(value)) != kResultOk)
@@ -68,7 +68,7 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::getState(IBStream* state)
 		return kResultFalse;
 	}
 
-	for (const auto& [pid, parameter] : mParameterLookup)
+	for (const auto& [pid, parameter] : mParameters)
 	{
 		nois::f32_t value = parameter->GetLastPlain();
 		if (state->write(&value, sizeof(value)) != kResultOk)
@@ -116,77 +116,85 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::process(Vst::ProcessData& data)
 	NOIS_PROFILE_MARK();
 
 	{
-		NOIS_PROFILE_SCOPE_NAMED("Prepare parameters");
+		NOIS_PROFILE_SCOPE_NAMED("Setup parameters");
 
-		for (auto it = mParameterLookup.begin(); it != mParameterLookup.end(); ++it)
+		for (auto it = mParameters.begin();
+			it != mParameters.end();
+			++it)
 		{
-			it->second->Prepare(data.numSamples, mSampleRate);
+			it->second->Setup(
+				data.numSamples,
+				mSampleRate);
 		}
-	}
 
-	if (data.inputParameterChanges)
-	{
-		NOIS_PROFILE_SCOPE_NAMED("Process parameter changes");
-
-		int32 numParamsChanged = data.inputParameterChanges->getParameterCount();
-		for (int32 i = 0; i < numParamsChanged; i++)
+		if (data.inputParameterChanges)
 		{
-			Vst::IParamValueQueue* queue = data.inputParameterChanges->getParameterData(i);
-			if (!queue)
-			{
-				continue;
-			}
-			
-			Vst::ParamID pid = queue->getParameterId();
-			auto it = mParameterLookup.find(pid);
-			if (it == mParameterLookup.end())
-			{
-				continue;
-			}
+			NOIS_PROFILE_SCOPE_NAMED("Process changed parameter");
 
-			auto& parameter = it->second;
-			nois::count_t currentSampleOffset = 0;
-			nois::f32_t lastValuePlain = parameter->GetLastPlain();
-			int32 numPoints = queue->getPointCount();
-			for (int j = 0; j < numPoints; ++j)
+			for (int32 i = 0; i < data.inputParameterChanges->getParameterCount(); i++)
 			{
-				int32 sampleOffset;
-				Vst::ParamValue valueNormalized;
-				if (queue->getPoint(j, sampleOffset, valueNormalized) == kResultTrue)
+				Vst::IParamValueQueue* queue = data.inputParameterChanges->getParameterData(i);
+				if (!queue)
 				{
-					nois::f32_t valuePlain = parameter->ToPlain(valueNormalized);
-
-					nois::count_t nextSampleOffset = sampleOffset == 0 ? data.numSamples : sampleOffset;
-					nois::count_t prevSampleOffset = currentSampleOffset;
-
-					for (;
-						currentSampleOffset <= nextSampleOffset &&
-						currentSampleOffset < data.numSamples;
-						++currentSampleOffset)
+					continue;
+				}
+				Vst::ParamID pid = queue->getParameterId();
+				auto it = mParameters.find(pid);
+				if (it == mParameters.end())
+				{
+					continue;
+				}
+				auto& parameter = it->second;
+				nois::count_t currentSampleOffset = 0;
+				nois::f32_t lastValuePlain = parameter->GetLastPlain();
+				int32 numPoints = queue->getPointCount();
+				for (int j = 0; j < numPoints; ++j)
+				{
+					int32 sampleOffset;
+					Vst::ParamValue valueNormalized;
+					if (queue->getPoint(j, sampleOffset, valueNormalized) == kResultTrue)
 					{
-						if (nextSampleOffset == prevSampleOffset)
+						nois::f32_t valuePlain =
+							parameter->ToPlain(valueNormalized);
+						nois::count_t nextSampleOffset =
+							sampleOffset == 0
+							? data.numSamples
+							: sampleOffset;
+						nois::count_t prevSampleOffset =
+							currentSampleOffset;
+						for (;
+							currentSampleOffset <= nextSampleOffset &&
+							currentSampleOffset < data.numSamples;
+							++currentSampleOffset)
 						{
-							parameter->WritePlain(
-								currentSampleOffset,
-								valuePlain);
+							if (nextSampleOffset == prevSampleOffset)
+							{
+								parameter->WritePlain(
+									currentSampleOffset,
+									valuePlain);
+							}
+							else
+							{
+								nois::f32_t t =
+									nois::f32_t(currentSampleOffset - prevSampleOffset) /
+									nois::f32_t(nextSampleOffset - prevSampleOffset);
+								parameter->WritePlain(
+									currentSampleOffset,
+									lastValuePlain +
+									(valuePlain - lastValuePlain) * t);
+							}
 						}
-						else
-						{
-							nois::f32_t t =
-								nois::f32_t(currentSampleOffset - prevSampleOffset) /
-								nois::f32_t(nextSampleOffset - prevSampleOffset);
-
-							parameter->WritePlain(
-								currentSampleOffset,
-								valuePlain * t +
-								lastValuePlain * (1.0f - t));
-						}
+						lastValuePlain = valuePlain;
 					}
-
-					lastValuePlain = valuePlain;
 				}
 			}
 		}
+	}
+
+	{
+		NOIS_PROFILE_SCOPE_NAMED("Prepare parameters");
+
+		mRegistry.Prepare(data.numSamples, mSampleRate);
 	}
 
 	auto& inSource = data.inputs[0];
@@ -208,7 +216,11 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::process(Vst::ProcessData& data)
 		}
 	}
 
-	Process(mSourceBuffer, mSinkBuffer);
+	{
+		NOIS_PROFILE_SCOPE_NAMED("Process");
+
+		Process(mSourceBuffer, mSinkBuffer);
+	}
 	
 	{
 		NOIS_PROFILE_SCOPE_NAMED("Write to sink");
@@ -227,7 +239,22 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::process(Vst::ProcessData& data)
 }
 
 template<typename T, typename C>
-void NoisVstProcessor<T, C>::Register(NoisVstProcessorParameter* parameter)
+template<typename Param>
+auto NoisVstProcessor<T, C>::CreateParameter() -> nois::Own_t<NoisVstProcessorParameter>
 {
-	mParameterLookup[parameter->GetPid()] = parameter;
+	auto parameter = NoisVstProcessorParameter::Create<Param>(mRegistry);
+	mParameters[parameter->GetPid()] = parameter.get();
+	return parameter;
+}
+
+template<typename T, typename C>
+auto NoisVstProcessor<T, C>::CreateConstant(nois::f32_t value) -> nois::Ref_t<nois::FloatParameter>
+{
+	return mRegistry.CreateConstant(value);
+}
+
+template<typename T, typename C>
+auto NoisVstProcessor<T, C>::CreateBlockConstant(nois::f32_t value) -> nois::Ref_t<nois::FloatBlockParameter>
+{
+	return mRegistry.CreateBlockConstant(value);
 }

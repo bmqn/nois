@@ -37,7 +37,6 @@ public:
 			f32_t signalDb = ToDb(signal);
 			f32_t envMultiplier = (signalDb > m_EnvelopeDb) ? attackFactor : releaseFactor;
 			m_EnvelopeDb += (signalDb - m_EnvelopeDb) * envMultiplier;
-			m_EnvelopeDb = std::clamp(m_EnvelopeDb, -36.0f, 24.0f);
 			f32_t underDb = m_EnvelopeDb - thresholdDb;
 			f32_t targetGain = FromDb(underDb * ratio);
 			m_Gain += (targetGain - m_Gain) * (1.0f - smoothing);

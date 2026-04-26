@@ -4,6 +4,7 @@ project(nois-common-vst3 VERSION 1.0.0)
 
 set(NOIS_COMMON_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(NOIS_COMMON_INC_DIR "${NOIS_COMMON_ROOT_DIR}/include")
+set(NOIS_COMMON_SRC_DIR "${NOIS_COMMON_ROOT_DIR}/src")
 
 
 #--------------------------------------------------------------------------------------------------
@@ -15,10 +16,20 @@ set(NOIS_COMMON_HSPSRC
 	"${NOIS_COMMON_INC_DIR}/NoisVst3Processor.inl"
 )
 
+set(NOIS_COMMON_SRC
+	"${NOIS_COMMON_SRC_DIR}/NoisVst3.cpp"
+)
+
 source_group(
 	TREE ${NOIS_COMMON_INC_DIR}
 	PREFIX "Include Files"
 	FILES ${NOIS_COMMON_HSPSRC}
+)
+
+source_group(
+	TREE ${NOIS_COMMON_SRC_DIR}
+	PREFIX "Source Files"
+	FILES ${NOIS_COMMON_SRC}
 )
 
 
@@ -27,42 +38,23 @@ source_group(
 #--------------------------------------------------------------------------------------------------
 add_library(
 	nois-common-vst3
-	INTERFACE
+	OBJECT
+		"${NOIS_COMMON_SRC}"
 		"${NOIS_COMMON_HSPSRC}"
 )
 
 target_include_directories(
 	nois-common-vst3
-	INTERFACE
+	PUBLIC
 		"${NOIS_COMMON_INC_DIR}"
 )
 
 target_link_libraries(
 	nois-common-vst3
-	INTERFACE
+	PUBLIC
 		nois
 		sdk
 )
-
-if(MSVC)
-target_compile_options(
-	nois-common-vst3
-	INTERFACE
-)
-target_link_options(
-	nois-common-vst3
-	INTERFACE
-)
-else()
-target_compile_options(
-	nois-common-vst3
-	INTERFACE
-)
-target_link_options(
-	nois-common-vst3
-	INTERFACE
-)
-endif()
 
 set_target_properties(
 	nois-common-vst3

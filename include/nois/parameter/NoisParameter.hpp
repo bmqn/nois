@@ -77,6 +77,7 @@ public:
 	Ref_t<Parameter<T>> CreateConstant(T value)
 	{
 		auto parameter = MakeRef<ConstantParameter<T>>(value);
+		parameter->mRegistry = this;
 		
 		Node<Parameter<T>> node;
 		node.parameter = parameter;
@@ -89,6 +90,7 @@ public:
 	Ref_t<BlockParameter<T>> CreateBlockConstant(T value)
 	{
 		auto parameter = MakeRef<ConstantBlockParameter<T>>(value);
+		parameter->mRegistry = this;
 		
 		Node<BlockParameter<T>> node;
 		node.parameter = parameter;
@@ -102,6 +104,7 @@ public:
 	Ref_t<Parameter<T>> CreateBinder(F&& binder)
 	{
 		auto parameter = MakeRef<BinderParameter<T, F>>(std::move(binder));
+		parameter->mRegistry = this;
 		
 		Node<Parameter<T>> node;
 		node.parameter = parameter;
@@ -115,6 +118,7 @@ public:
 	Ref_t<BlockParameter<T>> CreateBlockBinder(F&& binder, T min, T max)
 	{
 		auto parameter = MakeRef<BinderBlockParameter<T, F>>(std::move(binder), min, max);
+		parameter->mRegistry = this;
 		
 		Node<BlockParameter<T>> node;
 		node.parameter = parameter;
@@ -128,6 +132,7 @@ public:
 	Ref_t<Parameter<T>> CreateTransformer(Ref_t<Parameter<T>> transformee, F&& transformer)
 	{
 		auto parameter = MakeRef<TransformerParameter<T, F>>(transformee, std::move(transformer));
+		parameter->mRegistry = this;
 		
 		Node<Parameter<T>> node;
 		node.dependencies.emplace_back(m_ParameterLookup[transformee]);
@@ -142,6 +147,7 @@ public:
 	Ref_t<BlockParameter<T>> CreateBlockTransformer(Ref_t<BlockParameter<T>> transformee, F&& transformer)
 	{
 		auto parameter = MakeRef<TransformerBlockParameter<T, F>>(transformee, std::move(transformer));
+		parameter->mRegistry = this;
 
 		Node<BlockParameter<T>> node;
 		node.dependencies.emplace_back(m_BlockParameterLookup[transformee]);
@@ -248,7 +254,7 @@ private:
 };
 
 template<typename T>
-class Parameter
+class Parameter : public RefFromThis_t<Parameter<T>>
 {
 	friend class ParameterRegistry<T>;
 
@@ -257,6 +263,22 @@ public:
 
 	virtual ParameterBlock<T> Get() const = 0;
 	virtual void Prepare(count_t numFrames, f32_t sampleRate) = 0;
+
+	template<typename F>
+	Ref_t<Parameter<T>> Transform(F&& transformer)
+	{
+		if (mRegistry)
+		{
+			return mRegistry->CreateTransformer(
+				this->shared_from_this(),
+				std::move(transformer));
+		}
+
+		return nullptr;
+	}
+
+private:
+	ParameterRegistry<T>* mRegistry = nullptr;
 };
 
 template<typename T>
@@ -355,7 +377,7 @@ private:
 };
 
 template<typename T>
-class BlockParameter
+class BlockParameter : public RefFromThis_t<BlockParameter<T>>
 {
 	friend class ParameterRegistry<T>;
 
@@ -367,6 +389,22 @@ public:
 	virtual T Max() const = 0;
 	virtual bool Changed() const = 0;
 	virtual void Prepare(f32_t sampleRate) = 0;
+
+	template<typename F>
+	Ref_t<BlockParameter<T>> Transform(F&& transformer)
+	{
+		if (mRegistry)
+		{
+			return mRegistry->CreateBlockTransformer(
+				this->shared_from_this(),
+				std::move(transformer));
+		}
+
+		return nullptr;
+	}
+
+private:
+	ParameterRegistry<T>* mRegistry = nullptr;
 };
 
 template<typename T>
@@ -513,23 +551,45 @@ class SlotParameter
 public:
 	SlotParameter(T value)
 		: m_Used(nullptr)
-		, m_Default{value, false}
+		, m_Reslotted(true)
+		, m_Default(value)
+		, m_Frame{value, false}
 	{
 	}
 
 	void Use(Ref_t<Parameter<T>> parameter)
 	{
-		m_Used = parameter;
+		if (m_Used != parameter)
+		{
+			m_Used = parameter;
+			m_Reslotted = true;
+		}
 	}
 
-	ParameterBlock<T> Get() const
+	ParameterBlock<T> Get()
 	{
-		return m_Used ? m_Used->Get() : ParameterBlock<T>(&m_Default);
+		if (m_Reslotted)
+		{
+			m_Frame.value = m_Default;
+			m_Frame.changed = true;
+			m_Reslotted = false;
+			return ParameterBlock<T>(&m_Frame);
+		}
+		else if (!m_Used)
+		{
+			m_Frame.value = m_Default;
+			m_Frame.changed = false;
+			return ParameterBlock<T>(&m_Frame);
+		}
+
+		return m_Used->Get();
 	}
 
 private:
 	Ref_t<Parameter<T>> m_Used;
-	typename ParameterBlock<T>::Frame m_Default;
+	bool m_Reslotted;
+	T m_Default;
+	typename ParameterBlock<T>::Frame m_Frame;
 };
 
 template<typename T>
@@ -538,6 +598,7 @@ class SlotBlockParameter
 public:
 	SlotBlockParameter(T value, T min, T max)
 		: m_Used(nullptr)
+		, m_Reslotted(true)
 		, m_Min(min)
 		, m_Max(max)
 		, m_Default(std::clamp(value, min, max))
@@ -549,31 +610,48 @@ public:
 		if (m_Used != parameter)
 		{
 			m_Used = parameter;
+			m_Reslotted = true;
 		}
 	}
 
 	T Get() const
 	{
-		return m_Used ? m_Used->Get() : m_Default;
+		if (!m_Used)
+		{
+			return m_Default;
+		}
+
+		return std::clamp(m_Used->Get(), m_Min, m_Max);
 	}
 
 	T Min() const
 	{
-		return m_Used ? m_Used->Min() : m_Min;
+		return m_Min;
 	}
 
 	T Max() const
 	{
-		return m_Used ? m_Used->Max() : m_Max;
+		return m_Max;
 	}
 
-	bool Changed() const
+	bool Changed()
 	{
-		return m_Used ? m_Used->Changed() : false;
+		if (m_Reslotted)
+		{
+			m_Reslotted = false;
+			return true;
+		}
+		else if (!m_Used)
+		{
+			return false;
+		}
+
+		return m_Used->Changed();
 	}
 
 private:
 	Ref_t<BlockParameter<T>> m_Used;
+	bool m_Reslotted;
 	T m_Min;
 	T m_Max;
 	T m_Default;

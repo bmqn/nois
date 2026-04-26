@@ -28,11 +28,13 @@ public:
 	tresult PLUGIN_API process(Vst::ProcessData& data) SMTG_OVERRIDE;
 
 protected:
-	virtual void Process(
-		nois::ConstFloatBufferView sourceBuffer,
-		nois::FloatBufferView sinkBuffer) = 0;
+	virtual void Process(nois::ConstFloatBufferView sourceBuffer, nois::FloatBufferView sinkBuffer) = 0;
 
-	void Register(NoisVstProcessorParameter* parameter);
+	template<typename Param>
+	nois::Own_t<NoisVstProcessorParameter> CreateParameter();
+
+	nois::Ref_t<nois::FloatParameter> CreateConstant(nois::f32_t value);
+	nois::Ref_t<nois::FloatBlockParameter> CreateBlockConstant(nois::f32_t value);
 
 protected:
 	nois::f64_t mSampleRate;
@@ -40,7 +42,9 @@ protected:
 private:
 	nois::FloatBuffer mSourceBuffer;
 	nois::FloatBuffer mSinkBuffer;
-	std::unordered_map<Vst::ParamID, NoisVstProcessorParameter*> mParameterLookup;
+
+	nois::FloatParameterRegistry mRegistry;
+	std::unordered_map<Vst::ParamID, NoisVstProcessorParameter*> mParameters;
 };
 
 #include "NoisVst3Processor.inl"
