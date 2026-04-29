@@ -19,6 +19,8 @@ static nois::Ref_t<nois::TimeStretcher> timeStretcher = nullptr;
 
 void callback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
 {
+	registry.Prepare(size, hw.AudioSampleRate());
+
 	stretchActive->Prepare(size, hw.AudioSampleRate());
 	stretchFactor->Prepare(size, hw.AudioSampleRate());
 	timeStretcher->Prepare(size, 2, hw.AudioSampleRate());
