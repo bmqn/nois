@@ -17,10 +17,12 @@ static float scratchOut[2 * kBlockSize] = { 0.0f };
 
 static float stretchActiveValue = 0.0f;
 static float stretchFactorValue = 0.0f;
+static float grainSizeValue = 0.0f;
 
 static nois::Ref_t<nois::ParameterRegistry<nois::f32_t>> registry = nullptr;
 static nois::Ref_t<nois::FloatParameter> stretchActive = nullptr;
 static nois::Ref_t<nois::FloatParameter> stretchFactor = nullptr;
+static nois::Ref_t<nois::FloatParameter> grainSize = nullptr;
 static nois::Ref_t<nois::TimeStretcher> timeStretcher = nullptr;
 
 void* operator new(size_t size) { return umm_malloc(size); }
@@ -67,9 +69,16 @@ int main(void)
 			return 1.0f + stretchFactorValue * (16.0f - 1.0f);
 		});
 
+	grainSize = registry->CreateBinder(
+		[](nois::count_t)
+		{
+			return 250.0f + grainSizeValue * (3000.0f - 250.0f);
+		});
+
 	timeStretcher = nois::TimeStretcher::Create();
 	timeStretcher->SetStretchActive(stretchActive);
 	timeStretcher->SetStretchFactor(stretchFactor);
+	timeStretcher->SetGrainSize(grainSize);
 
 	hw.StartAudio(callback);
 	hw.StartAdc();
@@ -80,6 +89,7 @@ int main(void)
 
 		stretchActiveValue = hw.SwitchPressed() ? 1.0f : 0.0f;
 		stretchFactorValue = hw.GetKnobValue(DaisyVersio::KNOB_0);
+		grainSizeValue = hw.GetKnobValue(DaisyVersio::KNOB_1);
 
 		hw.UpdateLeds();
 	}
