@@ -30,7 +30,7 @@ public:
 		f32_t attackFactor = 1.0f - std::exp(-1.0f * attackTau * inverseSampleRate);
 		f32_t releaseFactor = 1.0f - std::exp(-1.0f * releaseTau * inverseSampleRate);
 
-		for (count_t f = 0; f < m_NumFrames; f += m_NumChannels)
+		for (count_t f = 0; f < m_NumFrames; ++f)
 		{
 			f32_t signal = 0.0f;
 
@@ -136,7 +136,7 @@ public:
 			f32_t& gain = m_Gains[i];
 			Biquad<f32_t>& biquad = m_Biquads[i];
 
-			for (count_t f = 0; f < m_NumFrames; f += m_NumChannels)
+			for (count_t f = 0; f < m_NumFrames; ++f)
 			{
 				f32_t signal = 0.0f;
 
