@@ -11,6 +11,7 @@ set(NOIS_STRETCH_SRC_DIR "${NOIS_STRETCH_ROOT_DIR}/src")
 #	Build
 #--------------------------------------------------------------------------------------------------
 set(DAISY_STORAGE qspi)
+set(DAISY_GENERATE_BIN ON)
 set(FIRMWARE_NAME nois-stretch-versio)
 set(FIRMWARE_SOURCES "${NOIS_STRETCH_SRC_DIR}/VersioStretch.cpp")
 include(DaisyProject)
