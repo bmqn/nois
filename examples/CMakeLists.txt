@@ -34,6 +34,25 @@ elseif(NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
 	# libDaisy
 	add_subdirectory("${NOIS_EXAMPLES_LIB_DIR}/libDaisy")
 
+	# umm_malloc
+	add_library(
+		umm_malloc
+		STATIC
+		"${NOIS_EXAMPLES_LIB_DIR}/umm_malloc/src/umm_malloc.c"
+	)
+	target_include_directories(
+		umm_malloc
+		PUBLIC
+		"${NOIS_EXAMPLES_LIB_DIR}/umm_malloc/src"
+		"${NOIS_EXAMPLES_LIB_DIR}/umm_malloc/src/config"
+		"${NOIS_EXAMPLES_LIB_DIR}/umm_malloc/src/config/host"
+	)
+	target_compile_definitions(
+		umm_malloc
+		PUBLIC
+		UMM_MALLOC_CFGFILE="${NOIS_EXAMPLES_ROOT_DIR}/common/versio/include/umm_malloc_cfgport.h"
+	)
+
 	# nois-stretch-versio
 	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-stretch/versio")
 endif()

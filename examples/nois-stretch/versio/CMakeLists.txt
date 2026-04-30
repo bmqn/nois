@@ -19,6 +19,7 @@ target_link_libraries(
 	nois-stretch-versio
 	PRIVATE
 		nois
+		umm_malloc
 )
 
 set_property(

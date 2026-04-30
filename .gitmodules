@@ -10,3 +10,6 @@
 [submodule "examples/libs/libDaisy"]
 	path = examples/libs/libDaisy
 	url = git@github.com:electro-smith/libDaisy.git
+[submodule "examples/libs/umm_malloc"]
+	path = examples/libs/umm_malloc
+	url = git@github.com:rhempel/umm_malloc.git
