@@ -2,7 +2,7 @@
 
 #include "NoisLog.h"
 #include "NoisMacros.hpp"
-
+#include "nois/util/NoisDelay.hpp"
 
 namespace nois {
 
