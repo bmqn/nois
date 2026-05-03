@@ -1,14 +1,12 @@
 #pragma once
 
-#include "nois/NoisConfig.hpp"
-#include "nois/NoisTypes.hpp"
-#include "nois/util/NoisSmallVector.hpp"
+#include "nois/Nois.hpp"
 
 #include <array>
 
 namespace nois {
 
-template<typename T, count_t C = 1, count_t F = k_MaxNumInplaceFrames>
+template<typename T, count_t C = 1>
 struct Delay
 {
 	Delay(count_t numFrames = 0)
@@ -27,8 +25,7 @@ struct Delay
 		}
 		for (auto& buffer : m_Buffers)
 		{
-			buffer.resize(realNumFrames, T{});
-			buffer.shrink_to_fit();
+			buffer.Resize(realNumFrames, 1);
 		}
 	}
 
@@ -142,10 +139,10 @@ private:
 	ucount_t m_ModuloMask;
 	T m_NumDelayFrames  = T{ 0 };
 	std::array<ucount_t, C> m_Offsets = { 0 };
-	std::array<SmallVector<T, F>, C> m_Buffers;
+	std::array<Buffer<T>, C> m_Buffers;
 };
 
-template<typename T, count_t C = 1, count_t F = k_MaxNumInplaceFrames>
+template<typename T, count_t C = 1>
 struct DelayFeedback
 {
 	DelayFeedback(count_t numFrames = 0)
@@ -164,8 +161,7 @@ struct DelayFeedback
 		}
 		for (auto& buffer : m_Buffers)
 		{
-			buffer.resize(realNumFrames, T{});
-			buffer.shrink_to_fit();
+			buffer.Resize(realNumFrames, 1);
 		}
 	}
 
@@ -229,7 +225,7 @@ private:
 	ucount_t m_ModuloMask;
 	T m_NumDelayFrames  = T{ 0 };
 	std::array<ucount_t, C> m_Offsets = { 0 };
-	std::array<SmallVector<T, F>, C> m_Buffers;
+	std::array<Buffer<T>, C> m_Buffers;
 };
 
 }
