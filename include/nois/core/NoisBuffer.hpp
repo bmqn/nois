@@ -1,10 +1,8 @@
 #pragma once
 
-#include "nois/NoisConfig.hpp"
-#include "nois/NoisMacros.hpp"
 #include "nois/NoisTypes.hpp"
+#include "nois/core/NoisParameter.hpp"
 #include "nois/math/NoisMatrix.hpp"
-#include "nois/parameter/NoisParameter.hpp"
 #include "nois/util/NoisSmallVector.hpp"
 
 namespace nois {
@@ -25,26 +23,26 @@ class Buffer
 {
 public:
 	Buffer()
-		: m_Data(0, T{ 0 })
-		, m_Size(0)
+		: m_Size(0)
 		, m_NumFrames(0)
 		, m_NumChannels(0)
+		, m_Data(0, T{ 0 })
 	{
 	}
 
 	Buffer(count_t numFrames, count_t numChannels)
-		: m_Data(numFrames * numChannels, T{ 0 })
-		, m_Size(numFrames * numChannels)
+		: m_Size(numFrames * numChannels)
 		, m_NumFrames(numFrames)
 		, m_NumChannels(numChannels)
+		, m_Data(numFrames * numChannels, T{ 0 })
 	{
 	}
 
 	Buffer(const T* data, count_t numFrames, count_t numChannels)
-		: m_Data(numFrames * numChannels, T{ 0 })
-		, m_Size(numFrames * numChannels)
+		: m_Size(numFrames * numChannels)
 		, m_NumFrames(numFrames)
 		, m_NumChannels(numChannels)
+		, m_Data(numFrames * numChannels, T{ 0 })
 	{
 		Copy(data, numFrames * numChannels);
 	}
@@ -335,10 +333,10 @@ public:
 	}
 
 private:
-	SmallVector<T, k_MaxNumInplaceFrames> m_Data;
 	count_t m_Size;
 	count_t m_NumFrames;
 	count_t m_NumChannels;
+	SmallVector<T, k_MaxNumInplaceFrames> m_Data;
 };
 
 template<typename T>
@@ -346,10 +344,10 @@ class BufferView
 {
 public:
 	BufferView(T* data, count_t numFrames, count_t numChannels)
-		: m_Data(data)
-		, m_Size(numFrames * numChannels)
+		: m_Size(numFrames * numChannels)
 		, m_NumFrames(numFrames)
 		, m_NumChannels(numChannels)
+		, m_Data(data)
 	{
 	}
 
@@ -640,10 +638,10 @@ public:
 	}
 
 private:
-	T* m_Data;
 	count_t m_Size;
 	count_t m_NumFrames;
 	count_t m_NumChannels;
+	T* m_Data;
 };
 
 }

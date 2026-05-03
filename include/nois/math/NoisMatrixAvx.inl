@@ -1,5 +1,3 @@
-#include "NoisMatrix.hpp"
-
 #include <immintrin.h>
 
 namespace nois {

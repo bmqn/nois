@@ -1,6 +1,7 @@
 #pragma once
 
-#include "nois/Nois.hpp"
+#include "nois/NoisTypes.hpp"
+#include "nois/core/NoisBuffer.hpp"
 
 #include <array>
 

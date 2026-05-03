@@ -63,9 +63,11 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
+		bool cutoffChanged = m_CutoffRatio.PollChanged();
+
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels ||
-			m_CutoffRatio.Changed())
+			cutoffChanged)
 		{
 			m_Biquad.MakeButterworthLow(m_CutoffRatio.Get());
 		}
@@ -120,9 +122,11 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
+		bool cutoffChanged = m_CutoffRatio.PollChanged();
+
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels ||
-			m_CutoffRatio.Changed())
+			cutoffChanged)
 		{
 			m_Biquad.MakeButterworthHigh(m_CutoffRatio.Get());
 		}
@@ -179,9 +183,11 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
+		bool cutoffChanged = m_CutoffRatio.PollChanged();
+
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels ||
-			m_CutoffRatio.Changed())
+			cutoffChanged)
 		{
 			f32_t cutoffRatio = m_CutoffRatio.Get();
 			m_Biquad1.MakeButterworthLow(cutoffRatio);
@@ -241,9 +247,11 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
+		bool cutoffChanged = m_CutoffRatio.PollChanged();
+
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels ||
-			m_CutoffRatio.Changed())
+			cutoffChanged)
 		{
 			f32_t cutoffRatio = m_CutoffRatio.Get();
 			m_Biquad1.MakeButterworthHigh(cutoffRatio);
@@ -300,10 +308,13 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
+		bool cutoffChanged = m_CutoffRatio.PollChanged();
+		bool qChanged = m_Q.PollChanged();
+
 		if (m_NumFrames != numFrames ||
 			m_NumChannels != numChannels ||
-			m_CutoffRatio.Changed() ||
-			m_Q.Changed())
+			cutoffChanged ||
+			qChanged)
 		{
 			m_Biquad.MakeAllpass(m_CutoffRatio.Get(), m_Q.Get());
 		}

@@ -1,3 +1,5 @@
+#if defined(__cplusplus)
+
 #pragma once
 
 #include <cmath>
@@ -37,3 +39,5 @@
 
 #include "NoisLog.h"
 #include "NoisMacros.hpp"
+
+#endif // defined(__cplusplus)

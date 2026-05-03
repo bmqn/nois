@@ -4,9 +4,8 @@
 #include "nois/NoisTypes.hpp"
 
 #include <array>
-#include <numbers>
-
 #include <cmath>
+#include <numbers>
 
 namespace nois {
 

@@ -169,17 +169,17 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
-		if (m_LowCutoffRatio.Changed())
+		if (m_LowCutoffRatio.PollChanged())
 		{
 			m_Biquads[0].MakeButterworthLow(m_LowCutoffRatio.Get());
 		}
 
-		if (m_HighCutoffRatio.Changed())
+		if (m_HighCutoffRatio.PollChanged())
 		{
 			m_Biquads[1].MakeButterworthHigh(m_HighCutoffRatio.Get());
 		}
 
-		if (m_BandCutoffRatio.Changed())
+		if (m_BandCutoffRatio.PollChanged())
 		{
 			m_Biquads[2].MakeBandpass(m_BandCutoffRatio.Get(), 2.7f);
 		}

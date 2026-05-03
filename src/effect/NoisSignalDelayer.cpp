@@ -33,8 +33,10 @@ public:
 		count_t numChannels,
 		f32_t sampleRate)
 	{
+		bool delayChanged = m_DelayMs.PollChanged();
+
 		if (m_SampleRate != sampleRate ||
-			m_DelayMs.Changed())
+			delayChanged)
 		{
 			const f32_t delayMs = m_DelayMs.Get();
 			count_t numDelayFrames = static_cast<count_t>((delayMs * sampleRate) / 1000.0f);

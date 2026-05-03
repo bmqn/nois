@@ -1,13 +1,15 @@
 #pragma once
 
+#include "NoisTypes.hpp"
 #include "NoisConfig.hpp"
 #include "NoisMacros.hpp"
-#include "NoisTypes.hpp"
 #include "NoisUtil.hpp"
 
 #include "analysis/NoisFilterBank.hpp"
 
 #include "core/NoisBuffer.hpp"
+#include "core/NoisParameter.hpp"
+#include "core/NoisRegistry.hpp"
 #include "core/NoisStream.hpp"
 
 #include "dynamic/NoisCompressor.hpp"
@@ -25,8 +27,6 @@
 
 #include "midi/NoisMidiBuffer.hpp"
 #include "midi/NoisMidiStream.hpp"
-
-#include "parameter/NoisParameter.hpp"
 
 #include "route/NoisSplitter.hpp"
 #include "route/NoisCombiner.hpp"

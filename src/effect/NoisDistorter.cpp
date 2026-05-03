@@ -93,19 +93,6 @@ NOIS_INTERFACE_PARAM_IMPL(DynamicTanhDistorter, Wet, FloatBlockParameter)
 NOIS_INTERFACE_PARAM_IMPL(DynamicTanhDistorter, Shape, FloatBlockParameter)
 NOIS_INTERFACE_PARAM_IMPL(DynamicTanhDistorter, Asym, FloatBlockParameter)
 
-Ref_t<Distorter> Distorter::Create(Kind kind)
-{
-	switch (kind)
-	{
-	case nois::Distorter::k_DynamicTanh:
-		return DynamicTanhDistorter::Create();
-	default:
-		break;
-	}
-
-	return nullptr;
-}
-
 Ref_t<DynamicTanhDistorter> DynamicTanhDistorter::Create()
 {
 	return MakeRef<DynamicTanhDistorter>(MakeOwn<DynamicTanhDistorter::Impl>());

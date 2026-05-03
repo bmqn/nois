@@ -1,8 +1,8 @@
 #include "nois/effect/NoisTimeStretcher.hpp"
 
 #include "NoisLog.h"
-#include "nois/NoisConfig.hpp"
-#include "nois/util/NoisDelay.hpp"
+#include "NoisMacros.hpp"
+
 
 namespace nois {
 
@@ -53,8 +53,6 @@ public:
 				{
 					fillOffset = 0;
 				}
-
-				m_Delay.Reset(m_NumCacheFrames);
 
 				m_IsStretchActive = true;
 			}
@@ -117,9 +115,11 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
+		bool stretchTimeMsChanged = m_StretchTimeMs.PollChanged();
+
 		if (m_SampleRate != sampleRate ||
 			m_NumChannels != numChannels ||
-			m_StretchTimeMs.Changed())
+			stretchTimeMsChanged)
 		{
 			for (auto &phases : m_Phases)
 			{
@@ -310,7 +310,7 @@ private:
 	}
 
 private:
-	FloatSlotBlockParameter m_StretchTimeMs = { 10000.0f, 50.0f, 25000.0f };
+	FloatSlotBlockParameter m_StretchTimeMs = { 5000.0f, 50.0f, 25000.0f };
 	FloatSlotParameter m_StretchActive = 0.0f;
 	FloatSlotParameter m_StretchFactor = 1.0f;
 	FloatSlotParameter m_GrainSize = 2500.0f;

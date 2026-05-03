@@ -43,7 +43,7 @@ private:
 	nois::FloatBuffer mSourceBuffer;
 	nois::FloatBuffer mSinkBuffer;
 
-	nois::FloatParameterRegistry mRegistry;
+	nois::FloatRegistry mRegistry;
 	std::unordered_map<Vst::ParamID, NoisVstProcessorParameter*> mParameters;
 };
 

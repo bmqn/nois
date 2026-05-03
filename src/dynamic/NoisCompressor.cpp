@@ -15,12 +15,7 @@ public:
 	{
 		NOIS_PROFILE_SCOPE();
 
-		f32_t thresholdDb = m_ThresholdDb.Get();
 		f32_t ratio = m_Ratio.Get();
-		f32_t attackSec = m_AttackMs.Get() * 0.001f;
-		f32_t releaseSec = m_ReleaseMs.Get() * 0.001f;
-		f32_t attackFactor = 1.0f - std::exp(-1.0f / (attackSec * m_SampleRate));
-		f32_t releaseFactor = 1.0f - std::exp(-1.0f / (releaseSec * m_SampleRate));
 
 		for (count_t f = 0; f < m_NumFrames; ++f)
 		{
@@ -31,12 +26,15 @@ public:
 				signal = std::max(signal, std::abs(inBuffer(f, c)));
 			}
 
-			f32_t signalDb = ToDb(signal);
-			f32_t envelope = (signalDb > m_EnvelopeDb) ? attackFactor : releaseFactor;
-			m_EnvelopeDb += (signalDb - m_EnvelopeDb) * envelope;
+			f32_t envelope = (signal > m_Envelope) ? m_AttackFactor : m_ReleaseFactor;
+			m_Envelope += (signal - m_Envelope) * envelope;
+			
+			f32_t gain = 1.0f;
 
-			f32_t gainDb = m_EnvelopeDb > thresholdDb ? (thresholdDb - m_EnvelopeDb) * (1.0f - 1.0f / ratio) : 0.0f;
-			f32_t gain = FromDb(gainDb);
+			if (m_Envelope > m_Threshold)
+			{
+				gain = std::pow(m_Threshold / m_Envelope, 1.0f - 1.0f / ratio);
+			}
 
 			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
@@ -53,6 +51,21 @@ public:
 		f32_t sampleRate)
 	{
 		NOIS_PROFILE_SCOPE();
+		
+		if (m_ThresholdDb.PollChanged())
+		{
+			m_Threshold = FromDb(m_ThresholdDb.Get());
+		}
+		
+		if (m_AttackMs.PollChanged())
+		{
+			m_AttackFactor = 1.0f - std::exp(-1.0f / (m_AttackMs.Get() * 0.001f * sampleRate));
+		}
+		
+		if (m_ReleaseMs.PollChanged())
+		{
+			m_ReleaseFactor= 1.0f - std::exp(-1.0f / (m_ReleaseMs.Get() * 0.001f * sampleRate));
+		}
 
 		m_NumFrames = numFrames;
 		m_NumChannels = numChannels;
@@ -85,7 +98,10 @@ private:
 	FloatSlotBlockParameter m_AttackMs = { 5.0f, 0.001f, 100.0f };
 	FloatSlotBlockParameter m_ReleaseMs = { 50.0f, 1.0f, 500.0f };
 
-	f32_t m_EnvelopeDb = -100.0f;
+	f32_t m_Threshold = 0.0f;
+	f32_t m_AttackFactor = 1.0f;
+	f32_t m_ReleaseFactor = 1.0f;
+	f32_t m_Envelope = 0.0f;
 
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;

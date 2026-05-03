@@ -1,7 +1,5 @@
 #pragma once
 
-#include "NoisConfig.hpp"
-#include "NoisMacros.hpp"
 #include "NoisTypes.hpp"
 
 #include <cmath>
@@ -58,7 +56,7 @@ public:
 
 private:
 #if NOIS_ARCH_X64
-        u32_t m_State;
+	u32_t m_State;
 #elif NOIS_ARCH_ARM64
 	u64_t m_State;
 #endif // NOIS_ARCH_X64 + NOIS_ARCH_ARM64

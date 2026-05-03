@@ -45,7 +45,7 @@ public:
 
 public:
 	template<typename Param>
-	static nois::Own_t<NoisVstProcessorParameter> Create(nois::FloatParameterRegistry& registry);
+	static nois::Own_t<NoisVstProcessorParameter> Create(nois::FloatRegistry& registry);
 };
 
 class NoisVstControllerParameter
@@ -201,7 +201,7 @@ class NoisVstProcessorParameterImpl : public NoisVstProcessorParameter
 	friend class NoisVstProcessor;
 
 public:
-	NoisVstProcessorParameterImpl(nois::FloatParameterRegistry& registry)
+	NoisVstProcessorParameterImpl(nois::FloatRegistry& registry)
 		: mNumFrames(0)
 		, mSampleRate(0.0f)
 		, mRegistry(registry)
@@ -304,7 +304,7 @@ private:
 private:
 	nois::count_t mNumFrames;
 	nois::f32_t mSampleRate;
-	nois::FloatParameterRegistry& mRegistry;
+	nois::FloatRegistry& mRegistry;
 	nois::Ref_t<nois::FloatParameter> mParameter;
 	nois::Ref_t<nois::FloatBlockParameter> mBlockParameter;
 	std::optional<nois::f32_t> mNextValue;
@@ -345,7 +345,7 @@ private:
 };
 
 template<typename Param>
-auto NoisVstProcessorParameter::Create(nois::FloatParameterRegistry& registry) -> nois::Own_t<NoisVstProcessorParameter>
+auto NoisVstProcessorParameter::Create(nois::FloatRegistry& registry) -> nois::Own_t<NoisVstProcessorParameter>
 {
 	return nois::MakeOwn<NoisVstProcessorParameterImpl<Param>>(registry);
 }

@@ -39,7 +39,7 @@ private:
 	nois::Own_t<NoisVstProcessorParameter> mGrainBlend;
 	nois::Own_t<NoisVstProcessorParameter> mGrainLockActive;
 
-	nois::FloatParameterRegistry mRegistry;
+	nois::FloatRegistry mRegistry;
 
 	nois::SourceStream mSource;
 	nois::Ref_t<nois::TimeStretcher> mTimeStretcher;
