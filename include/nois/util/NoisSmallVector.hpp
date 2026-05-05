@@ -9,7 +9,7 @@
 
 namespace nois {
 
-template<typename T, std::size_t N, typename Allocator = std::allocator<T>>
+template<typename T, std::size_t N, typename FallbackAllocator = std::allocator<T>>
 class SmallVector
 {
 	static_assert(std::is_nothrow_move_constructible_v<T>);
@@ -17,7 +17,7 @@ class SmallVector
 public:
 	using value_type = T;
 	using size_type = std::size_t;
-	using allocator = Allocator;
+	using fallback_allocator = FallbackAllocator;
 
 	SmallVector(size_type n = 0, const T &value = T{})
 		: m_Size(0)
@@ -661,12 +661,12 @@ private:
 
 	inline T* AllocateFallback(size_type n)
 	{
-		return allocator{}.allocate(n);
+		return fallback_allocator{}.allocate(n);
 	}
 	
 	inline void DeallocateFallback(value_type* ptr)
 	{
-		allocator{}.deallocate(ptr, 0);
+		fallback_allocator{}.deallocate(ptr, 0);
 	}
 
 	inline void MoveToFallback()
