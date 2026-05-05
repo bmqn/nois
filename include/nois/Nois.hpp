@@ -25,6 +25,8 @@
 
 #include "math/NoisMatrix.hpp"
 
+#include "memory/NoisAllocator.hpp"
+
 #include "midi/NoisMidiBuffer.hpp"
 #include "midi/NoisMidiStream.hpp"
 

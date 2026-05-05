@@ -1,7 +1,6 @@
 #include "nois/effect/NoisDistorter.hpp"
 
 #include "nois/NoisUtil.hpp"
-#include "nois/util/NoisSmallVector.hpp"
 
 namespace nois {
 

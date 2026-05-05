@@ -19,16 +19,16 @@ if(NOIS_EXAMPLES_PLATFORM STREQUAL "VST3")
 	set(SMTG_CREATE_PLUGIN_LINK OFF)
 	add_subdirectory("${NOIS_EXAMPLES_LIB_DIR}/vst3sdk")
 
-	# nois-common-vst3
+	# NzCommon
 	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/common/vst3")
 
-	# nois-stretch-vst3
+	# NzStretch
 	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-stretch/vst3")
 
-	# nois-distort-vst3
+	# NzDistort
 	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-distort/vst3")
 
-	# verb-vst3
+	# NzVerb
 	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/verb/vst3" "Examples")
 elseif(NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
 	# libDaisy
@@ -53,7 +53,7 @@ elseif(NOIS_EXAMPLES_PLATFORM STREQUAL "Versio")
 		UMM_MALLOC_CFGFILE="${NOIS_EXAMPLES_ROOT_DIR}/common/versio/include/umm_malloc_cfgport.h"
 	)
 
-	# nois-stretch-versio
+	# NzStretch
 	add_subdirectory("${NOIS_EXAMPLES_ROOT_DIR}/nois-stretch/versio")
 endif()
 

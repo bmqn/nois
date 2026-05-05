@@ -3,6 +3,7 @@
 #include "nois/NoisTypes.hpp"
 #include "nois/core/NoisParameter.hpp"
 #include "nois/math/NoisMatrix.hpp"
+#include "nois/memory/NoisAllocator.hpp"
 #include "nois/util/NoisSmallVector.hpp"
 
 namespace nois {
@@ -134,7 +135,7 @@ public:
 			return;
 		}
 
-		SmallVector<T, k_MaxNumInplaceFrames> newData(size, T{ 0 });
+		SmallVector<T, k_MaxNumInplaceFrames, Allocator<T>> newData(size, T{ 0 });
 
 		if (m_Size > 0 && size > 0)
 		{
@@ -336,7 +337,7 @@ private:
 	count_t m_Size;
 	count_t m_NumFrames;
 	count_t m_NumChannels;
-	SmallVector<T, k_MaxNumInplaceFrames> m_Data;
+	SmallVector<T, k_MaxNumInplaceFrames, Allocator<T>> m_Data;
 };
 
 template<typename T>

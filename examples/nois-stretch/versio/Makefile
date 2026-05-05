@@ -17,7 +17,8 @@ CPP_STANDARD = -std=gnu++20
 # Sources
 CPP_SOURCES = \
 	$(NOIS_DIR)/examples/nois-stretch/versio/src/VersioStretch.cpp \
-	$(NOIS_DIR)/src/effect/NoisTimeStretcher.cpp
+	$(NOIS_DIR)/src/effect/NoisTimeStretcher.cpp \
+	$(NOIS_DIR)/src/memory/NoisAllocator.cpp
 C_SOURCES += \
 	$(UMM_DIR)/src/umm_malloc.c
 

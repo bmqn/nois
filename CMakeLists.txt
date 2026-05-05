@@ -62,6 +62,8 @@ set(NOIS_HSPSRC
 	"${NOIS_INC_DIR}/nois/math/NoisMatrix.hpp"
 	"${NOIS_INC_DIR}/nois/math/NoisMatrixAvx.inl"
 
+	"${NOIS_INC_DIR}/nois/memory/NoisAllocator.hpp"
+
 	"${NOIS_INC_DIR}/nois/midi/NoisMidiBuffer.hpp"
 	"${NOIS_INC_DIR}/nois/midi/NoisMidiStream.hpp"
 	
@@ -91,6 +93,8 @@ set(NOIS_SRC
 	"${NOIS_SRC_DIR}/effect/NoisReverb.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisSignalDelayer.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisTimeStretcher.cpp"
+
+	"${NOIS_SRC_DIR}/memory/NoisAllocator.cpp"
 
 	"${NOIS_SRC_DIR}/route/NoisCombiner.cpp"
 	"${NOIS_SRC_DIR}/route/NoisSplitter.cpp"

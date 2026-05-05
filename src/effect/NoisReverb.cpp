@@ -33,7 +33,7 @@ public:
 					count_t delayNumFrames = delayMs * T{ 0.001 } * sampleRate;
 					NZ_ASSERT(delayNumFrames != 0);
 					auto& delay = m_Delays[c * numReflections + r];
-					delay.Reset(delayNumFrames);
+					delay.Configure(delayNumFrames);
 					delay.SetDelay(delayNumFrames);
 				}
 			}
@@ -103,7 +103,7 @@ public:
 					T delayMs = std::lerp(k_MinDelayMs, k_MaxDelayMs, t * t);
 					count_t delayNumFrames = delayMs * T{ 0.001 } * sampleRate;
 					auto& delay = m_Delays[c * numDelays + d];
-					delay.Reset(delayNumFrames);
+					delay.Configure(delayNumFrames);
 					delay.SetDelay(delayNumFrames);
 				}
 			}
@@ -187,7 +187,7 @@ private:
 	}
 
 private:
-	std::vector<DelayFeedback<T>> m_Delays;
+	std::vector<Delay<T>> m_Delays;
 	math::FloatMat m_Mix;
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;
@@ -224,7 +224,7 @@ public:
 					count_t delayNumFrames = delayMs * T{ 0.001 } * sampleRate;
 					NZ_ASSERT(delayNumFrames != 0);
 					auto& delay = m_Delays[c * numDelays + d];
-					delay.Reset(delayNumFrames);
+					delay.Configure(delayNumFrames);
 					delay.SetDelay(delayNumFrames);
 				}
 			}
@@ -283,7 +283,7 @@ private:
 	}
 
 private:
-	std::vector<DelayFeedback<T>> m_Delays;
+	std::vector<Delay<T>> m_Delays;
 	math::FloatMat m_Mix;
 	count_t m_NumFrames = 0;
 	count_t m_NumChannels = 0;

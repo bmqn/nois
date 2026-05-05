@@ -48,11 +48,8 @@ public:
 				{
 					grainPlaying = 0;
 				}
-
-				for (auto &fillOffset : m_FillOffsets)
-				{
-					fillOffset = 0;
-				}
+				
+				m_Delay.Restart();
 
 				m_IsStretchActive = true;
 			}
@@ -79,7 +76,7 @@ public:
 			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
 				f32_t x = inBuffer(f, c);
-
+				
 				// Do stretch
 				if (m_IsStretchActive)
 				{
@@ -121,32 +118,10 @@ public:
 			m_NumChannels != numChannels ||
 			stretchTimeMsChanged)
 		{
-			for (auto &phases : m_Phases)
-			{
-				phases[0] = 0.0f;
-				phases[1] = -1.0f;
-			}
-
-			for (auto &grains : m_Grains)
-			{
-				grains[0] = 0.0f;
-				grains[1] = 0.0f;
-			}
-
-			for (auto &grainPlaying : m_GrainPlayings)
-			{
-				grainPlaying = 0;
-			}
-
-			for (auto &fillOffset : m_FillOffsets)
-			{
-				fillOffset = 0;
-			}
-
-			f32_t stretchTimeMs = m_StretchTimeMs.Get();
+			const f32_t stretchTimeMs = m_StretchTimeMs.Get();
 			m_NumCacheFrames = static_cast<count_t>((stretchTimeMs * sampleRate) / 1000.0f);
 			NZ_ASSERT(m_NumCacheFrames != 0);
-			m_Delay.Reset(m_NumCacheFrames);
+			m_Delay.Configure(m_NumCacheFrames, true);
 		}
 
 		m_NumFrames = numFrames;
@@ -192,49 +167,46 @@ public:
 private:
 	inline f32_t DoStretch(
 		f32_t x,
-		f32_t c,
+		count_t c,
 		f32_t stretchFactor,
 		f32_t grainSize,
 		f32_t grainBlend,
 		f32_t grainPhaseInc)
 	{
-		if (static_cast<count_t>(m_FillOffsets[c]) <= m_NumCacheFrames)
-		{
-			m_Delay.Write(x, c);
-			m_FillOffsets[c] += 1.0f;
-		}
+		m_Delay.Write(x, c);
 		
 		// The stretch ratio
 		f32_t stretchRatio = (1.0f / stretchFactor);
 		// How far the input index should advance when launching a new grain
 		f32_t grainOffset = grainSize * (1.0f - grainBlend) * stretchRatio;
+		// The length of the grain blend
+		f32_t blendLength = grainSize * grainBlend;
 		// The phase in which we should start blending in the next grain
 		f32_t startBlendPhase = grainSize * (1.0f - grainBlend);
-		// The phase in which we should stop blending out the old grain
-		f32_t endBlendPhase = grainSize * grainBlend;
 
 		f32_t y = x;
 
 		// If blending both grains
 		if (m_Phases[c][m_GrainPlayings[c]] >= 0.0f &&
-			m_Phases[c][!m_GrainPlayings[c]] >= startBlendPhase)
+			m_Phases[c][!m_GrainPlayings[c]] >= 0.0f)
 		{
 			f32_t g0 = m_Grains[c][m_GrainPlayings[c]];
 			f32_t g1 = m_Grains[c][!m_GrainPlayings[c]];
 			f32_t phi0 = m_Phases[c][m_GrainPlayings[c]];
 			f32_t phi1 = m_Phases[c][!m_GrainPlayings[c]];
 
-			// Zero when new grain just started blending
-			// One when old grain has finished
-			f32_t t = 1.0f - (phi0 / endBlendPhase);
+			// Zero when new grain just started
+			// One when old grain has stopped
+			f32_t t = std::clamp(phi0 / blendLength, 0.0f, 1.0f);
 			
 			f32_t x0 = g0 + phi0;
 			f32_t x1 = g1 + phi1;
+			f32_t y0 = m_Delay.Search(m_Delay.GetOffset(c) - x0, c);
+			f32_t y1 = m_Delay.Search(m_Delay.GetOffset(c) - x1, c);
 
-			f32_t y0 = m_Delay.Search(m_FillOffsets[c] - x0, c);
-			f32_t y1 = m_Delay.Search(m_FillOffsets[c] - x1, c);
-
-			y = y0 + (y1 - y0) * t;
+			// 100% of old grain when new grain just started
+			// 100% of new grain when old grain has stopped
+			y = y1 + (y0 - y1) * t;
 		}
 		// If playing one grain
 		else
@@ -244,14 +216,14 @@ private:
 
 			f32_t x = g + phi;
 
-			y = m_Delay.Search(m_FillOffsets[c] - x, c);
+			y = m_Delay.Search(m_Delay.GetOffset(c) - x, c);
 		}
 
 		// Increment current grain phase
 		m_Phases[c][m_GrainPlayings[c]] += grainPhaseInc;
 
-		// If the previous grain is blending out
-		if (m_Phases[c][!m_GrainPlayings[c]] >= startBlendPhase)
+		// Increment previous grain phase, if it's blending out
+		if (m_Phases[c][!m_GrainPlayings[c]] >= 0.0f)
 		{
 			// Increment previous grain phase
 			m_Phases[c][!m_GrainPlayings[c]] += grainPhaseInc;
@@ -267,7 +239,7 @@ private:
 		// If we should start blending in the next grain
 		if (m_Phases[c][m_GrainPlayings[c]] >= startBlendPhase)
 		{
-			count_t g = m_Grains[c][m_GrainPlayings[c]] + grainOffset;
+			f32_t g = m_Grains[c][m_GrainPlayings[c]] + grainOffset;
 
 			if (m_IsGrainLockActive)
 			{
@@ -284,10 +256,10 @@ private:
 		return y;
 	}
 
-	inline count_t FindZeroCrossing(
-		count_t g,
+	inline f32_t FindZeroCrossing(
+		f32_t g,
 		count_t c,
-		count_t searchLength)
+		f32_t searchLength)
 	{
 		f32_t prevX  = 0.0f;
 		f32_t currX  = 0.0f;
@@ -295,12 +267,12 @@ private:
 		// Scan backward to find zero-crossing
 		for (count_t s = 0; s < searchLength; ++s)
 		{
-			currX = m_Delay.Search(m_FillOffsets[c] - g + s, c);
+			currX = m_Delay.Search(m_Delay.GetOffset(c) - (g + s), c);
 
 			// Check for zero crossing
-			if (prevX <= 0.0f && currX > 0.0f)
+			if (prevX < 0.0f && currX > 0.0f)
 			{
-				return g - s;
+				return g + s;
 			}
 
 			prevX = currX;
@@ -314,7 +286,7 @@ private:
 	FloatSlotParameter m_StretchActive = 0.0f;
 	FloatSlotParameter m_StretchFactor = 1.0f;
 	FloatSlotParameter m_GrainSize = 2500.0f;
-	FloatSlotParameter m_GrainBlend = 0.4f;
+	FloatSlotParameter m_GrainBlend = 0.5f;
 	FloatSlotParameter m_GrainPhaseInc = 1.0f;
 	FloatSlotParameter m_GrainLockActive = 0.0f;
 
@@ -323,7 +295,6 @@ private:
 	std::array<std::array<f32_t, 2>, k_MaxChannels> m_Phases;
 	std::array<std::array<f32_t, 2>, k_MaxChannels> m_Grains;
 	std::array<count_t, k_MaxChannels> m_GrainPlayings;
-	std::array<f32_t, k_MaxChannels> m_FillOffsets;
 	count_t m_NumCacheFrames = 0;
 	Delay<f32_t, k_MaxChannels> m_Delay;
 

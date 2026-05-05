@@ -17,6 +17,9 @@ static float stretchActiveValue = 0.0f;
 static float stretchFactorValue = 0.0f;
 static float grainSizeValue = 0.0f;
 static float grainBlendValue = 0.5f;
+static float grainPhaseIncValue = 1.0f;
+
+static float gateStretchActiveValue = 0.0f;
 
 static nois::Ref_t<nois::Registry<nois::f32_t>> registry = nullptr;
 static nois::Ref_t<nois::TimeStretcher> timeStretcher = nullptr;
@@ -26,10 +29,29 @@ static void callback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 	hw.ProcessAllControls();
 	hw.tap.Debounce();
 
-	stretchActiveValue = hw.SwitchPressed() ? 1.0f : 0.0f;
+	if (gateStretchActiveValue > 0.0f)
+	{
+		gateStretchActiveValue -= 1.0f;
+	}
+	if (hw.Gate() && gateStretchActiveValue <= 0.0f)
+	{
+		float stretchActiveProbability = hw.GetKnobValue(DaisyVersio::KNOB_4);
+		if (stretchActiveProbability <= 0.01f)
+		{
+			gateStretchActiveValue = 0.0f;
+		}
+		else if (Random::GetFloat(0.0f, 1.0f) < stretchActiveProbability)
+		{
+			float stretchActiveEnvelopeLength = hw.GetKnobValue(DaisyVersio::KNOB_5);
+			gateStretchActiveValue = 500.0f * stretchActiveEnvelopeLength;
+		}
+	}
+
+	stretchActiveValue = (hw.SwitchPressed() || gateStretchActiveValue > 0.0f) ? 1.0f : 0.0f;
 	stretchFactorValue = hw.GetKnobValue(DaisyVersio::KNOB_0);
 	grainSizeValue = hw.GetKnobValue(DaisyVersio::KNOB_1);
 	grainBlendValue = hw.GetKnobValue(DaisyVersio::KNOB_2);
+	grainPhaseIncValue = hw.GetKnobValue(DaisyVersio::KNOB_3);
 
 	registry->Prepare(size, hw.AudioSampleRate());
 	timeStretcher->Prepare(size, 2, hw.AudioSampleRate());
@@ -53,9 +75,17 @@ static void callback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 
 int main(void)
 {
+	// Ideas
+	// Dry/wet knob
+	// Gate idea is the envelope
+	// Pre-record 10 seconds and then play effect back
+	// Probability for trigger, but manual button press is 100%
+
 	hw.Init(true);
 
 	umm_init();
+
+	nois::SetAllocFuncs(umm_malloc, umm_free);
 
 	hw.StartAdc();
 
@@ -72,7 +102,7 @@ int main(void)
 	auto stretchFactor = registry->CreateBinder(
 		[](nois::count_t)
 		{
-			return 1.0f + stretchFactorValue * (16.0f - 1.0f);
+			return 1.0f + stretchFactorValue * (64.0f - 1.0f);
 		});
 
 	auto grainSize = registry->CreateBinder(
@@ -87,12 +117,19 @@ int main(void)
 			return grainBlendValue / 2.0f;
 		});
 
+	auto grainPhaseInc = registry->CreateBinder(
+		[](nois::count_t)
+		{
+			return grainPhaseIncValue;
+		});
+
 	timeStretcher = nois::TimeStretcher::Create();
 	timeStretcher->SetStretchTimeMs(stretchTimeMs);
 	timeStretcher->SetStretchActive(stretchActive);
 	timeStretcher->SetStretchFactor(stretchFactor);
 	timeStretcher->SetGrainSize(grainSize);
 	timeStretcher->SetGrainBlend(grainBlend);
+	timeStretcher->SetGrainPhaseInc(grainPhaseInc);
 
 	hw.StartAudio(callback);
 

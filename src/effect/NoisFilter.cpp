@@ -1,7 +1,6 @@
 ﻿#include "nois/effect/NoisFilter.hpp"
 
 #include "nois/util/NoisBiquad.hpp"
-#include "nois/util/NoisSmallVector.hpp"
 
 namespace nois {
 
