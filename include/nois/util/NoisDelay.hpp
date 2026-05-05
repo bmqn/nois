@@ -104,11 +104,11 @@ struct Delay
 		return y;
 	}
 
-	inline void Process(const T* inData, T* outData, const T* feedbackData, const T* modData, count_t numFrames, count_t c = 0)
+	inline void Process(const T* inData, T* outData, count_t numFrames, count_t c = 0)
 	{
 		for (count_t f = 0; f < numFrames; ++f)
 		{
-			outData[f] = Process(inData[f], c, modData ? modData[f] : 0.0f, feedbackData ? feedbackData[f] : 0.0f);
+			outData[f] = Process(inData[f], c);
 		}
 	}
 
