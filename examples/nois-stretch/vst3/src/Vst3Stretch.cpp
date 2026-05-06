@@ -13,6 +13,7 @@ enum
 	kStretchFactor,
 	kGrainSize,
 	kGrainBlend,
+	kGrainPhaseInc,
 	kGrainLockActive
 };
 
@@ -60,6 +61,17 @@ struct GrainBlend
 	static constexpr nois::s32_t kNumSteps = 0;
 };
 
+struct GrainPhaseInc
+{
+	static constexpr const char* kTitle = "Pitch";
+	static constexpr const char* kUnits = "";
+	static constexpr Vst::ParamID kPid = kGrainPhaseInc;
+	static constexpr nois::f32_t kDefaultValue = 1.0f;
+	static constexpr nois::f32_t kMinValue = -1.5f;
+	static constexpr nois::f32_t kMaxValue = 1.5f;
+	static constexpr nois::s32_t kNumSteps = 0;
+};
+
 struct GrainLockActive
 {
 	static constexpr const char* kTitle = "Grain Lock";
@@ -89,6 +101,7 @@ public:
 		mStretchFactor = NoisVstControllerParameter::Create<parameter::StretchFactor>();
 		mGrainSize = NoisVstControllerParameter::Create<parameter::GrainSize>();
 		mGrainBlend = NoisVstControllerParameter::Create<parameter::GrainBlend>();
+		mGrainPhaseInc = NoisVstControllerParameter::Create<parameter::GrainPhaseInc>();
 		mGrainLockActive = NoisVstControllerParameter::Create<parameter::GrainLockActive>();
 	}
 
@@ -110,6 +123,7 @@ public:
 		parameters.addParameter(*mStretchFactor);
 		parameters.addParameter(*mGrainSize);
 		parameters.addParameter(*mGrainBlend);
+		parameters.addParameter(*mGrainPhaseInc);
 		parameters.addParameter(*mGrainLockActive);
 
 		return result;
@@ -125,6 +139,7 @@ private:
 	nois::Own_t<NoisVstControllerParameter> mStretchFactor;
 	nois::Own_t<NoisVstControllerParameter> mGrainSize;
 	nois::Own_t<NoisVstControllerParameter> mGrainBlend;
+	nois::Own_t<NoisVstControllerParameter> mGrainPhaseInc;
 	nois::Own_t<NoisVstControllerParameter> mGrainLockActive;
 };
 
@@ -145,6 +160,7 @@ public:
 		mStretchFactor = CreateParameter<parameter::StretchFactor>();
 		mGrainSize = CreateParameter<parameter::GrainSize>();
 		mGrainBlend = CreateParameter<parameter::GrainBlend>();
+		mGrainPhaseInc = CreateParameter<parameter::GrainPhaseInc>();
 		mGrainLockActive = CreateParameter<parameter::GrainLockActive>();
 
 		auto grainSize =
@@ -165,6 +181,7 @@ public:
 		mTimeStretcher->SetStretchFactor(*mStretchFactor);
 		mTimeStretcher->SetGrainSize(grainSize);
 		mTimeStretcher->SetGrainBlend(grainBlendNormalized);
+		mTimeStretcher->SetGrainPhaseInc(*mGrainPhaseInc);
 		mTimeStretcher->SetGrainLockActive(*mGrainLockActive);
 	}
 
@@ -193,6 +210,7 @@ private:
 	nois::Own_t<NoisVstProcessorParameter> mStretchFactor;
 	nois::Own_t<NoisVstProcessorParameter> mGrainSize;
 	nois::Own_t<NoisVstProcessorParameter> mGrainBlend;
+	nois::Own_t<NoisVstProcessorParameter> mGrainPhaseInc;
 	nois::Own_t<NoisVstProcessorParameter> mGrainLockActive;
 
 	nois::Ref_t<nois::TimeStretcher> mTimeStretcher;

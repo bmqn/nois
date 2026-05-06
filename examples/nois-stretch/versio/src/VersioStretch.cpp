@@ -104,7 +104,7 @@ static void callback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 
 	if (swingPulse)
 	{
-		swingLedSec = 10.0f / 1000.0f;
+		swingLedSec = 5.0f / 1000.0f;
 	}
 	if (swingLedSec >= 0.0f)
 	{
@@ -123,7 +123,9 @@ static void callback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 	stretchFactorValue = hw.GetKnobValue(DaisyVersio::KNOB_0);
 	grainSizeValue = hw.GetKnobValue(DaisyVersio::KNOB_1);
 	grainBlendValue = hw.GetKnobValue(DaisyVersio::KNOB_2);
-	grainPhaseIncValue = hw.GetKnobValue(DaisyVersio::KNOB_3);
+
+	float grainPhaseIncKnob = hw.GetKnobValue(DaisyVersio::KNOB_3);
+	grainPhaseIncValue = 1.0f + 2.0f * (grainPhaseIncKnob - 0.5f);
 
 	registry->Prepare(size, hw.AudioSampleRate());
 	timeStretcher->Prepare(size, 2, hw.AudioSampleRate());
