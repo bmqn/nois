@@ -174,9 +174,11 @@ private:
 		f32_t grainPhaseInc)
 	{
 		m_Delay.Write(x, c);
+
+		f32_t grainPhaseIncDir = grainPhaseInc >= 0.0f ? 1.0f : -1.0f;
 		
 		// The stretch ratio
-		f32_t stretchRatio = (1.0f / stretchFactor);
+		f32_t stretchRatio = grainPhaseIncDir * (1.0f / stretchFactor);
 		// How far the input index should advance when launching a new grain
 		f32_t grainOffset = grainSize * (1.0f - grainBlend) * stretchRatio;
 		// The length of the grain blend
@@ -237,7 +239,10 @@ private:
 		}
 
 		// If we should start blending in the next grain
-		if (m_Phases[c][m_GrainPlayings[c]] >= startBlendPhase)
+		if ((grainPhaseIncDir > 0.0f &&
+			 m_Phases[c][m_GrainPlayings[c]] >= startBlendPhase) ||
+			(grainPhaseIncDir < 0.0f &&
+			 m_Phases[c][m_GrainPlayings[c]] <= -startBlendPhase))
 		{
 			f32_t g = m_Grains[c][m_GrainPlayings[c]] + grainOffset;
 
