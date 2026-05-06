@@ -9,7 +9,7 @@ using FreeFunc_t = void(void*);
 
 void SetAllocFuncs(MallocFunc_t* mallocFunc, FreeFunc_t* freeFunc);
 void* Malloc(size_t size);
-void* Free(void* ptr);
+void Free(void* ptr);
 
 template<typename T>
 struct Allocator

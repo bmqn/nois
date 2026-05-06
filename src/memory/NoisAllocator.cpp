@@ -17,7 +17,7 @@ void* Malloc(size_t size)
 	return g_MallocFunc(size);
 }
 
-void* Free(void* ptr)
+void Free(void* ptr)
 {
 	g_FreeFunc(ptr);
 }
