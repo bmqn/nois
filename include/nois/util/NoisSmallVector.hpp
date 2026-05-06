@@ -83,7 +83,7 @@ public:
 		clear();
 		if (m_FallbackCapacity > 0)
 		{
-			DeallocateFallback(m_Data);
+			DeallocateFallback(m_Data, m_FallbackCapacity);
 		}
 	}
 
@@ -97,7 +97,7 @@ public:
 		clear();
 		if (m_FallbackCapacity > 0)
 		{
-			DeallocateFallback(m_Data);
+			DeallocateFallback(m_Data, m_FallbackCapacity);
 		}
 		m_Size = other.m_Size;
 		if (other.m_FallbackCapacity > 0)
@@ -128,7 +128,7 @@ public:
 		clear();
 		if (m_FallbackCapacity > 0)
 		{
-			DeallocateFallback(m_Data);
+			DeallocateFallback(m_Data, m_FallbackCapacity);
 		}
 		m_Size = other.m_Size;
 		if (other.m_FallbackCapacity > 0)
@@ -664,14 +664,14 @@ private:
 		return fallback_allocator{}.allocate(n);
 	}
 	
-	inline void DeallocateFallback(value_type* ptr)
+	inline void DeallocateFallback(value_type* ptr, size_type n)
 	{
-		fallback_allocator{}.deallocate(ptr, 0);
+		fallback_allocator{}.deallocate(ptr, n);
 	}
 
 	inline void MoveToFallback()
 	{
-		m_FallbackCapacity = std::max<size_type>(1, m_Size * 2);
+		m_FallbackCapacity = std::max<size_type>(1, m_Size);
 		m_Data = AllocateFallback(m_FallbackCapacity);
 		T* data = reinterpret_cast<T*>(m_Inline);
 		if constexpr (std::is_trivially_copyable_v<T>)
@@ -714,15 +714,15 @@ private:
 		{
 			m_Data[i].~T();
 		}
-		DeallocateFallback(m_Data);
+		DeallocateFallback(m_Data, m_FallbackCapacity);
 		m_Data = data;
 		m_FallbackCapacity = 0;
 	}
 
 	inline void GrowFallback(size_type n = 0)
 	{
-		m_FallbackCapacity = n > 0 ? n : 2 * m_FallbackCapacity;
-		T* data = AllocateFallback(m_FallbackCapacity);
+		size_type newFallbackCapacity = n > 0 ? n : 2 * m_FallbackCapacity;
+		T* data = AllocateFallback(newFallbackCapacity);
 		if constexpr (std::is_trivially_copyable_v<T>)
 		{
 			std::memcpy(
@@ -738,8 +738,9 @@ private:
 				m_Data[i].~T();
 			}
 		}
-		DeallocateFallback(m_Data);
+		DeallocateFallback(m_Data, m_FallbackCapacity);
 		m_Data = data;
+		m_FallbackCapacity = newFallbackCapacity;
 	}
 
 private:
