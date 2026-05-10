@@ -1,6 +1,7 @@
 #include "NoisVst3Processor.hpp"
 
 #include <pluginterfaces/vst/ivstaudioprocessor.h>
+#include <pluginterfaces/vst/ivstprocesscontext.h>
 #include <pluginterfaces/vst/ivstparameterchanges.h>
 #include <pluginterfaces/base/ibstream.h>
 #include <pluginterfaces/base/ustring.h>
@@ -9,12 +10,28 @@
 
 template<typename T, typename C>
 NoisVstProcessor<T, C>::NoisVstProcessor()
-	: mSampleRate(0.0)
+	: mSampleRate(0.0f)
+	, mTempo(0.0f)
 	, mSourceBuffer()
 	, mSinkBuffer()
 	, mParameters()
+	, mTempoParameter(nullptr)
+	, mTempoBlockParameter(nullptr)
 {
 	setControllerClass(C::kUid);
+
+	mTempoParameter = mRegistry.CreateBinder(
+		[this](nois::count_t)
+		{
+			return mTempo;
+		});
+	mTempoBlockParameter = mRegistry.CreateBlockBinder(
+		[this]()
+		{
+			return mTempo;
+		},
+		0.0f,
+		1000.0f);
 }
 
 template<typename T, typename C>
@@ -111,6 +128,11 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::process(Vst::ProcessData& data)
 		mSampleRate == 0.0)
 	{
 		return kResultOk;
+	}
+
+	if (data.processContext)
+	{
+		mTempo = data.processContext->tempo;
 	}
 
 	NOIS_PROFILE_MARK();
@@ -257,4 +279,30 @@ template<typename T, typename C>
 auto NoisVstProcessor<T, C>::CreateBlockConstant(nois::f32_t value) -> nois::Ref_t<nois::FloatBlockParameter>
 {
 	return mRegistry.CreateBlockConstant(value);
+}
+
+template<typename T, typename C>
+template<typename F, typename... Params>
+auto NoisVstProcessor<T, C>::CreateTransformer(F&& transformer, Params&&... transformees) -> nois::Ref_t<nois::FloatParameter>
+{
+	return mRegistry.CreateTransformer(std::forward<F>(transformer), std::forward<Params>(transformees)...);
+}
+
+template<typename T, typename C>
+template<typename F, typename... Params>
+auto NoisVstProcessor<T, C>::CreateBlockTransformer(F&& transformer, Params&&... transformees) -> nois::Ref_t<nois::FloatBlockParameter>
+{
+	return mRegistry.CreateBlockTransformer(std::forward<F>(transformer), std::forward<Params>(transformees)...);
+}
+
+template<typename T, typename C>
+auto NoisVstProcessor<T, C>::GetTempo() -> nois::Ref_t<nois::FloatParameter>
+{
+	return mTempoParameter;
+}
+
+template<typename T, typename C>
+auto NoisVstProcessor<T, C>::GetBlockTempo() -> nois::Ref_t<nois::FloatBlockParameter>
+{
+	return mTempoBlockParameter;
 }
