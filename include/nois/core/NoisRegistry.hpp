@@ -89,14 +89,21 @@ public:
 		return parameter;
 	}
 
-	template<typename F>
-	Ref_t<Parameter<T>> CreateTransformer(Ref_t<Parameter<T>> transformee, F&& transformer)
+	template<typename F, typename... Params>
+	Ref_t<Parameter<T>> CreateTransformer(F&& transformer, Params&&... transformees)
 	{
-		auto parameter = MakeRef<TransformerParameter<T, F>>(transformee, std::move(transformer));
-		parameter->mRegistry = this;
-		
 		Node<Parameter<T>> node;
-		node.dependencies.emplace_back(m_ParameterLookup[transformee]);
+
+		// Add the dependencies
+		(node.dependencies.emplace_back(m_ParameterLookup[transformees]), ...);
+
+		auto parameter =
+			MakeRef<TransformerParameter<T, std::decay_t<F>, Params...>>(
+				std::forward<F>(transformer),
+				std::forward<Params>(transformees)...);
+
+		parameter->mRegistry = this;
+
 		node.parameter = parameter;
 		m_ParameterNodes.emplace_back(node);
 		m_ParameterLookup.emplace(parameter, m_ParameterNodes.size() - 1);
@@ -104,16 +111,23 @@ public:
 		return parameter;
 	}
 
-	template<typename F>
-	Ref_t<BlockParameter<T>> CreateBlockTransformer(Ref_t<BlockParameter<T>> transformee, F&& transformer)
+	template<typename F, typename... Params>
+	Ref_t<BlockParameter<T>> CreateBlockTransformer(F&& transformer, Params&&... transformees)
 	{
 		// TODO: type the transformer function to also provide min/max etc.
 
-		auto parameter = MakeRef<TransformerBlockParameter<T, F>>(transformee, std::move(transformer));
+		Node<BlockParameter<T>> node;
+
+		// Add the dependencies
+		(node.dependencies.emplace_back(m_BlockParameterLookup[transformees]), ...);
+
+		auto parameter =
+			MakeRef<TransformerBlockParameter<T, std::decay_t<F>, Params...>>(
+				std::forward<F>(transformer),
+				std::forward<Params>(transformees)...);
+
 		parameter->mRegistry = this;
 
-		Node<BlockParameter<T>> node;
-		node.dependencies.emplace_back(m_BlockParameterLookup[transformee]);
 		node.parameter = parameter;
 		m_BlockParameterNodes.emplace_back(node);
 		m_BlockParameterLookup.emplace(parameter, m_BlockParameterNodes.size() - 1);

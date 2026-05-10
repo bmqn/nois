@@ -1,7 +1,9 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
-#include "nois/util/NoisSmallVector.hpp"
+
+#include <algorithm>
+#include <vector>
 
 namespace nois {
 
@@ -14,7 +16,7 @@ template<typename T>
 class ConstantParameter;
 template<typename T, typename F>
 class BinderParameter;
-template<typename T, typename F>
+template<typename T, typename F, typename... Params>
 class TransformerParameter;
 
 template<typename T>
@@ -23,7 +25,7 @@ template<typename T>
 class ConstantBlockParameter;
 template<typename T, typename F>
 class BinderBlockParameter;
-template<typename T, typename F>
+template<typename T, typename F, typename... Params>
 class TransformerBlockParameter;
 
 template<typename T>
@@ -96,7 +98,7 @@ public:
 	{
 		if (mRegistry)
 		{
-			return mRegistry->CreateTransformer(this->shared_from_this(), std::move(transformer));
+			return mRegistry->CreateTransformer(std::forward<F>(transformer), this->shared_from_this());
 		}
 
 		return nullptr;
@@ -160,15 +162,15 @@ public:
 
 private:
 	F m_Binder;
-	SmallVector<typename ParameterBlock<T>::Frame, k_MaxNumInplaceFrames> m_Frames;
+	std::vector<typename ParameterBlock<T>::Frame> m_Frames;
 };
 
-template<typename T, typename F>
+template<typename T, typename F, typename... Params>
 class TransformerParameter : public Parameter<T>
 {
 public:
-	TransformerParameter(Ref_t<Parameter<T>> parameter, F&& transformer)
-		: m_Used(parameter)
+	TransformerParameter(F&& transformer, Params&&... transformees)
+		: m_Used({ static_cast<Ref_t<Parameter<T>>>(transformees)... })
 		, m_Transformer(std::move(transformer))
 	{
 	}
@@ -182,29 +184,38 @@ public:
 	{
 		m_Frames.resize(numFrames);
 
-		auto block = m_Used->Get();
-
 		for (count_t f = 0; f < numFrames; ++f)
 		{
-			T value = 0.0f;
+			auto idx = std::make_index_sequence<sizeof...(Params)>{};
+
+			T value = InvokeTransformer([f](auto& p) { return p->Get().Get(f); }, sampleRate, idx);
+
 			auto& frame = m_Frames[f];
-			if constexpr (std::is_invocable_v<F, T, count_t, f32_t>)
-			{
-				value = std::invoke(m_Transformer, block.Get(f), f, sampleRate);
-			}
-			else if constexpr (std::is_invocable_v<F, T, count_t>)
-			{
-				value = std::invoke(m_Transformer, block.Get(f), f);
-			}
 			frame.value = value;
-			frame.changed = f > 0 ? value != m_Frames[f - 1].value : value != m_Frames.back().value;
+			frame.changed = f > 0
+				? value != m_Frames[f - 1].value
+				: value != m_Frames.back().value;
 		}
 	}
 
 private:
-	Ref_t<Parameter<T>> m_Used;
+	template<std::size_t... Is>
+	T InvokeTransformer(auto getter, f32_t sampleRate, std::index_sequence<Is...>) const
+	{
+		if constexpr (std::is_invocable_v<F, decltype(std::invoke(getter, m_Used[Is]))..., f32_t>)
+		{
+			return std::invoke(m_Transformer, std::invoke(getter, m_Used[Is])..., sampleRate);
+		}
+		else
+		{
+			return std::invoke(m_Transformer, std::invoke(getter, m_Used[Is])...);
+		}
+	}
+
+private:
 	F m_Transformer;
-	SmallVector<typename ParameterBlock<T>::Frame, k_MaxNumInplaceFrames> m_Frames;
+	std::array<Ref_t<Parameter<T>>, sizeof...(Params)> m_Used;
+	std::vector<typename ParameterBlock<T>::Frame> m_Frames;
 };
 
 template<typename T>
@@ -321,12 +332,12 @@ private:
 	bool m_Changed;
 };
 
-template<typename T, typename F>
+template<typename T, typename F, typename... Params>
 class TransformerBlockParameter : public BlockParameter<T>
 {
 public:
-	TransformerBlockParameter(Ref_t<BlockParameter<T>> parameter, F&& transformer)
-		: m_Used(parameter)
+	TransformerBlockParameter(F&& transformer, Params&&... transformees)
+		: m_Used({ static_cast<Ref_t<BlockParameter<T>>>(transformees)... })
 		, m_Transformer(std::move(transformer))
 		, m_Min(0.0f)
 		, m_Max(0.0f)
@@ -357,50 +368,43 @@ public:
 
 	void Prepare(f32_t sampleRate) override final
 	{
-		if constexpr (std::is_invocable_v<F, T, f32_t>)
-		{
-			m_Min = std::invoke(m_Transformer, m_Used->Min(), sampleRate);
-		}
-		else if constexpr (std::is_invocable_v<F, T>)
-		{
-			m_Min = std::invoke(m_Transformer, m_Used->Min());
-		}
+		auto idx = std::make_index_sequence<sizeof...(Params)>{};
 
-		if constexpr (std::is_invocable_v<F, T, f32_t>)
-		{
-			m_Max = std::invoke(m_Transformer, m_Used->Max(), sampleRate);
-		}
-		else if constexpr (std::is_invocable_v<F, T>)
-		{
-			m_Max = std::invoke(m_Transformer, m_Used->Max());
-		}
-		
+		T value = InvokeTransformer([](auto& p) { return p->Get(); }, sampleRate, idx);
+		m_Min = InvokeTransformer([](auto& p) { return p->Min(); }, sampleRate, idx);
+		m_Max = InvokeTransformer([](auto& p) { return p->Max(); }, sampleRate, idx);
+
 		if (m_Min > m_Max)
 		{
 			std::swap(m_Min, m_Max);
 		}
 
-		T value = 0.0f;
-		if constexpr (std::is_invocable_v<F, T, f32_t>)
-		{
-			value = std::invoke(m_Transformer, m_Used->Get(), sampleRate);
-		}
-		else if constexpr (std::is_invocable_v<F, T>)
-		{
-			value = std::invoke(m_Transformer, m_Used->Get());
-		}
 		value = std::clamp(value, m_Min, m_Max);
 		m_Changed = m_Value != value;
 		m_Value = value;
 	}
 
 private:
-	Ref_t<BlockParameter<T>> m_Used;
+	template<std::size_t... Is>
+	T InvokeTransformer(auto getter, f32_t sampleRate, std::index_sequence<Is...>) const
+	{
+		if constexpr (std::is_invocable_v<F, decltype(std::invoke(getter, m_Used[Is]))..., f32_t>)
+		{
+			return std::invoke(m_Transformer, std::invoke(getter, m_Used[Is])..., sampleRate);
+		}
+		else
+		{
+			return std::invoke(m_Transformer, std::invoke(getter, m_Used[Is])...);
+		}
+	}
+
+private:
 	F m_Transformer;
 	T m_Min;
 	T m_Max;
 	T m_Value;
 	bool m_Changed;
+	std::array<Ref_t<BlockParameter<T>>, sizeof...(Params)> m_Used;
 };
 
 template<typename T>
