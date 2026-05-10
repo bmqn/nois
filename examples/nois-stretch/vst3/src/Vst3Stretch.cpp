@@ -11,6 +11,7 @@ enum
 {
 	kStretchActive,
 	kStretchFactor,
+	kStretchLength,
 	kGrainSize,
 	kGrainBlend,
 	kGrainPhaseInc,
@@ -26,6 +27,7 @@ struct StretchActive
 	static constexpr nois::f32_t kMinValue = -1.0f;
 	static constexpr nois::f32_t kMaxValue = 1.0f;
 	static constexpr nois::s32_t kNumSteps = 1;
+	static constexpr const char* kOptions[] = { "Off", "On" };
 };
 
 struct StretchFactor
@@ -37,6 +39,18 @@ struct StretchFactor
 	static constexpr nois::f32_t kMinValue = 1.0f;
 	static constexpr nois::f32_t kMaxValue = 16.0f;
 	static constexpr nois::s32_t kNumSteps = 0;
+};
+
+struct StretchLength
+{
+	static constexpr const char* kTitle = "Length";
+	static constexpr const char* kUnits = "";
+	static constexpr Vst::ParamID kPid = kStretchLength;
+	static constexpr nois::f32_t kDefaultValue = 5.0f;
+	static constexpr nois::f32_t kMinValue = 0.0f;
+	static constexpr nois::f32_t kMaxValue = 7.0f;
+	static constexpr nois::s32_t kNumSteps = 7;
+	static constexpr const char* kOptions[] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1", "2", "4" };
 };
 
 struct GrainSize
@@ -81,6 +95,7 @@ struct GrainLockActive
 	static constexpr nois::f32_t kMinValue = -1.0f;
 	static constexpr nois::f32_t kMaxValue = 1.0f;
 	static constexpr nois::s32_t kNumSteps = 1;
+	static constexpr const char* kOptions[] = { "Off", "On" };
 };
 }
 
@@ -93,12 +108,15 @@ public:
 	Vst3StretchController()
 		: mStretchActive(nullptr)
 		, mStretchFactor(nullptr)
+		, mStretchLength(nullptr)
 		, mGrainSize(nullptr)
 		, mGrainBlend(nullptr)
+		, mGrainPhaseInc(nullptr)
 		, mGrainLockActive(nullptr)
 	{
 		mStretchActive = NoisVstControllerParameter::Create<parameter::StretchActive>();
 		mStretchFactor = NoisVstControllerParameter::Create<parameter::StretchFactor>();
+		mStretchLength = NoisVstControllerParameter::Create<parameter::StretchLength>();
 		mGrainSize = NoisVstControllerParameter::Create<parameter::GrainSize>();
 		mGrainBlend = NoisVstControllerParameter::Create<parameter::GrainBlend>();
 		mGrainPhaseInc = NoisVstControllerParameter::Create<parameter::GrainPhaseInc>();
@@ -121,6 +139,7 @@ public:
 
 		parameters.addParameter(*mStretchActive);
 		parameters.addParameter(*mStretchFactor);
+		parameters.addParameter(*mStretchLength);
 		parameters.addParameter(*mGrainSize);
 		parameters.addParameter(*mGrainBlend);
 		parameters.addParameter(*mGrainPhaseInc);
@@ -137,6 +156,7 @@ public:
 private:
 	nois::Own_t<NoisVstControllerParameter> mStretchActive;
 	nois::Own_t<NoisVstControllerParameter> mStretchFactor;
+	nois::Own_t<NoisVstControllerParameter> mStretchLength;
 	nois::Own_t<NoisVstControllerParameter> mGrainSize;
 	nois::Own_t<NoisVstControllerParameter> mGrainBlend;
 	nois::Own_t<NoisVstControllerParameter> mGrainPhaseInc;
@@ -148,20 +168,48 @@ class Vst3StretchProcessor : public NoisVstProcessor<Vst3StretchProcessor, Vst3S
 public:
 	inline static DECLARE_UID(kUid, 0xe098fdac, 0xc4454fdd, 0xb14a0ef5, 0xc27122b1)
 
+private:
+	enum class NoteDivision
+	{
+		ThirtySecond,
+		Sixteenth,
+		Eighth,
+		Quarter,
+		Half,
+		Whole,
+		Double,
+		Quadruple
+	};
+
 public:
 	Vst3StretchProcessor()
 		: mStretchActive(nullptr)
 		, mStretchFactor(nullptr)
+		, mStretchLength(nullptr)
+		, mGrainSize(nullptr)
 		, mGrainBlend(nullptr)
+		, mGrainPhaseInc(nullptr)
 		, mGrainLockActive(nullptr)
 		, mTimeStretcher(nullptr)
 	{
 		mStretchActive = CreateParameter<parameter::StretchActive>();
 		mStretchFactor = CreateParameter<parameter::StretchFactor>();
+		mStretchLength = CreateParameter<parameter::StretchLength>();
 		mGrainSize = CreateParameter<parameter::GrainSize>();
 		mGrainBlend = CreateParameter<parameter::GrainBlend>();
 		mGrainPhaseInc = CreateParameter<parameter::GrainPhaseInc>();
 		mGrainLockActive = CreateParameter<parameter::GrainLockActive>();
+
+		auto stretchTimeMs =
+			CreateBlockTransformer(
+				[](nois::f32_t bpm, nois::f32_t length)
+				{
+					int lengthClamped = std::clamp(static_cast<int>(length), 0, 7);
+					NoteDivision division = static_cast<NoteDivision>(lengthClamped);
+					return (60000.0f / bpm) * DivisionToBeats(division);
+				},
+				GetBlockTempo(),
+				*mStretchLength);
 
 		auto grainSize =
 			mGrainSize->Transform(
@@ -177,6 +225,7 @@ public:
 				});
 
 		mTimeStretcher = nois::TimeStretcher::Create();
+		mTimeStretcher->SetStretchTimeMs(stretchTimeMs);
 		mTimeStretcher->SetStretchActive(*mStretchActive);
 		mTimeStretcher->SetStretchFactor(*mStretchFactor);
 		mTimeStretcher->SetGrainSize(grainSize);
@@ -206,8 +255,27 @@ protected:
 	}
 
 private:
+	static float DivisionToBeats(NoteDivision division)
+	{
+		switch (division)
+		{
+			case NoteDivision::ThirtySecond: return 0.125f;
+			case NoteDivision::Sixteenth:    return 0.25f;
+			case NoteDivision::Eighth:       return 0.5f;
+			case NoteDivision::Quarter:      return 1.0f;
+			case NoteDivision::Half:         return 2.0f;
+			case NoteDivision::Whole:        return 4.0f;
+			case NoteDivision::Double:       return 8.0f;
+			case NoteDivision::Quadruple:    return 16.0f;
+		}
+
+		return 1.0f;
+	}
+
+private:
 	nois::Own_t<NoisVstProcessorParameter> mStretchActive;
 	nois::Own_t<NoisVstProcessorParameter> mStretchFactor;
+	nois::Own_t<NoisVstProcessorParameter> mStretchLength;
 	nois::Own_t<NoisVstProcessorParameter> mGrainSize;
 	nois::Own_t<NoisVstProcessorParameter> mGrainBlend;
 	nois::Own_t<NoisVstProcessorParameter> mGrainPhaseInc;
