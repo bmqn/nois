@@ -7,6 +7,7 @@
 #include <pluginterfaces/base/ustring.h>
 #include <public.sdk/source/vst/vstparameters.h>
 
+#include <algorithm>
 #include <optional>
 
 using namespace Steinberg;
@@ -146,9 +147,11 @@ public:
 	{
 		UString wrapper(string, USTRINGSIZE(Vst::String128));
 
-		if (Param::kNumSteps == 1)
+		if constexpr (requires { Param::kOptions; })
 		{
-			wrapper.assign(toPlain(valueNormalized) > 0.0f ? kOnStr : kOffStr);
+			int index = static_cast<int>(toPlain(valueNormalized));
+			int indexClamped = std::clamp<int>(index, 0, std::size(Param::kOptions) - 1);
+			wrapper.assign(Param::kOptions[indexClamped]);
 		}
 		else
 		{
@@ -162,15 +165,7 @@ public:
 
 		Vst::ParamValue value = 0.0;
 
-		if (Param::kNumSteps == 1 && std::memcmp(wrapper, kOffStr, sizeof(kOffStr)) == 0)
-		{
-			value = 0.0;
-		}
-		else if (Param::kNumSteps == 1 && std::memcmp(wrapper, kOnStr, sizeof(kOnStr)) == 0)
-		{
-			value = 1.0;
-		}
-		else if (wrapper.scanFloat(value))
+		if (wrapper.scanFloat(value))
 		{
 			if (value < Param::kMinValue)
 			{
@@ -188,10 +183,6 @@ public:
 
 		return false;
 	}
-
-private:
-	static constexpr Vst::TChar kOffStr[] = { 'O','f','f','\0' };
-	static constexpr Vst::TChar kOnStr[] = { 'O','n','\0' };
 };
 
 template<typename Param>
@@ -341,7 +332,7 @@ public:
 	}
 
 private:
-	Vst::Parameter* mParameter;
+	NoisVstParameter<Param>* mParameter;
 };
 
 template<typename Param>
