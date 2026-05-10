@@ -64,14 +64,32 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::setState(IBStream* state)
 		return kResultFalse;
 	}
 
-	for (auto& [pid, parameter] : mParameters)
+	int count = -1;
+	if (state->read(&count, sizeof(count)) != kResultOk)
 	{
+		return kResultFalse;
+	}
+	for (int i = 0; i < count; ++i)
+	{
+		int pid = -1;
 		nois::f32_t value = 0.0f;
+		if (state->read(&pid, sizeof(pid)) != kResultOk)
+		{
+			return kResultFalse;
+		}
 		if (state->read(&value, sizeof(value)) != kResultOk)
 		{
 			return kResultFalse;
 		}
-		parameter->RequestPlain(value);
+		if (pid != -1)
+		{
+			// TODO: value min/max check?
+
+			if (auto it = mParameters.find(pid); it != mParameters.end())
+			{
+				it->second->RequestPlain(value);
+			}
+		}
 	}
 
 	return kResultOk;
@@ -85,9 +103,19 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::getState(IBStream* state)
 		return kResultFalse;
 	}
 
+	int count = mParameters.size();
+	if (state->write(&count, sizeof(count)) != kResultOk)
+	{
+		return kResultFalse;
+	}
 	for (const auto& [pid, parameter] : mParameters)
 	{
 		nois::f32_t value = parameter->GetLastPlain();
+		int pide = pid;
+		if (state->write(&pide, sizeof(pide)) != kResultOk)
+		{
+			return kResultFalse;
+		}
 		if (state->write(&value, sizeof(value)) != kResultOk)
 		{
 			return kResultFalse;
@@ -305,4 +333,82 @@ template<typename T, typename C>
 auto NoisVstProcessor<T, C>::GetBlockTempo() -> nois::Ref_t<nois::FloatBlockParameter>
 {
 	return mTempoBlockParameter;
+}
+
+template<typename T>
+NoisVstController<T>::NoisVstController()
+	: mParameters()
+{
+}
+
+template<typename T>
+FUnknown* PLUGIN_API NoisVstController<T>::createInstance(void*)
+{
+	return static_cast<Steinberg::Vst::IEditController*>(new T());
+}
+
+template<typename T>
+tresult PLUGIN_API NoisVstController<T>::initialize(FUnknown* context)
+{
+	tresult result = EditController::initialize(context);
+
+	if (result != kResultOk)
+	{
+		return result;
+	}
+
+	for (const auto& [pid, parameter] : mParameters)
+	{
+		parameters.addParameter(*parameter);
+	}
+
+	return result;
+}
+
+template<typename T>
+tresult PLUGIN_API NoisVstController<T>::setComponentState(IBStream* state)
+{
+	if (!state)
+	{
+		return kResultFalse;
+	}
+
+	int count = -1;
+	if (state->read(&count, sizeof(count)) != kResultOk)
+	{
+		return kResultFalse;
+	}
+	for (int i = 0; i < count; ++i)
+	{
+		int pid = -1;
+		nois::f32_t value = 0.0f;
+		if (state->read(&pid, sizeof(pid)) != kResultOk)
+		{
+			return kResultFalse;
+		}
+		if (state->read(&value, sizeof(value)) != kResultOk)
+		{
+			return kResultFalse;
+		}
+		if (pid != -1)
+		{
+			// TODO: value min/max check?
+
+			if (auto it = mParameters.find(pid); it != mParameters.end())
+			{
+				it->second->SetPlain(value);
+			}
+		}
+	}
+
+	return kResultOk;
+}
+
+template<typename T>
+template<typename Param>
+auto NoisVstController<T>::CreateParameter() -> nois::Own_t<NoisVstControllerParameter>
+{
+	auto parameter = NoisVstControllerParameter::Create<Param>();
+	mParameters[parameter->GetPid()] = parameter.get();
+	return parameter;
 }

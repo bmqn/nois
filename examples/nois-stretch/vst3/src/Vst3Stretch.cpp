@@ -99,7 +99,7 @@ struct GrainLockActive
 };
 }
 
-class Vst3StretchController : public Vst::EditController
+class Vst3StretchController : public NoisVstController<Vst3StretchController>
 {
 public:
 	inline static DECLARE_UID(kUid, 0x9ee7ec38, 0x41254df7, 0x8863c27f, 0x3782767d)
@@ -114,43 +114,13 @@ public:
 		, mGrainPhaseInc(nullptr)
 		, mGrainLockActive(nullptr)
 	{
-		mStretchActive = NoisVstControllerParameter::Create<parameter::StretchActive>();
-		mStretchFactor = NoisVstControllerParameter::Create<parameter::StretchFactor>();
-		mStretchLength = NoisVstControllerParameter::Create<parameter::StretchLength>();
-		mGrainSize = NoisVstControllerParameter::Create<parameter::GrainSize>();
-		mGrainBlend = NoisVstControllerParameter::Create<parameter::GrainBlend>();
-		mGrainPhaseInc = NoisVstControllerParameter::Create<parameter::GrainPhaseInc>();
-		mGrainLockActive = NoisVstControllerParameter::Create<parameter::GrainLockActive>();
-	}
-
-	static FUnknown* PLUGIN_API createInstance(void*)
-	{
-		return static_cast<Steinberg::Vst::IEditController*>(new Vst3StretchController());
-	}
-
-	tresult PLUGIN_API initialize(FUnknown* context) SMTG_OVERRIDE
-	{
-		tresult result = EditController::initialize(context);
-
-		if (result != kResultOk)
-		{
-			return result;
-		}
-
-		parameters.addParameter(*mStretchActive);
-		parameters.addParameter(*mStretchFactor);
-		parameters.addParameter(*mStretchLength);
-		parameters.addParameter(*mGrainSize);
-		parameters.addParameter(*mGrainBlend);
-		parameters.addParameter(*mGrainPhaseInc);
-		parameters.addParameter(*mGrainLockActive);
-
-		return result;
-	}
-
-	tresult PLUGIN_API terminate() SMTG_OVERRIDE
-	{
-		return EditController::terminate();
+		mStretchActive = CreateParameter<parameter::StretchActive>();
+		mStretchFactor = CreateParameter<parameter::StretchFactor>();
+		mStretchLength = CreateParameter<parameter::StretchLength>();
+		mGrainSize = CreateParameter<parameter::GrainSize>();
+		mGrainBlend = CreateParameter<parameter::GrainBlend>();
+		mGrainPhaseInc = CreateParameter<parameter::GrainPhaseInc>();
+		mGrainLockActive = CreateParameter<parameter::GrainLockActive>();
 	}
 
 private:

@@ -59,4 +59,24 @@ private:
 	nois::Ref_t < nois::FloatBlockParameter> mTempoBlockParameter;
 };
 
+template<typename T>
+class NoisVstController : public Vst::EditController
+{
+public:
+	NoisVstController();
+	virtual ~NoisVstController() {}
+
+	static FUnknown* PLUGIN_API createInstance(void*);
+
+	tresult PLUGIN_API initialize(FUnknown* context) SMTG_OVERRIDE;
+	tresult PLUGIN_API setComponentState(IBStream* state) SMTG_OVERRIDE;
+
+protected:
+	template<typename Param>
+	nois::Own_t<NoisVstControllerParameter> CreateParameter();
+
+private:
+	std::unordered_map<Vst::ParamID, NoisVstControllerParameter*> mParameters;
+};
+
 #include "NoisVst3Processor.inl"

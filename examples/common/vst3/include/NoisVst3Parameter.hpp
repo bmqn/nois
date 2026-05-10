@@ -56,8 +56,8 @@ public:
 
 	virtual Vst::ParamID GetPid() const = 0;
 
-	virtual void RequestPlain(nois::f32_t valuePlain) = 0;
-	virtual nois::f32_t GetLastPlain() const = 0;
+	virtual void SetPlain(nois::f32_t valuePlain) = 0;
+	virtual nois::f32_t GetPlain() const = 0;
 
 	virtual operator Vst::Parameter*() = 0;
 
@@ -238,14 +238,24 @@ public:
 
 	void Setup(nois::count_t numFrames, nois::f32_t sampleRate) override final
 	{
+		nois::f32_t lastPlain = Param::kDefaultValue;
+		if (!mValues.empty())
+		{
+			lastPlain = GetLastPlain();
+		}
+		if (numFrames != mNumFrames)
+		{
+			mValues.resize(numFrames, lastPlain);
+		}
+
+		if (mNextValue)
+		{
+			std::fill(mValues.begin(), mValues.end(), *mNextValue);
+			mNextValue = std::nullopt;
+		}
+
 		mNumFrames = numFrames;
 		mSampleRate = sampleRate;
-
-		nois::f32_t valuePlain = mNextValue.value_or(GetLastPlain());
-		mNextValue = std::nullopt;
-
-		mValues.resize(numFrames, Param::kDefaultValue);
-		std::fill(mValues.begin(), mValues.end(), valuePlain);
 	}
 
 	void WritePlain(nois::count_t f, nois::f32_t valuePlain) override final
@@ -268,7 +278,7 @@ public:
 			return mValues.back();
 		}
 
-		return 0.0f;
+		return Param::kDefaultValue;
 	}
 
 	operator nois::Ref_t<nois::FloatParameter>() override final
@@ -299,7 +309,7 @@ private:
 	nois::Ref_t<nois::FloatParameter> mParameter;
 	nois::Ref_t<nois::FloatBlockParameter> mBlockParameter;
 	std::optional<nois::f32_t> mNextValue;
-	nois::SmallVector<nois::f32_t, nois::k_MaxNumInplaceFrames> mValues;
+	std::vector<nois::f32_t> mValues;
 };
 
 template<typename Param>
@@ -316,12 +326,12 @@ public:
 		return Param::kPid;
 	}
 
-	void RequestPlain(nois::f32_t valuePlain) override final
+	void SetPlain(nois::f32_t valuePlain) override final
 	{
 		mParameter->setNormalized(util::ToNormalized<Param>(valuePlain));
 	}
 
-	nois::f32_t GetLastPlain() const override final
+	nois::f32_t GetPlain() const override final
 	{
 		return util::ToPlain<Param>(mParameter->getNormalized());
 	}
