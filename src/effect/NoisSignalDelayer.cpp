@@ -41,14 +41,7 @@ public:
 			const f32_t delayMs = m_DelayMs.Get();
 			count_t numDelayFrames = static_cast<count_t>((delayMs * sampleRate) / 1000.0f);
 			NZ_ASSERT(numDelayFrames != 0);
-			if (numDelayFrames < m_Delay.GetMaxDelay())
-			{
-				m_Delay.SetDelay(numDelayFrames);
-			}
-			else
-			{
-				m_Delay.Configure(numDelayFrames);
-			}
+			m_Delay.Configure(numDelayFrames);
 		}
 
 		m_NumFrames = numFrames;

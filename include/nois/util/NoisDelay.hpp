@@ -10,15 +10,15 @@ namespace nois {
 template<typename T, count_t C = 1>
 struct Delay
 {
-	Delay(count_t numFrames = 0, bool stopWhenFull = false)
+	Delay(count_t numFrames = 0)
 	{
-		Configure(numFrames, stopWhenFull);
+		Configure(numFrames);
 	}
 
-	inline void Configure(count_t numFrames, bool stopWhenFull = false)
+	inline void Configure(count_t numFrames)
 	{
-		m_StopWhenFull = stopWhenFull;
-		
+		m_EnableEndOffsets = false;
+
 		m_NumFrames = numFrames;
 		if (numFrames > 0)
 		{
@@ -36,6 +36,11 @@ struct Delay
 			offset = 0;
 		}
 
+		for (auto& endOffset : m_EndOffsets)
+		{
+			endOffset = 0;
+		}
+
 		for (auto& buffer : m_Buffers)
 		{
 			buffer.Resize(m_RealNumFrames, 1);
@@ -50,19 +55,18 @@ struct Delay
 		}
 	}
 
+	inline void RunUntilFull()
+	{
+		m_EnableEndOffsets = true;
+		for (count_t c = 0; c < m_EndOffsets.size(); ++c)
+		{
+			m_EndOffsets[c] = m_Offsets[c] + m_NumFrames;
+		}
+	}
+
 	inline count_t GetOffset(count_t c)
 	{
 		return m_Offsets[c];
-	}
-	
-	inline T GetMaxDelay() const
-	{
-		if (m_RealNumFrames == 0)
-		{
-			return 0;
-		}
-
-		return static_cast<T>(m_NumFrames - 1);
 	}
 
 	inline void SetDelay(T numDelayFrames)
@@ -83,7 +87,13 @@ struct Delay
 		}
 
 		auto& offset = m_Offsets[c];
+		auto endOffset = m_EndOffsets[c];
 		auto& buffer = m_Buffers[c];
+
+		if (m_EnableEndOffsets && offset >= endOffset)
+		{
+			return x;
+		}
 
 		// Grab write/read indices
 		ucount_t indexWrite = offset & m_ModuloMask;
@@ -120,9 +130,10 @@ struct Delay
 		}
 
 		auto& offset = m_Offsets[c];
+		auto endOffset = m_EndOffsets[c];
 		auto& buffer = m_Buffers[c];
 		
-		if (m_StopWhenFull && offset >= m_RealNumFrames)
+		if (m_EnableEndOffsets && offset >= endOffset)
 		{
 			return;
 		}
@@ -161,6 +172,30 @@ struct Delay
 		return y;
 	}
 
+	inline T Get(T o, count_t c = 0) const
+	{
+		if (m_RealNumFrames == 0)
+		{
+			return 0.0f;
+		}
+
+		auto& buffer = m_Buffers[c];
+
+		// Grab write/read indices
+		count_t o0 = static_cast<count_t>(o);
+		count_t o1 = o0 + 1;
+		ucount_t indexRead0 = (o0 - 1) & m_ModuloMask;
+		ucount_t indexRead1 = (o1 - 1) & m_ModuloMask;
+
+		// Interpolate read & write
+		T factor = o - static_cast<T>(o0);
+		T y0 = buffer[indexRead0];
+		T y1 = buffer[indexRead1];
+		T y = y0 + (y1 - y0) * factor;
+
+		return y;
+	}
+
 private:
 	ucount_t NextPowerOfTwo(count_t n)
 	{
@@ -175,12 +210,13 @@ private:
 	}
 
 private:
-	bool m_StopWhenFull = false;
+	bool m_EnableEndOffsets = false;
 	ucount_t m_NumFrames = 0;
 	ucount_t m_RealNumFrames = 0;
 	ucount_t m_ModuloMask;
-	T m_NumDelayFrames  = T{ 0 };
+	T m_NumDelayFrames = T{ 0 };
 	std::array<ucount_t, C> m_Offsets = { 0 };
+	std::array<ucount_t, C> m_EndOffsets = { 0 };
 	std::array<Buffer<T>, C> m_Buffers;
 };
 
