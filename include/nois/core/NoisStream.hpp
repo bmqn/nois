@@ -5,21 +5,14 @@
 
 namespace nois {
 
-class StreamGraph;
+template<typename T>
 class Stream;
-class ProcessStream;
-class SourceStream;
 
-class StreamGraph
-{
-public:
-
-};
-
+template<typename T>
 class Stream
 {
-	friend class StreamGraph;
-
+	friend class Registry<T>;
+	
 public:
 	enum Result
 	{
@@ -28,46 +21,22 @@ public:
 		Failure
 	};
 	
-	virtual ~Stream()
-	{
-	}
+public:
+	virtual ~Stream() {}
 
 	virtual void Prepare(
 		count_t numFrames,
 		count_t numChannels,
-		f32_t sampleRate)
-	{
-	}
-};
-
-class ProcessStream : public Stream
-{
-	friend class StreamGraph;
-
+		f32_t sampleRate) = 0;
+	
+	virtual void Update() = 0;
+	
 	virtual Result Process(
-		ConstFloatBufferView inBuffer,
-		FloatBufferView outBuffer) = 0;
-};
-
-class SourceStream : public Stream
-{
-	friend class StreamGraph;
-
-public:
-	SourceStream(FloatBuffer *buffer)
-		: m_Buffer(buffer)
-	{
-	}
-
-	virtual Result Process(
-		FloatBufferView outBuffer)
-	{
-		outBuffer.Copy(*m_Buffer);
-		return Stream::Success;
-	}
-
+		ConstBufferView<T> inBuffer,
+		BufferView<T> outBuffer) = 0;
+	
 private:
-	FloatBuffer *m_Buffer;
+	Registry<T>* mRegistry = nullptr;
 };
 
 }

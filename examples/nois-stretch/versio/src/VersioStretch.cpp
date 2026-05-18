@@ -36,6 +36,12 @@ static nois::Ref_t<nois::TimeStretcher> timeStretcher = nullptr;
 
 enum
 {
+	KNOB_STRETCH_FACTOR = DaisyVersio::KNOB_0,
+	KNOB_GRAIN_SIZE = DaisyVersio::KNOB_1,
+	KNOB_GRAIN_BLEND = DaisyVersio::KNOB_2,
+	KNOB_GRAIN_PHASE_INC = DaisyVersio::KNOB_3,
+	KNOB_PROBABILITY = DaisyVersio::KNOB_4,
+	KNOB_ENVELOPE_LENGTH = DaisyVersio::KNOB_5,
 	KNOB_SWING = DaisyVersio::KNOB_6,
 };
 
@@ -58,7 +64,7 @@ static void callback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 	if (gatePulse)
 	{
 		float edgeDelta = timeSec - lastBeatSec;
-		// smooth estimate (important!)
+		// Smooth
 		beatSec = 0.9f * beatSec + 0.1f * edgeDelta;
 		lastBeatSec = timeSec;
 	}
@@ -92,12 +98,12 @@ static void callback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 	{
 		// Probability of envelope trigger
 		// Offset to account for noise in knob
-		float probability = std::max(0.0f, hw.GetKnobValue(DaisyVersio::KNOB_4) - 0.05f);
+		float probability = std::max(0.0f, hw.GetKnobValue(KNOB_PROBABILITY) - 0.05f);
 		if (Random::GetFloat(0.0f, 1.0f) < probability)
 		{
 			// Envelope length
 			// Up to 500 ms long
-			float envelopeLength = hw.GetKnobValue(DaisyVersio::KNOB_5);
+			float envelopeLength = hw.GetKnobValue(KNOB_ENVELOPE_LENGTH);
 			stretchActiveEnvSec = 0.5f * envelopeLength;
 		}
 	}
@@ -116,19 +122,15 @@ static void callback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 	}
 	hw.SetLed(DaisyVersio::LED_1, 0.0f, swingLedSec >= 0.0f, 0.0f);
 
-	// hw.UpdateExample();
 	hw.UpdateLeds();
 
 	stretchActiveValue = (hw.SwitchPressed() || stretchActiveEnvSec > 0.0f) ? 1.0f : 0.0f;
-	stretchFactorValue = hw.GetKnobValue(DaisyVersio::KNOB_0);
-	grainSizeValue = hw.GetKnobValue(DaisyVersio::KNOB_1);
-	grainBlendValue = hw.GetKnobValue(DaisyVersio::KNOB_2);
+	stretchFactorValue = hw.GetKnobValue(KNOB_STRETCH_FACTOR);
+	grainSizeValue = hw.GetKnobValue(KNOB_GRAIN_SIZE);
+	grainBlendValue = hw.GetKnobValue(KNOB_GRAIN_BLEND);
 
-	float grainPhaseIncKnob = hw.GetKnobValue(DaisyVersio::KNOB_3);
-	grainPhaseIncValue = 1.0f + 2.0f * (grainPhaseIncKnob - 0.5f);
-
-	registry->Prepare(size, hw.AudioSampleRate());
-	timeStretcher->Prepare(size, 2, hw.AudioSampleRate());
+	float grainPhaseIncKnob = hw.GetKnobValue(KNOB_GRAIN_PHASE_INC);
+	grainPhaseIncValue = 2.0f * 2.0f * (grainPhaseIncKnob - 0.5f);
 
 	for (size_t i = 0; i < size; ++i)
 	{
@@ -138,7 +140,8 @@ static void callback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 
 	nois::ConstFloatBufferView inView(scratchIn, size, 2);
 	nois::FloatBufferView outView(scratchOut, size, 2);
-	timeStretcher->Process(inView, outView);
+
+	registry->Run(inView, outView, hw.AudioSampleRate());
 
 	for (size_t i = 0; i < size; ++i)
 	{
@@ -172,40 +175,37 @@ int main(void)
 
 	registry = nois::MakeRef<nois::Registry<nois::f32_t>>();
 
-	auto stretchTimeMs = registry->CreateBlockConstant(10000.0f);
-
-	auto stretchActive = registry->CreateBinder(
-		[](nois::count_t)
+	auto stretchActive = registry->CreateBlockBinder(
+		[]()
 		{
 			return stretchActiveValue;
 		});
 
-	auto stretchFactor = registry->CreateBinder(
-		[](nois::count_t)
+	auto stretchFactor = registry->CreateBlockBinder(
+		[]()
 		{
 			return 1.0f + stretchFactorValue * (64.0f - 1.0f);
 		});
 
-	auto grainSize = registry->CreateBinder(
-		[](nois::count_t)
+	auto grainSize = registry->CreateBlockBinder(
+		[]()
 		{
 			return 250.0f + grainSizeValue * (3000.0f - 250.0f);
 		});
 
-	auto grainBlend = registry->CreateBinder(
-		[](nois::count_t)
+	auto grainBlend = registry->CreateBlockBinder(
+		[]()
 		{
 			return grainBlendValue / 2.0f;
 		});
 
-	auto grainPhaseInc = registry->CreateBinder(
-		[](nois::count_t)
+	auto grainPhaseInc = registry->CreateBlockBinder(
+		[]()
 		{
 			return grainPhaseIncValue;
 		});
 
-	timeStretcher = nois::TimeStretcher::Create();
-	timeStretcher->SetStretchTimeMs(stretchTimeMs);
+	timeStretcher = registry->CreateStream<nois::TimeStretcher>();
 	timeStretcher->SetStretchActive(stretchActive);
 	timeStretcher->SetStretchFactor(stretchFactor);
 	timeStretcher->SetGrainSize(grainSize);

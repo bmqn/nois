@@ -10,15 +10,15 @@ class Combiner
 public:
 	virtual ~Combiner() {}
 
-	virtual Stream::Result ConsumeIntoCache(
+	virtual Stream<f32_t>::Result ConsumeIntoCache(
 		count_t numFrames,
 		count_t numChannels,
 		f32_t sampleRate)
 	= 0;
 
-	virtual void AddStream(Ref_t<Stream> stream) = 0;
-	virtual void RemoveStream(Ref_t<Stream> stream) = 0;
-	virtual Ref_t<Stream> GetStream() = 0;
+	virtual void AddStream(Ref_t<Stream<f32_t>> stream) = 0;
+	virtual void RemoveStream(Ref_t<Stream<f32_t>> stream) = 0;
+	virtual Ref_t<Stream<f32_t>> GetStream() = 0;
 };
 
 Ref_t<Combiner> CreateCombiner();

@@ -13,24 +13,52 @@ public:
 	{
 	}
 
+	void Prepare(
+		count_t numFrames,
+		count_t numChannels,
+		f32_t sampleRate)
+	{
+		NOIS_PROFILE_SCOPE();
+
+		m_Delay.Configure(static_cast<count_t>(5.0f * sampleRate));
+
+		m_StretchTimeMsReader = m_StretchTimeMs.Get();
+		m_StretchActiveReader = m_StretchActive.Get();
+		m_StretchFactorReader = MakeRef<SmoothedStreamReader<f32_t>>(m_StretchFactor.Get(), sampleRate, 0.01f);
+		m_GrainSizeReader = MakeRef<SmoothedStreamReader<f32_t>>(m_GrainSize.Get(), sampleRate, 0.01f);
+		m_GrainBlendReader = MakeRef<SmoothedStreamReader<f32_t>>(m_GrainBlend.Get(), sampleRate, 0.01f);
+		m_GrainPhaseIncReader = MakeRef<SmoothedStreamReader<f32_t>>(m_GrainPhaseInc.Get(), sampleRate, 0.01f);
+		m_GrainLockActiveReader = m_GrainLockActive.Get();
+
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+		m_SampleRate = sampleRate;
+	}
+	
+	void Update()
+	{
+		NOIS_PROFILE_SCOPE();
+	}
+	
 	Stream::Result Process(
 		ConstFloatBufferView inBuffer,
 		FloatBufferView outBuffer)
 	{
-		NOIS_PROFILE_SCOPE();
-
-		auto stretchActiveBlock = m_StretchActive.Get();
-		auto stretchFactorBlock = m_StretchFactor.Get();
-		auto grainSizeBlock = m_GrainSize.Get();
-		auto grainBlendBlock = m_GrainBlend.Get();
-		auto grainPhaseIncBlock = m_GrainPhaseInc.Get();
-		auto grainLockActiveBlock = m_GrainLockActive.Get();
+		NOIS_PROFILE_SCOPE_NAMED("Process TimeStretcher");
 
 		for (count_t f = 0; f < m_NumFrames; ++f)
 		{
+			auto stretchTimeMs = m_StretchTimeMsReader->Next();
+			auto stretchActive = m_StretchActiveReader->Next();
+			auto grainLockActive = m_GrainLockActiveReader->Next();
+			auto stretchFactor = m_StretchFactorReader->Next();
+			auto grainSize = m_GrainSizeReader->Next();
+			auto grainBlend = m_GrainBlendReader->Next();
+			auto grainPhaseInc = m_GrainPhaseIncReader->Next();
+
 			// Enable stretch if it became active this frame
 			if (!m_IsStretchActive &&
-				stretchActiveBlock.Get(f) > 0.0f)
+				stretchActive > 0.0f)
 			{
 				for (count_t c = 0; c < m_GrainBases.size(); ++c)
 				{
@@ -44,27 +72,29 @@ public:
 					m_GrainReads[c][1] = 0.0f;
 					m_GrainPlayings[c] = 0;
 				}
+				
+				m_StetchNumFrames = static_cast<count_t>(0.001f * stretchTimeMs * m_SampleRate);
 
-				m_Delay.RunUntilFull();
+				m_Delay.RunFor(m_StetchNumFrames);
 
 				m_IsStretchActive = true;
 			}
 			// Disable stretch if it became inactive this frame
 			else if (m_IsStretchActive &&
-				stretchActiveBlock.Get(f) <= 0.0f)
+					 stretchActive <= 0.0f)
 			{
 				m_IsStretchActive = false;
 			}
 
 			// Enable grain phase lock if it became active this frame
 			if (!m_IsGrainLockActive &&
-				grainLockActiveBlock.Get(f) > 0.0f)
+				grainLockActive > 0.0f)
 			{
 				m_IsGrainLockActive = true;
 			}
 			// Disable grain phase lock if it became inactive this frame
 			else if (m_IsGrainLockActive &&
-				grainLockActiveBlock.Get(f) <= 0.0f)
+					 grainLockActive <= 0.0f)
 			{
 				m_IsGrainLockActive = false;
 			}
@@ -78,21 +108,12 @@ public:
 				// Do stretch
 				if (m_IsStretchActive)
 				{
-					f32_t stretchFactor = stretchFactorBlock.Get(f);
-					f32_t grainSize = grainSizeBlock.Get(f);
-					f32_t grainBlend = grainBlendBlock.Get(f);
-					f32_t grainPhaseInc = grainPhaseIncBlock.Get(f);
-
-					stretchFactor = std::max(stretchFactor, 1.0f);
-					grainSize = std::max(grainSize, 1.0f);
-					grainBlend = std::clamp(grainBlend, 0.0f, 0.5f);
-
 					x = DoStretch(
 						x,
 						c,
-						stretchFactor,
-						grainSize,
-						grainBlend,
+						std::max<f32_t>(stretchFactor, 1.0f),
+						std::max<f32_t>(grainSize, 1.0f),
+						std::clamp<f32_t>(grainBlend, 0.0f, 0.5f),
 						grainPhaseInc);
 				}
 
@@ -103,30 +124,7 @@ public:
 		return Stream::Success;
 	}
 
-	void Prepare(
-		count_t numFrames,
-		count_t numChannels,
-		f32_t sampleRate)
-	{
-		NOIS_PROFILE_SCOPE();
-
-		bool stretchTimeMsChanged = m_StretchTimeMs.PollChanged();
-
-		if (m_SampleRate != sampleRate ||
-			m_NumChannels != numChannels ||
-			stretchTimeMsChanged)
-		{
-			const f32_t stretchTimeMs = m_StretchTimeMs.Get();
-			m_StetchNumFrames = (stretchTimeMs * sampleRate) / 1000.0f;
-			m_Delay.Configure(static_cast<count_t>(m_StetchNumFrames));
-		}
-
-		m_NumFrames = numFrames;
-		m_NumChannels = numChannels;
-		m_SampleRate = sampleRate;
-	}
-
-	void SetStretchTimeMs(Ref_t<FloatBlockParameter> stretchTimeMs)
+	void SetStretchTimeMs(Ref_t<FloatParameter> stretchTimeMs)
 	{
 		m_StretchTimeMs.Use(stretchTimeMs);
 	}
@@ -293,19 +291,27 @@ private:
 	}
 
 private:
-	FloatSlotBlockParameter m_StretchTimeMs = { 5000.0f, 50.0f, 25000.0f };
-	FloatSlotParameter m_StretchActive = 0.0f;
-	FloatSlotParameter m_StretchFactor = 1.0f;
-	FloatSlotParameter m_GrainSize = 2500.0f;
-	FloatSlotParameter m_GrainBlend = 0.5f;
-	FloatSlotParameter m_GrainPhaseInc = 1.0f;
-	FloatSlotParameter m_GrainLockActive = 0.0f;
+	ParameterSlot<f32_t> m_StretchTimeMs = 5000.0f;
+	ParameterSlot<f32_t> m_StretchActive = 0.0f;
+	ParameterSlot<f32_t> m_StretchFactor = 1.0f;
+	ParameterSlot<f32_t> m_GrainSize = 2500.0f;
+	ParameterSlot<f32_t> m_GrainBlend = 0.5f;
+	ParameterSlot<f32_t> m_GrainPhaseInc = 1.0f;
+	ParameterSlot<f32_t> m_GrainLockActive = 0.0f;
+
+	Ref_t<IStreamReader<f32_t>> m_StretchTimeMsReader = nullptr;
+	Ref_t<IStreamReader<f32_t>> m_StretchActiveReader = nullptr;
+	Ref_t<IStreamReader<f32_t>> m_StretchFactorReader = nullptr;
+	Ref_t<IStreamReader<f32_t>> m_GrainSizeReader = nullptr;
+	Ref_t<IStreamReader<f32_t>> m_GrainBlendReader = nullptr;
+	Ref_t<IStreamReader<f32_t>> m_GrainPhaseIncReader = nullptr;
+	Ref_t<IStreamReader<f32_t>> m_GrainLockActiveReader = nullptr;
 
 	bool m_IsStretchActive = false;
 	bool m_IsGrainLockActive = false;
-	std::array<std::array<f32_t, 2>, k_MaxChannels> m_Phases = { {0.0f, -1.0f} };
-	std::array<std::array<f32_t, 2>, k_MaxChannels> m_Grains = { {0.0f, 0.0f} };
-	std::array<std::array<f32_t, 2>, k_MaxChannels> m_GrainReads = { {0.0f, 0.0f} };
+	std::array<std::array<f32_t, 2>, k_MaxChannels> m_Phases;
+	std::array<std::array<f32_t, 2>, k_MaxChannels> m_Grains;
+	std::array<std::array<f32_t, 2>, k_MaxChannels> m_GrainReads;
 	std::array<count_t, k_MaxChannels> m_GrainPlayings = { 0 };
 	std::array<count_t, k_MaxChannels> m_GrainBases = { 0 };
 	f32_t m_StetchNumFrames = 0.0f;
@@ -322,7 +328,7 @@ Ref_t<TimeStretcher> TimeStretcher::Create()
 }
 
 NOIS_INTERFACE_IMPL(TimeStretcher)
-NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchTimeMs, FloatBlockParameter)
+NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchTimeMs, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchActive, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, StretchFactor, FloatParameter)
 NOIS_INTERFACE_PARAM_IMPL(TimeStretcher, GrainSize, FloatParameter)

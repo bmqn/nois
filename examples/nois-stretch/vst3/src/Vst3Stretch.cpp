@@ -171,30 +171,30 @@ public:
 		mGrainLockActive = CreateParameter<parameter::GrainLockActive>();
 
 		auto stretchTimeMs =
-			CreateBlockTransformer(
+			CreateTransformer(
 				[](nois::f32_t bpm, nois::f32_t length)
 				{
 					int lengthClamped = std::clamp(static_cast<int>(length), 0, 7);
 					NoteDivision division = static_cast<NoteDivision>(lengthClamped);
 					return (60000.0f / bpm) * DivisionToBeats(division);
 				},
-				GetBlockTempo(),
+				GetTempo(),
 				*mStretchLength);
 
 		auto grainSize =
-			mGrainSize->Transform(
-				[this](nois::f32_t x, nois::count_t)
+			(*mGrainSize)->Transform(
+				[this](nois::f32_t x)
 				{
 					return (x / 1000.0f) * mSampleRate;
 				});
 		auto grainBlendNormalized =
-			mGrainBlend->Transform(
-				[](nois::f32_t x, nois::count_t)
+			(*mGrainBlend)->Transform(
+				[](nois::f32_t x)
 				{
 					return x / 2.0f;
 				});
 
-		mTimeStretcher = nois::TimeStretcher::Create();
+		mTimeStretcher = CreateStream<nois::TimeStretcher>();
 		mTimeStretcher->SetStretchTimeMs(stretchTimeMs);
 		mTimeStretcher->SetStretchActive(*mStretchActive);
 		mTimeStretcher->SetStretchFactor(*mStretchFactor);
@@ -202,26 +202,6 @@ public:
 		mTimeStretcher->SetGrainBlend(grainBlendNormalized);
 		mTimeStretcher->SetGrainPhaseInc(*mGrainPhaseInc);
 		mTimeStretcher->SetGrainLockActive(*mGrainLockActive);
-	}
-
-protected:
-	void Process(
-		nois::ConstFloatBufferView sourceBuffer,
-		nois::FloatBufferView sinkBuffer) override
-	{
-		{
-			NOIS_PROFILE_SCOPE_NAMED("Prepare processors");
-
-			mTimeStretcher->Prepare(sourceBuffer.GetNumFrames(), sourceBuffer.GetNumChannels(), mSampleRate);
-		}
-
-		{
-			nois::ScopedNoDenorms noDenorms;
-
-			NOIS_PROFILE_SCOPE_NAMED("Process processors");
-
-			mTimeStretcher->Process(sourceBuffer, sinkBuffer);
-		}
 	}
 
 private:

@@ -5,11 +5,9 @@
 
 namespace nois {
 
-class Gainer : public ProcessStream
+class Gainer : public Stream<f32_t>
 {
 public:
-	static Ref_t<Gainer> Create();
-
 	NOIS_INTERFACE(Gainer)
 	NOIS_INTERFACE_PARAM(Gain, FloatParameter)
 };

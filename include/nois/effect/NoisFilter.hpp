@@ -5,7 +5,7 @@
 
 namespace nois {
 
-class Filter : public ProcessStream
+class Filter : public Stream<f32_t>
 {
 public:
 	enum Kind
@@ -24,7 +24,7 @@ public:
 	f32_t GetResponseMagnitude(f32_t ratio) const;
 };
 
-class BandpassFilter : public ProcessStream
+class BandpassFilter : public Stream<f32_t>
 {
 public:
 	enum Kind
@@ -42,7 +42,7 @@ public:
 	f32_t GetResponseMagnitude(f32_t ratio) const;
 };
 
-class AllpassFilter : public ProcessStream
+class AllpassFilter : public Stream<f32_t>
 {
 public:
 	enum Kind

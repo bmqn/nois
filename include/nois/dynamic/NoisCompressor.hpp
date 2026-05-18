@@ -5,11 +5,9 @@
 
 namespace nois {
 
-class Compressor : public ProcessStream
+class Compressor : public Stream<f32_t>
 {
 public:
-	static Ref_t<Compressor> Create();
-
 	NOIS_INTERFACE(Compressor)
 	NOIS_INTERFACE_PARAM(Ratio, FloatBlockParameter)
 	NOIS_INTERFACE_PARAM(ThresholdDb, FloatBlockParameter)

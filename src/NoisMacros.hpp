@@ -18,13 +18,17 @@
 	: m_Impl(std::move(impl)) \
 	{ \
 	} \
-	Stream::Result _class::Process(ConstFloatBufferView inBuffer, FloatBufferView outBuffer) \
-	{ \
-		return m_Impl->Process(inBuffer, outBuffer); \
-	} \
 	void _class::Prepare(count_t numFrames, count_t numChannels, f32_t sampleRate) \
 	{ \
 		m_Impl->Prepare(numFrames, numChannels, sampleRate); \
+	} \
+	void _class::Update() \
+	{ \
+		m_Impl->Update(); \
+	} \
+	Stream<f32_t>::Result _class::Process(ConstFloatBufferView inBuffer, FloatBufferView outBuffer) \
+	{ \
+		return m_Impl->Process(inBuffer, outBuffer); \
 	}
 
 #define NOIS_INTERFACE_PARAM_IMPL(_class, _name, _type) \

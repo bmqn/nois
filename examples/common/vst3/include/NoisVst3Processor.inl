@@ -16,22 +16,14 @@ NoisVstProcessor<T, C>::NoisVstProcessor()
 	, mSinkBuffer()
 	, mParameters()
 	, mTempoParameter(nullptr)
-	, mTempoBlockParameter(nullptr)
 {
 	setControllerClass(C::kUid);
 
-	mTempoParameter = mRegistry.CreateBinder(
-		[this](nois::count_t)
-		{
-			return mTempo;
-		});
-	mTempoBlockParameter = mRegistry.CreateBlockBinder(
+	mTempoParameter = mRegistry.CreateBlockBinder(
 		[this]()
 		{
 			return mTempo;
-		},
-		0.0f,
-		1000.0f);
+		});
 }
 
 template<typename T, typename C>
@@ -188,99 +180,100 @@ tresult PLUGIN_API NoisVstProcessor<T, C>::process(Vst::ProcessData& data)
 				{
 					continue;
 				}
-				Vst::ParamID pid = queue->getParameterId();
-				auto it = mParameters.find(pid);
-				if (it == mParameters.end())
+
+				NoisVstProcessorParameter* parameter = nullptr;
+				if (auto it = mParameters.find(queue->getParameterId()); it == mParameters.end())
 				{
 					continue;
 				}
-				auto& parameter = it->second;
-				nois::count_t currentSampleOffset = 0;
-				nois::f32_t lastValuePlain = parameter->GetLastPlain();
+				else
+				{
+					parameter = it->second;
+				}
+
 				int32 numPoints = queue->getPointCount();
+
+				nois::count_t currentSampleOffset = 0;
+				nois::f32_t currentValue = parameter->GetLastPlain();
+
 				for (int j = 0; j < numPoints; ++j)
 				{
 					int32 sampleOffset;
 					Vst::ParamValue valueNormalized;
-					if (queue->getPoint(j, sampleOffset, valueNormalized) == kResultTrue)
+
+					if (queue->getPoint(j, sampleOffset, valueNormalized) != kResultTrue)
 					{
-						nois::f32_t valuePlain =
-							parameter->ToPlain(valueNormalized);
-						nois::count_t nextSampleOffset =
-							sampleOffset == 0
-							? data.numSamples
-							: sampleOffset;
-						nois::count_t prevSampleOffset =
-							currentSampleOffset;
-						for (;
-							currentSampleOffset <= nextSampleOffset &&
-							currentSampleOffset < data.numSamples;
-							++currentSampleOffset)
-						{
-							if (nextSampleOffset == prevSampleOffset)
-							{
-								parameter->WritePlain(
-									currentSampleOffset,
-									valuePlain);
-							}
-							else
-							{
-								nois::f32_t t =
-									nois::f32_t(currentSampleOffset - prevSampleOffset) /
-									nois::f32_t(nextSampleOffset - prevSampleOffset);
-								parameter->WritePlain(
-									currentSampleOffset,
-									lastValuePlain +
-									(valuePlain - lastValuePlain) * t);
-							}
-						}
-						lastValuePlain = valuePlain;
+						continue;
 					}
+
+					for (; currentSampleOffset < sampleOffset &&
+						currentSampleOffset < data.numSamples;
+						++currentSampleOffset)
+					{
+						parameter->WritePlain(
+							currentSampleOffset,
+							currentValue);
+					}
+
+					nois::f32_t nextValue =
+						parameter->ToPlain(valueNormalized);
+
+					if (sampleOffset < data.numSamples)
+					{
+						parameter->WritePlain(
+							sampleOffset,
+							nextValue);
+					}
+
+					currentSampleOffset = sampleOffset + 1;
+					currentValue = nextValue;
+				}
+
+				for (; currentSampleOffset < data.numSamples;
+					++currentSampleOffset)
+				{
+					parameter->WritePlain(
+						currentSampleOffset,
+						currentValue);
 				}
 			}
 		}
 	}
 
 	{
-		NOIS_PROFILE_SCOPE_NAMED("Prepare parameters");
+		NOIS_PROFILE_SCOPE_NAMED("Run");
+		
+		auto& inSource = data.inputs[0];
+		auto& outSink = data.outputs[0];
 
-		mRegistry.Prepare(data.numSamples, mSampleRate);
-	}
-
-	auto& inSource = data.inputs[0];
-	auto& outSink = data.outputs[0];
-
-	mSourceBuffer.Resize(data.numSamples, inSource.numChannels);
-	mSinkBuffer.Resize(data.numSamples, outSink.numChannels);
-
-	{
-		NOIS_PROFILE_SCOPE_NAMED("Read from source");
-
-		for (int c = 0; c < inSource.numChannels; ++c)
+		mSourceBuffer.Resize(data.numSamples, inSource.numChannels);
+		mSinkBuffer.Resize(data.numSamples, outSink.numChannels);
+		
 		{
-			const float* samples = inSource.channelBuffers32[c];
-			for (int f = 0; f < data.numSamples; ++f)
+			NOIS_PROFILE_SCOPE_NAMED("Read from source");
+
+			for (int c = 0; c < inSource.numChannels; ++c)
 			{
-				mSourceBuffer(f, c) = samples[f];
+				const float* samples = inSource.channelBuffers32[c];
+				for (int f = 0; f < data.numSamples; ++f)
+				{
+					mSourceBuffer(f, c) = samples[f];
+				}
 			}
 		}
-	}
 
-	{
-		NOIS_PROFILE_SCOPE_NAMED("Process");
-
-		Process(mSourceBuffer, mSinkBuffer);
-	}
-	
-	{
-		NOIS_PROFILE_SCOPE_NAMED("Write to sink");
-
-		for (int c = 0; c < outSink.numChannels; ++c)
+		mRegistry.Run(mSourceBuffer, mSinkBuffer, mSampleRate);
+		
 		{
-			float* samples = outSink.channelBuffers32[c];
-			for (int f = 0; f < data.numSamples; ++f)
+			NOIS_PROFILE_SCOPE_NAMED("Write to sink");
+
+			for (int c = 0; c < outSink.numChannels; ++c)
 			{
-				samples[f] = mSinkBuffer(f, c);
+				float* samples = outSink.channelBuffers32[c];
+				for (int f = 0; f < data.numSamples; ++f)
+				{
+					samples[f] = mSinkBuffer(f, c);
+				}
 			}
 		}
 	}
@@ -298,15 +291,10 @@ auto NoisVstProcessor<T, C>::CreateParameter() -> nois::Own_t<NoisVstProcessorPa
 }
 
 template<typename T, typename C>
-auto NoisVstProcessor<T, C>::CreateConstant(nois::f32_t value) -> nois::Ref_t<nois::FloatParameter>
+template<typename Strm>
+auto NoisVstProcessor<T, C>::CreateStream() -> nois::Ref_t<Strm>
 {
-	return mRegistry.CreateConstant(value);
-}
-
-template<typename T, typename C>
-auto NoisVstProcessor<T, C>::CreateBlockConstant(nois::f32_t value) -> nois::Ref_t<nois::FloatBlockParameter>
-{
-	return mRegistry.CreateBlockConstant(value);
+	return mRegistry.CreateStream<Strm>();
 }
 
 template<typename T, typename C>
@@ -317,22 +305,9 @@ auto NoisVstProcessor<T, C>::CreateTransformer(F&& transformer, Params&&... tran
 }
 
 template<typename T, typename C>
-template<typename F, typename... Params>
-auto NoisVstProcessor<T, C>::CreateBlockTransformer(F&& transformer, Params&&... transformees) -> nois::Ref_t<nois::FloatBlockParameter>
-{
-	return mRegistry.CreateBlockTransformer(std::forward<F>(transformer), std::forward<Params>(transformees)...);
-}
-
-template<typename T, typename C>
 auto NoisVstProcessor<T, C>::GetTempo() -> nois::Ref_t<nois::FloatParameter>
 {
 	return mTempoParameter;
-}
-
-template<typename T, typename C>
-auto NoisVstProcessor<T, C>::GetBlockTempo() -> nois::Ref_t<nois::FloatBlockParameter>
-{
-	return mTempoBlockParameter;
 }
 
 template<typename T>

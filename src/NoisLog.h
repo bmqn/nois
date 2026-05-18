@@ -7,7 +7,7 @@
 //	Utility
 //-------------------------------------------------------------------------------------------------
 #define _NZ_STRINGIFY(x) #x
-#define NZ_STRINGIFY(x) _STRINGIFY(x)
+#define NZ_STRINGIFY(x) _NZ_STRINGIFY(x)
 
 #define _NZ_EXPAND(x) x
 

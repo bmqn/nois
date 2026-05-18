@@ -4,11 +4,9 @@
 #include "nois/core/NoisStream.hpp"
 
 namespace nois {
-class DynamicTanhDistorter : public ProcessStream
+class DynamicTanhDistorter : public Stream<f32_t>
 {
 public:
-	static Ref_t<DynamicTanhDistorter> Create();
-
 	NOIS_INTERFACE(DynamicTanhDistorter)
 	NOIS_INTERFACE_PARAM(DriveDb, FloatBlockParameter)
 	NOIS_INTERFACE_PARAM(MakeupDb, FloatBlockParameter)

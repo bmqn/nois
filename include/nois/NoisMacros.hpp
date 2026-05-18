@@ -58,8 +58,10 @@
 	_name(_name&&) noexcept = delete; \
 	_name& operator=(const _name&) = delete; \
 	_name& operator=(_name&&) noexcept = delete; \
-	Stream::Result Process(ConstFloatBufferView, FloatBufferView) override final; \
+	static Ref_t<_name> Create(); \
 	void Prepare(count_t, count_t, f32_t) override final; \
+	void Update() override final; \
+	Stream::Result Process(ConstFloatBufferView, FloatBufferView) override final; \
 	private: \
 	Own_t<Impl> m_Impl;
 

@@ -30,19 +30,7 @@ public:
 	virtual nois::f32_t GetLastPlain() const = 0;
 
 	virtual operator nois::Ref_t<nois::FloatParameter>() = 0;
-	virtual operator nois::Ref_t<nois::FloatBlockParameter>() = 0;
-
-	template<typename F>
-	nois::Ref_t<nois::FloatParameter> Transform(F&& transformer)
-	{
-		return operator nois::Ref_t<nois::FloatParameter>()->Transform(std::move(transformer));
-	}
-
-	template<typename F>
-	nois::Ref_t<nois::FloatBlockParameter> TransformBlock(F&& transformer)
-	{
-		return operator nois::Ref_t<nois::FloatBlockParameter>()->TransformBlock(std::move(transformer));
-	}
+	virtual nois::FloatParameter* operator->() = 0;
 
 public:
 	template<typename Param>
@@ -197,23 +185,14 @@ public:
 		, mSampleRate(0.0f)
 		, mRegistry(registry)
 		, mParameter(nullptr)
-		, mBlockParameter(nullptr)
 		, mNextValue(std::nullopt)
 		, mValues()
 	{
-		mParameter = mRegistry.CreateBinder(
+		mParameter = mRegistry.CreateSampleBinder(
 			[this](nois::count_t f)
 			{
 				return GetValue(f);
 			});
-
-		mBlockParameter = mRegistry.CreateBlockBinder(
-			[this]()
-			{
-				return GetBlockValue();
-			},
-			Param::kMinValue,
-			Param::kMaxValue);
 	}
 
 	Vst::ParamID GetPid() const override final
@@ -248,11 +227,11 @@ public:
 			mValues.resize(numFrames, lastPlain);
 		}
 
-		if (mNextValue)
-		{
-			std::fill(mValues.begin(), mValues.end(), *mNextValue);
-			mNextValue = std::nullopt;
-		}
+		nois::f32_t fillPlain = mNextValue.value_or(lastPlain);
+		mNextValue = std::nullopt;
+
+		// TODO: move me to setup parameters stage
+		std::fill(mValues.begin(), mValues.end(), fillPlain);
 
 		mNumFrames = numFrames;
 		mSampleRate = sampleRate;
@@ -285,10 +264,10 @@ public:
 	{
 		return mParameter;
 	}
-
-	operator nois::Ref_t<nois::FloatBlockParameter>() override final
+	
+	nois::FloatParameter* operator->() override final
 	{
-		return mBlockParameter;
+		return mParameter.get();
 	}
 
 private:
@@ -297,17 +276,11 @@ private:
 		return mValues[f];
 	}
 
-	nois::f32_t GetBlockValue() const
-	{
-		return mValues.back();
-	}
-
 private:
 	nois::count_t mNumFrames;
 	nois::f32_t mSampleRate;
 	nois::FloatRegistry& mRegistry;
 	nois::Ref_t<nois::FloatParameter> mParameter;
-	nois::Ref_t<nois::FloatBlockParameter> mBlockParameter;
 	std::optional<nois::f32_t> mNextValue;
 	std::vector<nois::f32_t> mValues;
 };

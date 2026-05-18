@@ -35,12 +35,6 @@ inline Ref_t<T> MakeRef(Args &&...args)
 	return std::make_shared<T>(std::forward<Args>(args)...);
 }
 
-template<typename T, typename U>
-inline Ref_t<T> StaticRefCast(Ref_t<U> ptr)
-{
-	return std::static_pointer_cast<T>(ptr);
-}
-
 template<typename T>
 using Own_t = std::unique_ptr<T>;
 

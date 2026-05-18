@@ -5,7 +5,7 @@
 
 namespace nois {
 
-class FilterBank : public ProcessStream
+class FilterBank : public Stream<f32_t>
 {
 public:
 	static Ref_t<FilterBank> Create(

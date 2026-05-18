@@ -83,15 +83,15 @@ set(NOIS_SRC
 
 	# "${NOIS_SRC_DIR}/analysis/NoisFilterBank.cpp"
 
-	"${NOIS_SRC_DIR}/dynamic/NoisCompressor.cpp"
-	"${NOIS_SRC_DIR}/dynamic/NoisExpander.cpp"
-	"${NOIS_SRC_DIR}/dynamic/NoisTransientShaper.cpp"
+	# "${NOIS_SRC_DIR}/dynamic/NoisCompressor.cpp"
+	# "${NOIS_SRC_DIR}/dynamic/NoisExpander.cpp"
+	# "${NOIS_SRC_DIR}/dynamic/NoisTransientShaper.cpp"
 
-	"${NOIS_SRC_DIR}/effect/NoisDistorter.cpp"
-	"${NOIS_SRC_DIR}/effect/NoisFilter.cpp"
-	"${NOIS_SRC_DIR}/effect/NoisGainer.cpp"
-	"${NOIS_SRC_DIR}/effect/NoisReverb.cpp"
-	"${NOIS_SRC_DIR}/effect/NoisSignalDelayer.cpp"
+	# "${NOIS_SRC_DIR}/effect/NoisDistorter.cpp"
+	# "${NOIS_SRC_DIR}/effect/NoisFilter.cpp"
+	# "${NOIS_SRC_DIR}/effect/NoisGainer.cpp"
+	# "${NOIS_SRC_DIR}/effect/NoisReverb.cpp"
+	# "${NOIS_SRC_DIR}/effect/NoisSignalDelayer.cpp"
 	"${NOIS_SRC_DIR}/effect/NoisTimeStretcher.cpp"
 
 	"${NOIS_SRC_DIR}/memory/NoisAllocator.cpp"

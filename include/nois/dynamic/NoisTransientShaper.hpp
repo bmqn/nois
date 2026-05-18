@@ -5,11 +5,9 @@
 
 namespace nois {
 
-class TransientShaper : public ProcessStream
+class TransientShaper : public Stream<f32_t>
 {
 public:
-	static Ref_t<TransientShaper> Create();
-
 	NOIS_INTERFACE(TransientShaper)
 	NOIS_INTERFACE_PARAM(AttackRatio, FloatBlockParameter)
 	NOIS_INTERFACE_PARAM(SustainRatio, FloatBlockParameter)
@@ -18,11 +16,9 @@ public:
 	NOIS_INTERFACE_PARAM(Smoothing, FloatBlockParameter)
 };
 
-class MultibandTransientShaper : public ProcessStream
+class MultibandTransientShaper : public Stream<f32_t>
 {
 public:
-	static Ref_t<MultibandTransientShaper> Create();
-
 	NOIS_INTERFACE(MultibandTransientShaper)
 	NOIS_INTERFACE_PARAM(AttackRatio, FloatBlockParameter)
 	NOIS_INTERFACE_PARAM(SustainRatio, FloatBlockParameter)

@@ -5,11 +5,9 @@
 
 namespace nois {
 
-class Expander : public ProcessStream
+class Expander : public Stream<f32_t>
 {
 public:
-	static Ref_t<Expander> Create();
-
 	NOIS_INTERFACE(Expander)
 	NOIS_INTERFACE_PARAM(Ratio, FloatBlockParameter)
 	NOIS_INTERFACE_PARAM(ThresholdDb, FloatBlockParameter)

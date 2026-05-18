@@ -1,7 +1,8 @@
 #pragma once
 
 #include "nois/NoisTypes.hpp"
-#include "nois/util/NoisSmallVector.hpp"
+#include "nois/core/NoisParameter.hpp"
+#include "nois/core/NoisStream.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -26,49 +27,30 @@ private:
 		Visited
 	};
 
-	template <typename P>
-	struct Node
+	struct ParameterNode
 	{
-		Ref_t<P> parameter = nullptr;
+		Ref_t<Parameter<T>> object = nullptr;
 		std::vector<size_t> dependencies;
 		NodeState state = NodeState::Unvisited;
 	};
+	
+	struct StreamNode
+	{
+		Ref_t<Stream<T>> object = nullptr;
+		std::vector<size_t> dependencies;
+		NodeState state = NodeState::Unvisited;
+		Buffer<T> buffer;
+	};
 
 public:
-	Ref_t<Parameter<T>> CreateConstant(T value)
-	{
-		auto parameter = MakeRef<ConstantParameter<T>>(value);
-		parameter->mRegistry = this;
-		
-		Node<Parameter<T>> node;
-		node.parameter = parameter;
-		m_ParameterNodes.emplace_back(node);
-		m_ParameterLookup.emplace(parameter, m_ParameterNodes.size() - 1);
-
-		return parameter;
-	}
-
-	Ref_t<BlockParameter<T>> CreateBlockConstant(T value)
-	{
-		auto parameter = MakeRef<ConstantBlockParameter<T>>(value);
-		parameter->mRegistry = this;
-		
-		Node<BlockParameter<T>> node;
-		node.parameter = parameter;
-		m_BlockParameterNodes.emplace_back(node);
-		m_BlockParameterLookup.emplace(parameter, m_BlockParameterNodes.size() - 1);
-
-		return parameter;
-	}
-
 	template<typename F>
-	Ref_t<Parameter<T>> CreateBinder(F&& binder)
+	Ref_t<SampleParameter<T>> CreateSampleBinder(F&& binder)
 	{
-		auto parameter = MakeRef<BinderParameter<T, F>>(std::move(binder));
+		auto parameter = MakeRef<BinderSampleParameter<T, F>>(std::move(binder));
 		parameter->mRegistry = this;
 		
-		Node<Parameter<T>> node;
-		node.parameter = parameter;
+		ParameterNode node;
+		node.object = parameter;
 		m_ParameterNodes.emplace_back(node);
 		m_ParameterLookup.emplace(parameter, m_ParameterNodes.size() - 1);
 
@@ -76,15 +58,15 @@ public:
 	}
 
 	template<typename F>
-	Ref_t<BlockParameter<T>> CreateBlockBinder(F&& binder, T min, T max)
+	Ref_t<BlockParameter<T>> CreateBlockBinder(F&& binder)
 	{
-		auto parameter = MakeRef<BinderBlockParameter<T, F>>(std::move(binder), min, max);
+		auto parameter = MakeRef<BinderBlockParameter<T, F>>(std::move(binder));
 		parameter->mRegistry = this;
 		
-		Node<BlockParameter<T>> node;
-		node.parameter = parameter;
-		m_BlockParameterNodes.emplace_back(node);
-		m_BlockParameterLookup.emplace(parameter, m_BlockParameterNodes.size() - 1);
+		ParameterNode node;
+		node.object = parameter;
+		m_ParameterNodes.emplace_back(node);
+		m_ParameterLookup.emplace(parameter, m_ParameterNodes.size() - 1);
 
 		return parameter;
 	}
@@ -92,7 +74,7 @@ public:
 	template<typename F, typename... Params>
 	Ref_t<Parameter<T>> CreateTransformer(F&& transformer, Params&&... transformees)
 	{
-		Node<Parameter<T>> node;
+		ParameterNode node;
 
 		// Add the dependencies
 		(node.dependencies.emplace_back(m_ParameterLookup[transformees]), ...);
@@ -101,41 +83,126 @@ public:
 			MakeRef<TransformerParameter<T, std::decay_t<F>, Params...>>(
 				std::forward<F>(transformer),
 				std::forward<Params>(transformees)...);
-
 		parameter->mRegistry = this;
 
-		node.parameter = parameter;
+		node.object = parameter;
 		m_ParameterNodes.emplace_back(node);
 		m_ParameterLookup.emplace(parameter, m_ParameterNodes.size() - 1);
 
 		return parameter;
 	}
-
-	template<typename F, typename... Params>
-	Ref_t<BlockParameter<T>> CreateBlockTransformer(F&& transformer, Params&&... transformees)
+	
+	template<typename S, typename... Args>
+	Ref_t<S> CreateStream(Args&&... args)
 	{
-		// TODO: type the transformer function to also provide min/max etc.
+		auto stream =
+			S::Create(
+				std::forward<Args>(args)...);
+		stream->mRegistry = this;
 
-		Node<BlockParameter<T>> node;
+		StreamNode node;
+		node.object = stream;
+		
+		m_StreamNodes.emplace_back(node);
+		m_StreamLookup.emplace(stream, m_StreamNodes.size() - 1);
 
-		// Add the dependencies
-		(node.dependencies.emplace_back(m_BlockParameterLookup[transformees]), ...);
-
-		auto parameter =
-			MakeRef<TransformerBlockParameter<T, std::decay_t<F>, Params...>>(
-				std::forward<F>(transformer),
-				std::forward<Params>(transformees)...);
-
-		parameter->mRegistry = this;
-
-		node.parameter = parameter;
-		m_BlockParameterNodes.emplace_back(node);
-		m_BlockParameterLookup.emplace(parameter, m_BlockParameterNodes.size() - 1);
-
-		return parameter;
+		return stream;
 	}
 
-	void PrepareParameterVisit(Node<Parameter<T>>* node, count_t numFrames, f32_t sampleRate)
+	void Run(ConstBufferView<T> inBuffer, BufferView<T> outBuffer, f32_t sampleRate)
+	{
+		NOIS_PROFILE_SCOPE_NAMED("Run Graph");
+		
+		count_t numFrames = inBuffer.GetNumFrames();
+		count_t numChannels = inBuffer.GetNumChannels();
+		
+		{
+			NOIS_PROFILE_SCOPE_NAMED("Update Parameters");
+			
+			// TODO: prepare when MetaParameter changes
+			bool doPrepare =
+				numFrames != m_NumFrames ||
+				sampleRate != m_SampleRate;
+			
+			for (auto& node : m_ParameterNodes)
+			{
+				node.state = NodeState::Unvisited;
+			}
+			
+			for (auto& node : m_ParameterNodes)
+			{
+				ParameterUpdateVisit(
+					&node,
+					numFrames,
+					sampleRate,
+					doPrepare);
+			}
+		}
+		
+		{
+			NOIS_PROFILE_SCOPE_NAMED("Update Streams");
+			
+			bool doPrepare =
+				numFrames != m_NumFrames ||
+				numChannels != m_NumChannels ||
+				sampleRate != m_SampleRate;
+			
+			for (auto& node : m_StreamNodes)
+			{
+				node.state = NodeState::Unvisited;
+			}
+			
+			for (auto& node : m_StreamNodes)
+			{
+				StreamUpdateVisit(
+					&node,
+					numFrames,
+					numChannels,
+					sampleRate,
+					doPrepare);
+			}
+		}
+		
+		{
+			NOIS_PROFILE_SCOPE_NAMED("Process");
+			
+			ScopedNoDenorms noDenorms;
+			
+			for (auto& node : m_StreamNodes)
+			{
+				node.state = NodeState::Unvisited;
+			}
+			
+			for (auto& node : m_StreamNodes)
+			{
+				StreamProcessVisit(
+					&node,
+					inBuffer);
+			}
+			
+			if (m_SinkIndex < m_StreamNodes.size())
+			{
+				outBuffer.Copy(m_StreamNodes[m_SinkIndex].buffer);
+			}
+		}
+		
+		m_NumFrames = numFrames;
+		m_NumChannels = numChannels;
+		m_SampleRate = sampleRate;
+	}
+	
+	void SetSoure(Ref_t<Stream<T>> stream)
+	{
+		m_SourceIndex = m_StreamLookup[stream];
+	}
+	
+	void SetSink(Ref_t<Stream<T>> stream)
+	{
+		m_SinkIndex = m_StreamLookup[stream];
+	}
+	
+private:
+	void ParameterUpdateVisit(ParameterNode* node, count_t numFrames, f32_t sampleRate, bool doPrepare)
 	{
 		if (node->state == NodeState::Visited)
 		{
@@ -144,14 +211,20 @@ public:
 
 		for (auto index : node->dependencies)
 		{
-			PrepareParameterVisit(&m_ParameterNodes[index], numFrames, sampleRate);
+			ParameterUpdateVisit(&m_ParameterNodes[index], numFrames, sampleRate, doPrepare);
 		}
 
-		node->parameter->Prepare(numFrames, sampleRate);
+		if (doPrepare)
+		{
+			node->object->Prepare(numFrames, sampleRate);
+		}
+
+		node->object->Update();
+		
 		node->state = NodeState::Visited;
 	}
-
-	void PrepareBlockParameterVisit(Node<BlockParameter<T>>* node, f32_t sampleRate)
+	
+	void StreamUpdateVisit(StreamNode* node, count_t numFrames, count_t numChannels, f32_t sampleRate, bool doPrepare)
 	{
 		if (node->state == NodeState::Visited)
 		{
@@ -160,42 +233,66 @@ public:
 
 		for (auto index : node->dependencies)
 		{
-			PrepareBlockParameterVisit(&m_BlockParameterNodes[index], sampleRate);
+			StreamUpdateVisit(&m_StreamNodes[index], numFrames, numChannels, sampleRate, doPrepare);
 		}
 
-		node->parameter->Prepare(sampleRate);
-		node->state = NodeState::Visited;
+		if (doPrepare)
+		{
+			node->buffer.Resize(numFrames, numChannels);
+			node->object->Prepare(numFrames, numChannels, sampleRate);
+		}
+		
+		node->object->Update();
 	}
-
-	void Prepare(count_t numFrames, f32_t sampleRate)
+	
+	Stream<T>::Result StreamProcessVisit(StreamNode* node, ConstBufferView<T> inBuffer)
 	{
-		for (auto& node : m_ParameterNodes)
+		if (node->state == NodeState::Visited)
 		{
-			node.state = NodeState::Unvisited;
+			return Stream<T>::Success;
 		}
 
-		for (auto& node : m_BlockParameterNodes)
+		typename Stream<T>::Result result = Stream<T>::Success;
+		
+		for (auto index : node->dependencies)
 		{
-			node.state = NodeState::Unvisited;
+			result = StreamProcessVisit(&m_StreamNodes[index], inBuffer);
+
+			if (result != Stream<T>::Success)
+			{
+				break;
+			}
 		}
 
-		for (auto& node : m_ParameterNodes)
+		if (node->dependencies.empty())
 		{
-			PrepareParameterVisit(&node, numFrames, sampleRate);
+			result = node->object->Process(inBuffer, node->buffer);
 		}
+		else
+		{
+			// TODO: mix multiple dependencies?
+			auto& upstreamNode = m_StreamNodes[node->dependencies.front()];
 
-		for (auto& node : m_BlockParameterNodes)
-		{
-			PrepareBlockParameterVisit(&node, sampleRate);
+			result = node->object->Process(upstreamNode.buffer, node->buffer);
 		}
+		
+		node->state = NodeState::Visited;
+		
+		return result;
 	}
 
 private:
-	SmallVector<Node<Parameter<T>>, 64> m_ParameterNodes;
-	std::unordered_map<Ref_t<Parameter<T>>, size_t> m_ParameterLookup;
+	count_t m_NumFrames;
+	count_t m_NumChannels;
+	f32_t m_SampleRate;
 
-	SmallVector<Node<BlockParameter<T>>, 64> m_BlockParameterNodes;
-	std::unordered_map<Ref_t<BlockParameter<T>>, size_t> m_BlockParameterLookup;
+	std::vector<ParameterNode> m_ParameterNodes;
+	std::unordered_map<Ref_t<Parameter<T>>, size_t> m_ParameterLookup;
+	
+	std::vector<StreamNode> m_StreamNodes;
+	std::unordered_map<Ref_t<Stream<T>>, size_t> m_StreamLookup;
+	size_t m_SourceIndex;
+	size_t m_SinkIndex;
 };
 
 } // namespace nois

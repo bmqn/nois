@@ -5,11 +5,8 @@
 
 namespace nois {
 
-class SignalDelayer : public ProcessStream
+class SignalDelayer : public Stream<f32_t>
 {
-public:
-	static Ref_t<SignalDelayer> Create();
-
 public:
 	NOIS_INTERFACE(SignalDelayer)
 	NOIS_INTERFACE_PARAM(DelayMs, FloatBlockParameter)

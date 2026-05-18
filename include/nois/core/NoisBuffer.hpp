@@ -6,6 +6,33 @@
 #include "nois/memory/NoisAllocator.hpp"
 #include "nois/util/NoisSmallVector.hpp"
 
+//#include <umm_malloc.h>
+//
+//template <typename T>
+//struct SdramAllocator
+//{
+//	using value_type = T;
+//
+//	SdramAllocator() noexcept = default;
+//
+//	template <typename U>
+//	SdramAllocator(const SdramAllocator<U>&) noexcept {}
+//
+//	T* allocate(std::size_t n) {
+//		return static_cast<T*>(umm_malloc(n * sizeof(T)));
+//	}
+//
+//	void deallocate(T* p, std::size_t n) noexcept {
+//		umm_free(p);
+//	}
+//};
+//
+//template <typename T, typename U>
+//bool operator==(const SdramAllocator<T>&, const SdramAllocator<U>&) { return true; }
+//
+//template <typename T, typename U>
+//bool operator!=(const SdramAllocator<T>&, const SdramAllocator<U>&) { return false; }
+
 namespace nois {
 
 template<typename>

@@ -8,13 +8,11 @@
 
 namespace nois {
 
-class TimeStretcher : public ProcessStream
+class TimeStretcher : public Stream<f32_t>
 {
 public:
-	static Ref_t<TimeStretcher> Create();
-
 	NOIS_INTERFACE(TimeStretcher)
-	NOIS_INTERFACE_PARAM(StretchTimeMs, FloatBlockParameter)
+	NOIS_INTERFACE_PARAM(StretchTimeMs, FloatParameter)
 	NOIS_INTERFACE_PARAM(StretchActive, FloatParameter)
 	NOIS_INTERFACE_PARAM(StretchFactor, FloatParameter)
 	NOIS_INTERFACE_PARAM(GrainSize, FloatParameter)

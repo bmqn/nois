@@ -54,6 +54,15 @@ struct Delay
 			offset = 0;
 		}
 	}
+	
+	inline void RunFor(count_t numFrames)
+	{
+		m_EnableEndOffsets = true;
+		for (count_t c = 0; c < m_EndOffsets.size(); ++c)
+		{
+			m_EndOffsets[c] = m_Offsets[c] + numFrames;
+		}
+	}
 
 	inline void RunUntilFull()
 	{

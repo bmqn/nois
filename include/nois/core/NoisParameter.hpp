@@ -3,6 +3,7 @@
 #include "nois/NoisTypes.hpp"
 
 #include <algorithm>
+#include <variant>
 #include <vector>
 
 namespace nois {
@@ -12,12 +13,13 @@ class Registry;
 
 template<typename T>
 class Parameter;
-template<typename T>
-class ConstantParameter;
-template<typename T, typename F>
-class BinderParameter;
 template<typename T, typename F, typename... Params>
 class TransformerParameter;
+
+template<typename T>
+class SampleParameter;
+template<typename T, typename F>
+class BinderSampleParameter;
 
 template<typename T>
 class BlockParameter;
@@ -25,61 +27,104 @@ template<typename T>
 class ConstantBlockParameter;
 template<typename T, typename F>
 class BinderBlockParameter;
-template<typename T, typename F, typename... Params>
-class TransformerBlockParameter;
 
 template<typename T>
 class SlotParameter;
-template<typename T>
-class SlotBlockParameter;
 
 using FloatParameter = Parameter<f32_t>;
-using FloatConstantParameter = ConstantParameter<f32_t>;
-template<typename F>
-using FloatBinderParameter = BinderParameter<f32_t, F>;
-template<typename F>
-using FloatTransformerParameter = TransformerParameter<f32_t, F>;
-
+using FloatSampleParameter = SampleParameter<f32_t>;
 using FloatBlockParameter = BlockParameter<f32_t>;
-using FloatConstantBlockParameter = ConstantBlockParameter<f32_t>;
-template<typename F>
-using FloatBinderBlockParameter = BinderBlockParameter<f32_t, F>;
-template<typename F>
-using FloatTransformerBlockParameter = TransformerBlockParameter<f32_t, F>;
 
-using FloatSlotParameter = SlotParameter<f32_t>;
-using FloatSlotBlockParameter = SlotBlockParameter<f32_t>;
-
+// Stream reader
+// Can only parameter by streaming each value.
 template<typename T>
-class ParameterBlock
+class IStreamReader
 {
 public:
-	struct Frame
+	struct Point
 	{
-		T value = T{ 0 };
-		bool changed = false;
+		T value;
+		bool changed;
+
+		inline T Value() const { return value; }
+		inline bool Changed() const { return changed; }
+
+		inline operator T() const { return Value(); }
 	};
 
 public:
-	ParameterBlock(const Frame* frames, count_t numFrames = 1)
-		: m_NumFrames(numFrames)
-		, m_Frames(frames)
+	virtual ~IStreamReader() = default;
+
+	virtual Point Next() = 0;
+};
+
+// Smoothed reader
+// Value is smoothed by interpolating towards target.
+template<typename T>
+class SmoothedStreamReader : public IStreamReader<T>
+{
+public:
+	SmoothedStreamReader(Ref_t<IStreamReader<T>> reader, f32_t sampleRate, f32_t timeSec = 0.1f)
+		: m_Reader(reader)
+		, m_Coeff(1.0f - std::exp(-1.0f / (timeSec * sampleRate)))
 	{
 	}
 
-	T Get(count_t f) const
+	IStreamReader<T>::Point Next() override final
 	{
-		return m_NumFrames > 1 ? m_Frames[f].value : m_Frames->value;
-	}
+		T value = T{ 0 };
+		bool changed = false;
+		
+		auto next = m_Reader->Next();
+		
+		if (!m_Initialized)
+		{
+			m_Value = next.Value();
+			m_Target = next.Value();
+			m_Initialized = true;
+			return next;
+		}
+		
+		m_Target = next.Value();
+		
+		T prev = m_Value;
+		m_Value += (m_Target - m_Value) * m_Coeff;
+		
+		value = m_Value;
+		changed = m_Value != prev;
 
-	bool Changed(count_t f) const
-	{
-		return m_NumFrames > 1 ? m_Frames[f].changed : m_Frames->changed;
+		return { value, changed };
 	}
 
 private:
-	count_t m_NumFrames;
-	const Frame* m_Frames;
+	Ref_t<IStreamReader<T>> m_Reader = nullptr;
+	f32_t m_Coeff = 0.0f;
+	T m_Value = T{ 0 };
+	T m_Target = T{ 0 };
+	bool m_Initialized = false;
+};
+
+// Block reader
+// Can read parameter at any given offset in the block.
+template<typename T>
+class IBlockReader
+{
+public:
+	struct Point
+	{
+		T value;
+		bool changed;
+
+		inline T Value() const { return value; }
+		inline bool Changed() const { return changed; }
+
+		inline operator T() const { return Value(); }
+	};
+
+public:
+	virtual ~IBlockReader() = default;
+
+	virtual Point Get(count_t f) const = 0;
 };
 
 template<typename T>
@@ -90,15 +135,26 @@ class Parameter : public RefFromThis_t<Parameter<T>>
 public:
 	virtual ~Parameter() {}
 
-	virtual ParameterBlock<T> Get() const = 0;
-	virtual void Prepare(count_t numFrames, f32_t sampleRate) = 0;
+	// Called when block size or rate changes
+	virtual void Prepare(count_t numFrames, f32_t sampleRate) {}
+	
+	// Called for every block
+	virtual void Update() {}
+
+	virtual T Min() const { return T{ 0 }; }
+	virtual T Max() const { return T{ 0 }; }
+
+	virtual Ref_t<IStreamReader<T>> Stream() const = 0;
+	virtual Ref_t<IBlockReader<T>> Block() const = 0;
 
 	template<typename F>
 	Ref_t<Parameter<T>> Transform(F&& transformer)
 	{
 		if (mRegistry)
 		{
-			return mRegistry->CreateTransformer(std::forward<F>(transformer), this->shared_from_this());
+			return mRegistry->CreateTransformer(
+				std::forward<F>(transformer),
+				this->shared_from_this());
 		}
 
 		return nullptr;
@@ -106,316 +162,382 @@ public:
 
 private:
 	Registry<T>* mRegistry = nullptr;
-};
-
-template<typename T>
-class ConstantParameter : public Parameter<T>
-{
-public:
-	ConstantParameter(T value)
-		: m_Frame{value, false}
-	{
-	}
-
-	ParameterBlock<T> Get() const final
-	{
-		return ParameterBlock<T>(&m_Frame);
-	}
-
-	void Prepare(count_t numFrames, f32_t sampleRate) override final
-	{
-	}
-
-private:
-	ParameterBlock<T>::Frame m_Frame;
-};
-
-template<typename T, typename F>
-class BinderParameter : public Parameter<T>
-{
-public:
-	BinderParameter(F&& binder)
-		: m_Binder(std::move(binder))
-		, m_Frames()
-	{
-	}
-
-	ParameterBlock<T> Get() const final
-	{
-		return ParameterBlock<T>(m_Frames.data(), m_Frames.size());
-	}
-
-	void Prepare(count_t numFrames, f32_t sampleRate) override final
-	{
-		m_Frames.resize(numFrames);
-
-		for (count_t f = 0; f < numFrames; ++f)
-		{
-			auto& frame = m_Frames[f];
-			T value = m_Binder(f);
-			frame.value = value;
-			frame.changed = f > 0
-				? value != m_Frames[f - 1].value
-				: value != m_Frames.back().value;
-		}
-	}
-
-private:
-	F m_Binder;
-	std::vector<typename ParameterBlock<T>::Frame> m_Frames;
 };
 
 template<typename T, typename F, typename... Params>
 class TransformerParameter : public Parameter<T>
 {
 public:
-	TransformerParameter(F&& transformer, Params&&... transformees)
-		: m_Used({ static_cast<Ref_t<Parameter<T>>>(transformees)... })
-		, m_Transformer(std::move(transformer))
+	class Reader : public IStreamReader<T>, public IBlockReader<T>
 	{
-	}
+	public:
+		struct Frame
+		{
+			T value = T{ 0 };
+			bool changed = false;
+		};
 
-	ParameterBlock<T> Get() const final
+	public:
+		Reader(const Frame* frames, count_t numFrames)
+			: m_NumFrames(numFrames)
+			, m_FrameOffset(0)
+			, m_Frames(frames)
+		{
+		}
+
+		IStreamReader<T>::Point Next() override final
+		{
+			T value = T{ 0 };
+			bool changed = false;
+
+			value = m_Frames[m_FrameOffset].value;
+			changed = m_Frames[m_FrameOffset].changed;
+			++m_FrameOffset;
+
+			if (m_FrameOffset >= m_NumFrames)
+			{
+				m_FrameOffset = 0;
+			}
+
+			return { value, changed };
+		}
+
+		IBlockReader<T>::Point Get(count_t f) const override final
+		{
+			T value = T{ 0 };
+			bool changed = false;
+
+			if (f < m_NumFrames)
+			{
+				value = m_Frames[f].value;
+				changed = m_Frames[f].changed;
+			}
+
+			return { value, changed };
+		}
+
+	private:
+		count_t m_NumFrames;
+		count_t m_FrameOffset;
+		const Frame* m_Frames;
+	};
+
+public:
+	TransformerParameter(F&& transformer, Params&&... transformees)
+		: m_Transformer(std::move(transformer))
+		, m_NumFrames(0)
+		, m_SampleRate(0.0f)
+		, m_Used({ static_cast<Ref_t<Parameter<T>>>(transformees)... })
+		, m_Readables({ nullptr })
 	{
-		return ParameterBlock<T>(m_Frames.data(), m_Frames.size());
 	}
 
 	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
+		NOIS_PROFILE_SCOPE();
+		
 		m_Frames.resize(numFrames);
-
-		for (count_t f = 0; f < numFrames; ++f)
+		
+		for (count_t i = 0; i < m_Used.size(); ++i)
 		{
-			auto idx = std::make_index_sequence<sizeof...(Params)>{};
+			m_Readables[i] = m_Used[i]->Block();
+		}
+		
+		m_NumFrames = numFrames;
+		m_SampleRate = sampleRate;
+	}
+	
+	void Update() override final
+	{
+		NOIS_PROFILE_SCOPE();
+		
+		for (count_t f = 0; f < m_NumFrames; ++f)
+		{
+			T value = InvokeTransformer(
+				[f](auto& p)
+				{
+					return p->Get(f);
+				},
+				m_SampleRate,
+				std::make_index_sequence<sizeof...(Params)>{});
 
-			T value = InvokeTransformer([f](auto& p) { return p->Get().Get(f); }, sampleRate, idx);
-
-			auto& frame = m_Frames[f];
-			frame.value = value;
-			frame.changed = f > 0
+			m_Frames[f].value = value;
+			m_Frames[f].changed = f > 0
 				? value != m_Frames[f - 1].value
 				: value != m_Frames.back().value;
 		}
+	}
+
+	Ref_t<IStreamReader<T>> Stream() const override final
+	{
+		return MakeRef<Reader>(m_Frames.data(), m_Frames.size());
+	}
+
+	Ref_t<IBlockReader<T>> Block() const override final
+	{
+		return MakeRef<Reader>(m_Frames.data(), m_Frames.size());
 	}
 
 private:
 	template<std::size_t... Is>
 	T InvokeTransformer(auto getter, f32_t sampleRate, std::index_sequence<Is...>) const
 	{
-		if constexpr (std::is_invocable_v<F, decltype(std::invoke(getter, m_Used[Is]))..., f32_t>)
+		if constexpr (std::is_invocable_v<
+			F,
+			decltype(std::invoke(getter, m_Readables[Is]))..., f32_t>)
 		{
-			return std::invoke(m_Transformer, std::invoke(getter, m_Used[Is])..., sampleRate);
+			return std::invoke(
+				m_Transformer,
+				std::invoke(getter, m_Readables[Is])..., sampleRate);
 		}
 		else
 		{
-			return std::invoke(m_Transformer, std::invoke(getter, m_Used[Is])...);
+			return std::invoke(
+				m_Transformer,
+				std::invoke(getter, m_Readables[Is])...);
 		}
 	}
 
 private:
 	F m_Transformer;
+	count_t m_NumFrames;
+	f32_t m_SampleRate;
 	std::array<Ref_t<Parameter<T>>, sizeof...(Params)> m_Used;
-	std::vector<typename ParameterBlock<T>::Frame> m_Frames;
+	std::array<Ref_t<IBlockReader<T>>, sizeof...(Params)> m_Readables;
+	std::vector<typename Reader::Frame> m_Frames;
 };
 
+// Sample-accurate parameter
+// Value is specified per sample over block
 template<typename T>
-class BlockParameter : public RefFromThis_t<BlockParameter<T>>
+class SampleParameter : public Parameter<T>
 {
-	friend class Registry<T>;
-
 public:
-	virtual ~BlockParameter() {}
-
-	virtual T Get() const = 0;
-	virtual T Min() const = 0;
-	virtual T Max() const = 0;
-	virtual bool Changed() const = 0;
-	virtual void Prepare(f32_t sampleRate) = 0;
-
-	template<typename F>
-	Ref_t<BlockParameter<T>> TransformBlock(F&& transformer)
+	class Reader : public IStreamReader<T>, public IBlockReader<T>
 	{
-		if (mRegistry)
+	public:
+		struct Frame
 		{
-			return mRegistry->CreateBlockTransformer(this->shared_from_this(), std::move(transformer));
+			T value = T{ 0 };
+			bool changed = false;
+		};
+
+	public:
+		Reader(const Frame* frames, count_t numFrames)
+			: m_NumFrames(numFrames)
+			, m_FrameOffset(0)
+			, m_Frames(frames)
+		{
 		}
 
-		return nullptr;
-	}
+		IStreamReader<T>::Point Next() override final
+		{
+			T value = T{ 0 };
+			bool changed = false;
 
-private:
-	Registry<T>* mRegistry = nullptr;
+			value = m_Frames[m_FrameOffset].value;
+			changed = m_Frames[m_FrameOffset].changed;
+			++m_FrameOffset;
+
+			if (m_FrameOffset >= m_NumFrames)
+			{
+				m_FrameOffset = 0;
+			}
+
+			return { value, changed };
+		}
+
+		IBlockReader<T>::Point Get(count_t f) const override final
+		{
+			T value = T{ 0 };
+			bool changed = false;
+
+			if (f < m_NumFrames)
+			{
+				value = m_Frames[f].value;
+				changed = m_Frames[f].changed;
+			}
+
+			return { value, changed };
+		}
+
+	private:
+		count_t m_NumFrames;
+		count_t m_FrameOffset;
+		const Frame* m_Frames;
+	};
 };
 
-template<typename T>
-class ConstantBlockParameter : public BlockParameter<T>
+template<typename T, typename F>
+class BinderSampleParameter : public SampleParameter<T>
 {
 public:
-	ConstantBlockParameter(T value)
-		:  m_Value(value)
+	BinderSampleParameter(F&& binder)
+		: m_Binder(std::move(binder))
+		, m_NumFrames(0)
+		, m_SampleRate(0.0f)
+		, m_Frames()
 	{
 	}
 
-	T Get() const override final
+	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
-		return m_Value;
-	}
+		NOIS_PROFILE_SCOPE();
+		
+		m_Frames.resize(numFrames);
 
-	T Min() const override final
-	{
-		return m_Value;
-	}
-
-	T Max() const override final
-	{
-		return m_Value;
-	}
-
-	bool Changed() const override final
-	{
-		return false;
+		m_NumFrames = numFrames;
+		m_SampleRate = sampleRate;
 	}
 	
-	void Prepare(f32_t sampleRate) override final
+	void Update() override final
 	{
+		NOIS_PROFILE_SCOPE();
+		
+		for (count_t f = 0; f < m_NumFrames; ++f)
+		{
+			T value = m_Binder(f);
+
+			m_Frames[f].value = value;
+			m_Frames[f].changed = f > 0
+				? value != m_Frames[f - 1].value
+				: value != m_Frames.back().value;
+		}
+	}
+
+	Ref_t<IStreamReader<T>> Stream() const override final
+	{
+		return MakeRef<typename SampleParameter<T>::Reader>(m_Frames.data(), m_Frames.size());
+	}
+
+	Ref_t<IBlockReader<T>> Block() const override final
+	{
+		return MakeRef<typename SampleParameter<T>::Reader>(m_Frames.data(), m_Frames.size());
 	}
 
 private:
-	T m_Value;
+	F m_Binder;
+	count_t m_NumFrames;
+	f32_t m_SampleRate;
+	std::vector<typename SampleParameter<T>::Reader::Frame> m_Frames;
+};
+
+// Block parameter
+// Has one value per block
+template<typename T>
+class BlockParameter : public Parameter<T>
+{
+public:
+	class Reader : public IStreamReader<T>, public IBlockReader<T>
+	{
+	public:
+		Reader(const T* value, const bool* changed)
+			: m_Value(value)
+			, m_Changed(changed)
+		{
+		}
+
+		IStreamReader<T>::Point Next() override final
+		{
+			return { *m_Value, *m_Changed };
+		}
+
+		IBlockReader<T>::Point Get(count_t f) const override final
+		{
+			return { *m_Value, *m_Changed };
+		}
+
+	private:
+		const T* m_Value = nullptr;
+		const bool* m_Changed = nullptr;
+	};
 };
 
 template<typename T, typename F>
 class BinderBlockParameter : public BlockParameter<T>
 {
 public:
-	BinderBlockParameter(F&& binder, T min, T max)
+	BinderBlockParameter(F&& binder)
 		: m_Binder(std::move(binder))
-		, m_Min(min)
-		, m_Max(max)
 		, m_Value(0.0f)
 		, m_Changed(false)
 	{
 	}
 
-	T Get() const override final
+	void Prepare(count_t numFrames, f32_t sampleRate) override final
 	{
-		return m_Value;
 	}
-
-	T Min() const override final
+	
+	void Update() override final
 	{
-		return m_Min;
-	}
-
-	T Max() const override final
-	{
-		return m_Max;
-	}
-
-	bool Changed() const override final
-	{
-		return m_Changed;
-	}
-
-	void Prepare(f32_t sampleRate) override final
-	{
-		T value = std::clamp(m_Binder(), m_Min, m_Max);
+		T value = m_Binder();
 		m_Changed = m_Value != value;
 		m_Value = value;
+	}
+
+	Ref_t<IStreamReader<T>> Stream() const override final
+	{
+		return MakeRef<typename BlockParameter<T>::Reader>(&m_Value, &m_Changed);
+	}
+
+	Ref_t<IBlockReader<T >> Block() const override final
+	{
+		return MakeRef<typename BlockParameter<T>::Reader>(&m_Value, &m_Changed);
 	}
 
 private:
 	F m_Binder;
-	T m_Min;
-	T m_Max;
 	T m_Value;
 	bool m_Changed;
-};
-
-template<typename T, typename F, typename... Params>
-class TransformerBlockParameter : public BlockParameter<T>
-{
-public:
-	TransformerBlockParameter(F&& transformer, Params&&... transformees)
-		: m_Used({ static_cast<Ref_t<BlockParameter<T>>>(transformees)... })
-		, m_Transformer(std::move(transformer))
-		, m_Min(0.0f)
-		, m_Max(0.0f)
-		, m_Value(0.0f)
-		, m_Changed(false)
-	{
-	}
-
-	T Get() const override final
-	{
-		return m_Value;
-	}
-
-	T Min() const override final
-	{
-		return m_Min;
-	}
-
-	T Max() const override final
-	{
-		return m_Max;
-	}
-
-	bool Changed() const override final
-	{
-		return m_Changed;
-	}
-
-	void Prepare(f32_t sampleRate) override final
-	{
-		auto idx = std::make_index_sequence<sizeof...(Params)>{};
-
-		T value = InvokeTransformer([](auto& p) { return p->Get(); }, sampleRate, idx);
-		m_Min = InvokeTransformer([](auto& p) { return p->Min(); }, sampleRate, idx);
-		m_Max = InvokeTransformer([](auto& p) { return p->Max(); }, sampleRate, idx);
-
-		if (m_Min > m_Max)
-		{
-			std::swap(m_Min, m_Max);
-		}
-
-		value = std::clamp(value, m_Min, m_Max);
-		m_Changed = m_Value != value;
-		m_Value = value;
-	}
-
-private:
-	template<std::size_t... Is>
-	T InvokeTransformer(auto getter, f32_t sampleRate, std::index_sequence<Is...>) const
-	{
-		if constexpr (std::is_invocable_v<F, decltype(std::invoke(getter, m_Used[Is]))..., f32_t>)
-		{
-			return std::invoke(m_Transformer, std::invoke(getter, m_Used[Is])..., sampleRate);
-		}
-		else
-		{
-			return std::invoke(m_Transformer, std::invoke(getter, m_Used[Is])...);
-		}
-	}
-
-private:
-	F m_Transformer;
-	T m_Min;
-	T m_Max;
-	T m_Value;
-	bool m_Changed;
-	std::array<Ref_t<BlockParameter<T>>, sizeof...(Params)> m_Used;
 };
 
 template<typename T>
-class SlotParameter
+class ParameterSlot
 {
 public:
-	SlotParameter(T value)
-		: m_Used(nullptr)
-		, m_Reslotted(true)
-		, m_Default(value)
-		, m_Frame{value, false}
+	class Reader : public IStreamReader<T>
+	{
+		friend class ParameterSlot<T>;
+		
+	public:
+		Reader(ParameterSlot<T>* slot)
+			: m_Default(slot->m_Default)
+			, m_Reslotted(false)
+			, m_Stream(nullptr)
+		{
+		}
+
+		IStreamReader<T>::Point Next() override final
+		{
+			T value = m_Default;
+			bool changed = false;
+
+			if (m_Stream)
+			{
+				auto next = m_Stream->Next();
+				value = next.Value();
+				changed = next.Changed();
+			}
+
+			if (m_Reslotted)
+			{
+				changed = true;
+				m_Reslotted = false;
+			}
+
+			return { value, changed };
+		}
+
+	private:
+		T m_Default;
+		bool m_Reslotted;
+		Ref_t<IStreamReader<T>> m_Stream;
+	};
+
+public:
+	ParameterSlot(T value, T min = f32::k_Min, T max = f32::k_Max)
+		: m_Default(value)
+		, m_Used(nullptr)
 	{
 	}
 
@@ -424,99 +546,33 @@ public:
 		if (m_Used != parameter)
 		{
 			m_Used = parameter;
-			m_Reslotted = true;
+			for (auto& reader : m_Readers)
+			{
+				reader->m_Reslotted = true;
+				reader->m_Stream = m_Used->Stream();
+			}
 		}
 	}
 
-	ParameterBlock<T> Get()
+	Ref_t<IStreamReader<T>> Get()
 	{
-		if (m_Reslotted)
+		auto reader = MakeRef<Reader>(this);
+
+		if (m_Used)
 		{
-			m_Frame.value = m_Default;
-			m_Frame.changed = true;
-			m_Reslotted = false;
-			return ParameterBlock<T>(&m_Frame);
-		}
-		else if (!m_Used)
-		{
-			m_Frame.value = m_Default;
-			m_Frame.changed = false;
-			return ParameterBlock<T>(&m_Frame);
+			reader->m_Reslotted = true;
+			reader->m_Stream = m_Used->Stream();
 		}
 
-		return m_Used->Get();
+		m_Readers.push_back(reader);
+
+		return reader;
 	}
 
 private:
+	T m_Default;
 	Ref_t<Parameter<T>> m_Used;
-	bool m_Reslotted;
-	T m_Default;
-	typename ParameterBlock<T>::Frame m_Frame;
-};
-
-template<typename T>
-class SlotBlockParameter
-{
-public:
-	SlotBlockParameter(T value, T min, T max)
-		: m_Used(nullptr)
-		, m_Reslotted(true)
-		, m_Min(min)
-		, m_Max(max)
-		, m_Default(std::clamp(value, min, max))
-	{
-	}
-
-	void Use(Ref_t<BlockParameter<T>> parameter)
-	{
-		if (m_Used != parameter)
-		{
-			m_Used = parameter;
-			m_Reslotted = true;
-		}
-	}
-
-	T Get() const
-	{
-		if (!m_Used)
-		{
-			return m_Default;
-		}
-
-		return std::clamp(m_Used->Get(), m_Min, m_Max);
-	}
-
-	T Min() const
-	{
-		return m_Min;
-	}
-
-	T Max() const
-	{
-		return m_Max;
-	}
-
-	bool PollChanged()
-	{
-		if (m_Reslotted)
-		{
-			m_Reslotted = false;
-			return true;
-		}
-		else if (!m_Used)
-		{
-			return false;
-		}
-
-		return m_Used->Changed();
-	}
-
-private:
-	Ref_t<BlockParameter<T>> m_Used;
-	bool m_Reslotted;
-	T m_Min;
-	T m_Max;
-	T m_Default;
+	std::vector<Ref_t<Reader>> m_Readers;
 };
 
 }
