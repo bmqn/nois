@@ -183,7 +183,8 @@ private:
 		f32_t y = x;
 
 		// If blending both grains
-		if (m_Phases[c][m_GrainPlayings[c]] >= 0.0f &&
+		if (blendLength > 0.0f &&
+			m_Phases[c][m_GrainPlayings[c]] >= 0.0f &&
 			m_Phases[c][!m_GrainPlayings[c]] >= 0.0f)
 		{
 			f32_t g0 = m_GrainReads[c][m_GrainPlayings[c]];
