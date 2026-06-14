@@ -43,6 +43,15 @@ private:
 	};
 
 public:
+	Registry()
+		: m_NumFrames(0)
+		, m_NumChannels(0)
+		, m_SampleRate(0.0f)
+		, m_SourceIndex(0)
+		, m_SinkIndex(0)
+	{
+	}
+
 	template<typename F>
 	Ref_t<SampleParameter<T>> CreateSampleBinder(F&& binder)
 	{
@@ -191,7 +200,7 @@ public:
 		m_SampleRate = sampleRate;
 	}
 	
-	void SetSoure(Ref_t<Stream<T>> stream)
+	void SetSource(Ref_t<Stream<T>> stream)
 	{
 		m_SourceIndex = m_StreamLookup[stream];
 	}
@@ -243,6 +252,8 @@ private:
 		}
 		
 		node->object->Update();
+
+		node->state = NodeState::Visited;
 	}
 	
 	Stream<T>::Result StreamProcessVisit(StreamNode* node, ConstBufferView<T> inBuffer)
