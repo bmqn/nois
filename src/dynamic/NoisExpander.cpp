@@ -43,7 +43,7 @@ public:
 
 			for (count_t c = 0; c < m_NumChannels; ++c)
 			{
-				outBuffer(f, c) *= m_Gain;
+				outBuffer(f, c) = inBuffer(f, c) * m_Gain;
 			}
 		}
 
