@@ -104,15 +104,17 @@ struct Delay
 			return x;
 		}
 
+		T delay = std::max<T>(0, static_cast<T>(m_NumDelayFrames) + m);
+
 		// Grab write/read indices
 		ucount_t indexWrite = offset & m_ModuloMask;
-		ucount_t d0 = static_cast<ucount_t>(m_NumDelayFrames) + static_cast<ucount_t>(m);
+		ucount_t d0 = static_cast<ucount_t>(std::floor(delay));
 		ucount_t d1 = d0 + 1;
 		ucount_t indexRead0 = (static_cast<count_t>(offset + m_RealNumFrames) - d0 - 1) & m_ModuloMask;
 		ucount_t indexRead1 = (static_cast<count_t>(offset + m_RealNumFrames) - d1 - 1) & m_ModuloMask;
 
 		// Interpolate read & write
-		T factor = m_NumDelayFrames - static_cast<T>(d0);
+		T factor = delay - static_cast<T>(d0);
 		T y0 = buffer[indexRead0];
 		T y1 = buffer[indexRead1];
 		T y = y0 + (y1 - y0) * factor;
