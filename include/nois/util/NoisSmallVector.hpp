@@ -255,7 +255,7 @@ public:
 		}
 		else if (m_Size == N) [[unlikely]]
 		{
-			MoveToFallback();
+			MoveToFallback(m_Size + 1);
 		}
 		
 		// Construct new value
@@ -275,7 +275,7 @@ public:
 		}
 		else if (m_Size == N) [[unlikely]]
 		{
-			MoveToFallback();
+			MoveToFallback(m_Size + 1);
 		}
 
 		// Move-construct new value
@@ -296,7 +296,7 @@ public:
 		}
 		else if (m_Size == N) [[unlikely]]
 		{
-			MoveToFallback();
+			MoveToFallback(m_Size + 1);
 		}
 
 		// Construct new value
@@ -522,7 +522,7 @@ public:
 		}
 		else if (m_Size == N) [[unlikely]]
 		{
-			MoveToFallback();
+			MoveToFallback(m_Size + 1);
 		}
 
 		// Construct new tail
@@ -583,7 +583,7 @@ public:
 		}
 		else if (m_Size == N) [[unlikely]]
 		{
-			MoveToFallback();
+			MoveToFallback(m_Size + 1);
 		}
 
 		// Construct new tail
@@ -669,9 +669,9 @@ private:
 		fallback_allocator{}.deallocate(ptr, n);
 	}
 
-	inline void MoveToFallback()
+	inline void MoveToFallback(size_type minCapacity = 1)
 	{
-		m_FallbackCapacity = std::max<size_type>(1, m_Size);
+		m_FallbackCapacity = std::max<size_type>(minCapacity, m_Size);
 		m_Data = AllocateFallback(m_FallbackCapacity);
 		T* data = reinterpret_cast<T*>(m_Inline);
 		if constexpr (std::is_trivially_copyable_v<T>)
